@@ -1,0 +1,450 @@
+// Shared client-side JavaScript for sidebar and web app.
+// Included via <?!= include('form-shared') ?> inside <script> tags.
+
+let clients = [];
+let projects = [];
+let lineItemCount = 0;
+let _importedExpenseIds = []; // Tracks Notion page IDs of imported billable expenses
+
+window.onload = function() {
+  const today = new Date();
+  document.getElementById('issueDate').value = today.toISOString().split('T')[0];
+  updateDueDate();
+  loadClients();
+};
+
+/** Fetch clients from the server and populate the dropdown, then load projects. */
+function loadClients() {
+  google.script.run
+    .withSuccessHandler(function(data) {
+      if (data.error) {
+        document.getElementById('loadingMsg').textContent = 'Error: ' + data.error;
+        return;
+      }
+      clients = data;
+      var sel = document.getElementById('client');
+      data.forEach(function(c) {
+        var opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        sel.appendChild(opt);
+      });
+      loadProjects();
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('loadingMsg').textContent = 'Error: ' + e.message;
+    })
+    .getClients();
+}
+
+/** Fetch projects from the server. Form is shown after this completes. */
+function loadProjects() {
+  google.script.run
+    .withSuccessHandler(function(data) {
+      document.getElementById('loadingMsg').style.display = 'none';
+      document.getElementById('form').style.display = 'block';
+      if (data.error) {
+        // Projects are optional — show form anyway, just log a warning
+        projects = [];
+      } else {
+        projects = data;
+      }
+      addLineItem();
+    })
+    .withFailureHandler(function(e) {
+      // Projects are optional — show form anyway even if fetch fails
+      document.getElementById('loadingMsg').style.display = 'none';
+      document.getElementById('form').style.display = 'block';
+      projects = [];
+      addLineItem();
+    })
+    .getProjects();
+}
+
+/** Auto-fill billing fields when a client is selected from the dropdown. */
+function onClientChange() {
+  const id = document.getElementById('client').value;
+  const c  = clients.find(c => c.id === id);
+  if (!c) {
+    filterProjects();
+    return;
+  }
+  document.getElementById('clientName').value    = c.name;
+  document.getElementById('clientStreet').value  = c.billingStreet  || '';
+  document.getElementById('clientCity').value    = c.billingCity    || '';
+  document.getElementById('clientState').value   = c.billingState   || '';
+  document.getElementById('clientZip').value     = c.billingZip     || '';
+  document.getElementById('clientCountry').value = c.billingCountry || '';
+  document.getElementById('clientEmail').value   = c.billingEmail   || '';
+  document.getElementById('clientPhone').value   = c.phone          || '';
+  document.getElementById('clientWebsite').value = c.website        || '';
+  filterProjects();
+  loadBillableExpenses(id);
+}
+
+/** Filter project dropdown to show only projects for the selected client. */
+function filterProjects() {
+  var clientId = document.getElementById('client').value;
+  var sel = document.getElementById('project');
+  var currentValue = sel.value;
+
+  // Remove all options except the placeholder
+  while (sel.options.length > 1) {
+    sel.remove(1);
+  }
+
+  // If no client selected, leave dropdown empty
+  if (!clientId) return;
+
+  // Add matching projects
+  var filtered = projects.filter(function(p) { return p.clientId === clientId; });
+  filtered.forEach(function(p) {
+    var opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name;
+    sel.appendChild(opt);
+  });
+
+  // Restore previous selection if it still exists in the filtered list
+  if (filtered.some(function(p) { return p.id === currentValue; })) {
+    sel.value = currentValue;
+  }
+}
+
+/** Set due date to 14 days after the issue date. */
+function updateDueDate() {
+  const issue = document.getElementById('issueDate').value;
+  if (!issue) return;
+  const d = new Date(issue);
+  d.setDate(d.getDate() + 14);
+  document.getElementById('dueDate').value = d.toISOString().split('T')[0];
+}
+
+/** Add a new line item card to the form. */
+function addLineItem() {
+  lineItemCount++;
+  const n   = lineItemCount;
+  const div = document.createElement('div');
+  div.className = 'line-item';
+  div.id = 'li-' + n;
+  div.innerHTML = `
+    <div class="line-item-header">
+      <span>Item ${n}</span>
+      <button class="remove-btn" onclick="removeLineItem(${n})" title="Remove">&times;</button>
+    </div>
+    <input type="text" id="li-name-${n}" placeholder="Item name (bold)" style="margin-bottom:2px" oninput="updateTotals()" />
+    <div class="desc-hint">Description: one bullet per line</div>
+    <textarea id="li-desc-${n}" placeholder="e.g. 2 hrs on-site&#10;Edited highlights reel&#10;RAW files included" rows="3" style="margin-bottom:4px"></textarea>
+    <div class="row2">
+      <div><label>Qty</label><input type="number" id="li-qty-${n}" value="1" min="1" step="1" oninput="updateTotals()" /></div>
+      <div><label>Unit Price ($)</label><input type="number" id="li-price-${n}" placeholder="0.00" min="0" step="0.01" oninput="updateTotals()" /></div>
+    </div>
+  `;
+  document.getElementById('lineItems').appendChild(div);
+}
+
+/** Remove a line item card and recalculate totals. */
+function removeLineItem(n) {
+  const el = document.getElementById('li-' + n);
+  if (el) el.remove();
+  updateTotals();
+}
+
+/** Collect all line items from the DOM into an array. Skips items with no name. */
+function getLineItems() {
+  const items = [];
+  document.querySelectorAll('.line-item').forEach(div => {
+    const id    = div.id.replace('li-', '');
+    const name  = document.getElementById('li-name-'  + id)?.value?.trim() || '';
+    if (!name) return;
+    items.push({
+      name,
+      description: document.getElementById('li-desc-'  + id)?.value?.trim() || '',
+      qty:         parseFloat(document.getElementById('li-qty-'   + id)?.value || 1),
+      price:       parseFloat(document.getElementById('li-price-' + id)?.value || 0)
+    });
+  });
+  return items;
+}
+
+/** Recalculate and display subtotal, tax, and total. */
+function updateTotals() {
+  const items    = getLineItems();
+  const subtotal = items.reduce((s, i) => s + i.qty * i.price, 0);
+  const tax      = parseFloat(document.getElementById('tax').value || 0);
+  document.getElementById('subtotalDisplay').textContent = '$' + subtotal.toFixed(2);
+  document.getElementById('taxDisplay').textContent      = '$' + tax.toFixed(2);
+  document.getElementById('totalDisplay').textContent    = '$' + (subtotal + tax).toFixed(2);
+}
+
+// ── Billable Expenses Import ──────────────────────────────────
+
+/** Fetch un-invoiced billable expenses for the selected client. */
+function loadBillableExpenses(clientId) {
+  var container = document.getElementById('billableExpenses');
+  if (!container) return;
+  _importedExpenseIds = [];
+  if (!clientId) { container.innerHTML = ''; container.style.display = 'none'; return; }
+
+  container.style.display = 'block';
+  container.innerHTML = '<p style="color:#888;font-size:13px">Loading billable expenses…</p>';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      var expenses = (result && result.expenses) || [];
+      if (!expenses.length) {
+        container.innerHTML = '<p style="color:#888;font-size:13px">No un-invoiced billable expenses for this client.</p>';
+        return;
+      }
+      var html = '<p style="font-weight:600;margin-bottom:8px;font-size:13px">Billable Expenses (' + expenses.length + ' un-invoiced)</p>';
+      html += '<div style="max-height:200px;overflow-y:auto;border:1px solid #e5e0d8;border-radius:6px;padding:8px;margin-bottom:8px">';
+      expenses.forEach(function(e) {
+        var label = (e.expenseDate ? e.expenseDate + ' — ' : '')
+          + (e.vendor ? e.vendor + ' — ' : '')
+          + (e.description || e.expenseId)
+          + ' — $' + (e.amount || 0).toFixed(2);
+        html += '<label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 0;border-bottom:1px solid #f0ede5">'
+          + '<input type="checkbox" class="billable-exp-cb" data-id="' + e.id + '" data-desc="' + escapeHtml(e.description || e.vendor || e.expenseId) + '" data-amount="' + (e.amount || 0) + '">'
+          + '<span>' + escapeHtml(label) + '</span></label>';
+      });
+      html += '</div>';
+      html += '<button type="button" style="font-size:12px;padding:4px 12px;background:#4a7c59;color:#fff;border:none;border-radius:4px;cursor:pointer" onclick="importBillableExpenses()">Import Selected as Line Items</button>';
+      container.innerHTML = html;
+    })
+    .withFailureHandler(function(e) {
+      container.innerHTML = '<p style="color:#c00;font-size:13px">Failed to load billable expenses.</p>';
+    })
+    .getBillableExpensesForClient(clientId);
+}
+
+/** Import checked billable expenses as line items on the invoice. */
+function importBillableExpenses() {
+  var checkboxes = document.querySelectorAll('.billable-exp-cb:checked');
+  if (!checkboxes.length) return;
+
+  checkboxes.forEach(function(cb) {
+    lineItemCount++;
+    var n = lineItemCount;
+    var div = document.createElement('div');
+    div.className = 'line-item';
+    div.id = 'li-' + n;
+    div.setAttribute('data-expense-id', cb.getAttribute('data-id'));
+    div.innerHTML = `
+      <div class="line-item-header">
+        <span>Item ${n} <span style="font-size:11px;color:#4a7c59">(billable expense)</span></span>
+        <button class="remove-btn" onclick="removeLineItem(${n})" title="Remove">&times;</button>
+      </div>
+      <input type="text" id="li-name-${n}" value="${cb.getAttribute('data-desc')}" style="margin-bottom:2px" oninput="updateTotals()" />
+      <div class="desc-hint">Description: one bullet per line</div>
+      <textarea id="li-desc-${n}" placeholder="Additional details" rows="2" style="margin-bottom:4px"></textarea>
+      <div class="row2">
+        <div><label>Qty</label><input type="number" id="li-qty-${n}" value="1" min="1" step="1" oninput="updateTotals()" /></div>
+        <div><label>Unit Price ($)</label><input type="number" id="li-price-${n}" value="${parseFloat(cb.getAttribute('data-amount')).toFixed(2)}" min="0" step="0.01" oninput="updateTotals()" /></div>
+      </div>
+    `;
+    document.getElementById('lineItems').appendChild(div);
+
+    // Track this expense for post-generation marking
+    _importedExpenseIds.push(cb.getAttribute('data-id'));
+
+    // Uncheck and disable the checkbox so it can't be imported twice
+    cb.checked = false;
+    cb.disabled = true;
+    cb.parentElement.style.opacity = '0.5';
+  });
+
+  updateTotals();
+}
+
+/** Validate the form, build the data object, and call generateInvoice server-side. */
+function generate() {
+  const clientName = document.getElementById('clientName').value.trim();
+  const issueDate  = document.getElementById('issueDate').value;
+  const dueDate    = document.getElementById('dueDate').value;
+  const lineItems  = getLineItems();
+
+  if (!clientName)            { showStatus('error', 'Please select or enter a client.'); return; }
+  if (!issueDate || !dueDate) { showStatus('error', 'Please set issue and due dates.'); return; }
+  if (!lineItems.length)      { showStatus('error', 'Please add at least one line item.'); return; }
+
+  const subtotal = lineItems.reduce((s, i) => s + i.qty * i.price, 0);
+  const taxes    = parseFloat(document.getElementById('tax').value || 0);
+
+  const selectedClient = clients.find(c => c.id === document.getElementById('client').value);
+  const data = {
+    clientId:      document.getElementById('client').value,
+    clientName,
+    driveFolderId: selectedClient ? selectedClient.driveFolderId || '' : '',
+    clientStreet:  document.getElementById('clientStreet').value.trim(),
+    clientCity:    document.getElementById('clientCity').value.trim(),
+    clientState:   document.getElementById('clientState').value.trim(),
+    clientZip:     document.getElementById('clientZip').value.trim(),
+    clientCountry: document.getElementById('clientCountry').value.trim(),
+    clientPhone:   document.getElementById('clientPhone').value.trim(),
+    clientEmail:   document.getElementById('clientEmail').value.trim(),
+    clientWebsite: document.getElementById('clientWebsite').value.trim(),
+    issueDate:     formatDateForDoc(issueDate),
+    dueDate:       formatDateForDoc(dueDate),
+    issueDateISO:  issueDate,
+    dueDateISO:    dueDate,
+    invoiceType:   document.getElementById('invoiceType').value,
+    projectId:     document.getElementById('project').value || '',
+    lineItems,
+    subtotal,
+    taxes,
+    total:       subtotal + taxes,
+    exportPdf:   document.getElementById('exportPdf').checked,
+    logToNotion: document.getElementById('logToNotion').checked,
+    importedExpenseIds: _importedExpenseIds.slice(), // copy the array
+  };
+
+  document.getElementById('generateBtn').disabled    = true;
+  document.getElementById('generateBtn').textContent = 'Generating\u2026';
+  document.getElementById('status').style.display   = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      document.getElementById('generateBtn').disabled    = false;
+      document.getElementById('generateBtn').textContent = 'Generate Invoice';
+      if (result.success) {
+        var msg = '\u2705 Invoice <strong>' + result.invoiceId + '</strong> created.';
+        if (result.notionError) msg += '<br>\u26a0\ufe0f Notion logging failed: ' + result.notionError;
+        msg += '<a href="' + result.url + '" target="_blank" class="open-drive-btn">Open in Drive \u2192</a>';
+
+        // Show "Draft Email" button if the client has an email address
+        var clientEmail = document.getElementById('clientEmail').value.trim();
+        if (clientEmail) {
+          msg += '<button class="draft-email-btn" id="draftEmailBtn" onclick="draftEmail()">'
+            + '\u2709\ufe0f Draft Email to ' + escapeHtml(clientEmail) + '</button>';
+        }
+
+        msg += '<button class="reset-btn" onclick="resetForm()">Reset Form</button>';
+        showStatus('success', msg);
+
+        // Store data for draftEmail() to use later
+        window._lastInvoice = {
+          fileId:      result.fileId,
+          invoiceId:   result.invoiceId,
+          clientEmail: clientEmail,
+          clientName:  document.getElementById('clientName').value.trim(),
+          total:       document.getElementById('totalDisplay').textContent.replace('$', ''),
+          dueDate:     formatDateForDoc(document.getElementById('dueDate').value),
+        };
+      } else {
+        showStatus('error', '\u274c ' + result.error);
+      }
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('generateBtn').disabled    = false;
+      document.getElementById('generateBtn').textContent = 'Generate Invoice';
+      showStatus('error', '\u274c Script error: ' + e.message);
+    })
+    .generateInvoice(data);
+}
+
+/** Convert "2026-03-15" to "March 15, 2026" for the invoice document. */
+function formatDateForDoc(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+/** Show a success or error banner below the Generate button. */
+function showStatus(type, msg) {
+  const el = document.getElementById('status');
+  el.className = 'status ' + type;
+  el.style.display = '';  // Clear inline style so CSS class controls visibility
+  el.innerHTML = msg;
+}
+
+/** Create a Gmail draft with the invoice attached, then link to Drafts folder. */
+function draftEmail() {
+  var inv = window._lastInvoice;
+  if (!inv) { showStatus('error', 'No invoice data available. Please generate an invoice first.'); return; }
+
+  var btn = document.getElementById('draftEmailBtn');
+  btn.disabled = true;
+  btn.textContent = 'Creating draft\u2026';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success) {
+        btn.textContent = '\u2705 Draft created';
+        btn.style.background = '#1e6e37';
+
+        var draftMsg = document.createElement('div');
+        draftMsg.style.marginTop = '8px';
+        draftMsg.style.fontSize = '12px';
+        draftMsg.innerHTML = '<a href="https://mail.google.com/mail/u/0/#drafts" target="_blank">Open Gmail Drafts \u2192</a>';
+        document.getElementById('status').appendChild(draftMsg);
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Retry Draft Email';
+        btn.style.background = '#c5221f';
+
+        var errMsg = document.createElement('div');
+        errMsg.style.cssText = 'margin-top:8px; font-size:12px; color:#c5221f';
+        errMsg.textContent = 'Draft failed: ' + result.error;
+        document.getElementById('status').appendChild(errMsg);
+      }
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      btn.textContent = 'Retry Draft Email';
+      btn.style.background = '#c5221f';
+
+      var errMsg = document.createElement('div');
+      errMsg.style.cssText = 'margin-top:8px; font-size:12px; color:#c5221f';
+      errMsg.textContent = 'Draft error: ' + e.message;
+      document.getElementById('status').appendChild(errMsg);
+    })
+    .createInvoiceDraft(inv);
+}
+
+/** Reset the form to its initial state for generating another invoice. */
+function resetForm() {
+  document.getElementById('client').value = '';
+  var projSel = document.getElementById('project');
+  while (projSel.options.length > 1) projSel.remove(1);
+  projSel.value = '';
+  document.getElementById('clientName').value = '';
+  document.getElementById('clientStreet').value = '';
+  document.getElementById('clientCity').value = '';
+  document.getElementById('clientState').value = '';
+  document.getElementById('clientZip').value = '';
+  document.getElementById('clientCountry').value = '';
+  document.getElementById('clientPhone').value = '';
+  document.getElementById('clientEmail').value = '';
+  document.getElementById('clientWebsite').value = '';
+
+  var today = new Date();
+  document.getElementById('issueDate').value = today.toISOString().split('T')[0];
+  updateDueDate();
+
+  document.getElementById('invoiceType').value = 'Final';
+
+  document.getElementById('lineItems').innerHTML = '';
+  lineItemCount = 0;
+  _importedExpenseIds = [];
+  var billableEl = document.getElementById('billableExpenses');
+  if (billableEl) { billableEl.innerHTML = ''; billableEl.style.display = 'none'; }
+  addLineItem();
+
+  document.getElementById('tax').value = '0';
+  updateTotals();
+
+  document.getElementById('exportPdf').checked = true;
+  document.getElementById('logToNotion').checked = true;
+
+  document.getElementById('status').style.display = 'none';
+  document.getElementById('status').className = 'status';
+  document.getElementById('status').innerHTML = '';
+
+  window._lastInvoice = null;
+}
+
+/** Escape HTML entities for safe display in innerHTML. */
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}

@@ -1,0 +1,1058 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>WFWorkflowMinimumClientVersionString</key>
+	<string>900</string>
+	<key>WFWorkflowMinimumClientVersion</key>
+	<integer>900</integer>
+	<key>WFWorkflowClientVersion</key>
+	<string>2612.0.4</string>
+	<key>WFWorkflowHasOutputFallback</key>
+	<false/>
+	<key>WFWorkflowHasShortcutInputVariables</key>
+	<false/>
+	<key>WFWorkflowIcon</key>
+	<dict>
+		<key>WFWorkflowIconGlyphNumber</key>
+		<integer>59470</integer>
+		<key>WFWorkflowIconStartColor</key>
+		<integer>4274264319</integer>
+	</dict>
+	<key>WFWorkflowTypes</key>
+	<array>
+		<string>NCWidget</string>
+		<string>WatchKit</string>
+	</array>
+	<key>WFWorkflowInputContentItemClasses</key>
+	<array/>
+	<key>WFWorkflowImportQuestions</key>
+	<array>
+		<dict>
+			<key>ActionIndex</key>
+			<integer>0</integer>
+			<key>Category</key>
+			<string>Parameter</string>
+			<key>DefaultValue</key>
+			<string></string>
+			<key>ParameterKey</key>
+			<string>WFTextActionText</string>
+			<key>Text</key>
+			<string>Enter your API Secret (from Script Properties)</string>
+		</dict>
+		<dict>
+			<key>ActionIndex</key>
+			<integer>2</integer>
+			<key>Category</key>
+			<string>Parameter</string>
+			<key>DefaultValue</key>
+			<string></string>
+			<key>ParameterKey</key>
+			<string>WFTextActionText</string>
+			<key>Text</key>
+			<string>Enter your /exec deployment URL</string>
+		</dict>
+	</array>
+	<key>WFWorkflowActions</key>
+	<array>
+
+		<!-- ═══ ACTION 0: Text — API Secret (Import Question) ═══ -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.text</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFTextActionText</key>
+				<string>YOUR_API_SECRET</string>
+			</dict>
+		</dict>
+
+		<!-- ═══ ACTION 1: Set Variable "Secret" ═══ -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariableName</key>
+				<string>Secret</string>
+			</dict>
+		</dict>
+
+		<!-- ═══ ACTION 2: Text — Base URL (Import Question) ═══ -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.text</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFTextActionText</key>
+				<string>YOUR_DEPLOYMENT_URL</string>
+			</dict>
+		</dict>
+
+		<!-- ═══ ACTION 3: Set Variable "BaseURL" ═══ -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariableName</key>
+				<string>BaseURL</string>
+			</dict>
+		</dict>
+
+		<!-- ═══ MENU: Expense or Payment ═══ -->
+		<!-- Menu Open -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>A1B2C3D4-E5F6-7890-ABCD-EF1234567890</string>
+				<key>WFControlFlowMode</key>
+				<integer>0</integer>
+				<key>WFMenuItems</key>
+				<array>
+					<string>💰 Log Expense</string>
+					<string>💳 Log Payment</string>
+				</array>
+				<key>WFMenuPrompt</key>
+				<string>What are you logging?</string>
+			</dict>
+		</dict>
+
+		<!-- Case: Log Expense -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>A1B2C3D4-E5F6-7890-ABCD-EF1234567890</string>
+				<key>WFControlFlowMode</key>
+				<integer>1</integer>
+				<key>WFMenuItemTitle</key>
+				<string>💰 Log Expense</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.text</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFTextActionText</key>
+				<string>quickExpense</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariableName</key>
+				<string>ActionType</string>
+			</dict>
+		</dict>
+
+		<!-- Case: Log Payment -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>A1B2C3D4-E5F6-7890-ABCD-EF1234567890</string>
+				<key>WFControlFlowMode</key>
+				<integer>1</integer>
+				<key>WFMenuItemTitle</key>
+				<string>💳 Log Payment</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.text</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFTextActionText</key>
+				<string>quickPayment</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariableName</key>
+				<string>ActionType</string>
+			</dict>
+		</dict>
+
+		<!-- End Menu: Type -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>A1B2C3D4-E5F6-7890-ABCD-EF1234567890</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+
+		<!-- ═══ MENU: Take Photo or Choose from Library ═══ -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>B2C3D4E5-F6A7-8901-BCDE-FA2345678901</string>
+				<key>WFControlFlowMode</key>
+				<integer>0</integer>
+				<key>WFMenuItems</key>
+				<array>
+					<string>📷 Take Photo</string>
+					<string>🖼 Choose from Library</string>
+				</array>
+				<key>WFMenuPrompt</key>
+				<string>Receipt photo</string>
+			</dict>
+		</dict>
+
+		<!-- Case: Take Photo -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>B2C3D4E5-F6A7-8901-BCDE-FA2345678901</string>
+				<key>WFControlFlowMode</key>
+				<integer>1</integer>
+				<key>WFMenuItemTitle</key>
+				<string>📷 Take Photo</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.takephoto</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict/>
+		</dict>
+
+		<!-- Case: Choose from Library -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>B2C3D4E5-F6A7-8901-BCDE-FA2345678901</string>
+				<key>WFControlFlowMode</key>
+				<integer>1</integer>
+				<key>WFMenuItemTitle</key>
+				<string>🖼 Choose from Library</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.selectphoto</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict/>
+		</dict>
+
+		<!-- End Menu: Photo -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>B2C3D4E5-F6A7-8901-BCDE-FA2345678901</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+
+		<!-- Set Variable "Photo" from menu output -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariableName</key>
+				<string>Photo</string>
+			</dict>
+		</dict>
+
+		<!-- Get Variable Photo and Base64 Encode -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.getvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariable</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>Photo</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.base64encode</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFEncodeMode</key>
+				<string>Encode</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariableName</key>
+				<string>ImageData</string>
+			</dict>
+		</dict>
+
+		<!-- ═══ MENU: Select Client or Skip ═══ -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>C3D4E5F6-A7B8-9012-CDEF-AB3456789012</string>
+				<key>WFControlFlowMode</key>
+				<integer>0</integer>
+				<key>WFMenuItems</key>
+				<array>
+					<string>🏢 Select Client</string>
+					<string>➡️ Skip</string>
+				</array>
+				<key>WFMenuPrompt</key>
+				<string>Assign to a client?</string>
+			</dict>
+		</dict>
+
+		<!-- Case: Select Client -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>C3D4E5F6-A7B8-9012-CDEF-AB3456789012</string>
+				<key>WFControlFlowMode</key>
+				<integer>1</integer>
+				<key>WFMenuItemTitle</key>
+				<string>🏢 Select Client</string>
+			</dict>
+		</dict>
+
+		<!-- Build GET URL: BaseURL?page=api&action=getPickerData&secret=Secret -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.text</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFTextActionText</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{0, 1}</key>
+							<dict>
+								<key>Type</key>
+								<string>Variable</string>
+								<key>VariableName</key>
+								<string>BaseURL</string>
+							</dict>
+							<key>{39, 1}</key>
+							<dict>
+								<key>Type</key>
+								<string>Variable</string>
+								<key>VariableName</key>
+								<string>Secret</string>
+							</dict>
+						</dict>
+						<key>string</key>
+						<string>￼?page=api&amp;action=getPickerData&amp;secret=￼</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenString</string>
+				</dict>
+			</dict>
+		</dict>
+
+		<!-- GET Contents of URL (fetch client list) -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.downloadurl</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict/>
+		</dict>
+
+		<!-- Get Dictionary Value "clientNames" -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.getvalueforkey</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFDictionaryKey</key>
+				<string>clientNames</string>
+			</dict>
+		</dict>
+
+		<!-- Choose from List -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefromlist</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFChooseFromListActionPrompt</key>
+				<string>Select a client</string>
+			</dict>
+		</dict>
+
+		<!-- Set Variable "ClientName" -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariableName</key>
+				<string>ClientName</string>
+			</dict>
+		</dict>
+
+		<!-- Case: Skip -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>C3D4E5F6-A7B8-9012-CDEF-AB3456789012</string>
+				<key>WFControlFlowMode</key>
+				<integer>1</integer>
+				<key>WFMenuItemTitle</key>
+				<string>➡️ Skip</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.text</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFTextActionText</key>
+				<string></string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariableName</key>
+				<string>ClientName</string>
+			</dict>
+		</dict>
+
+		<!-- End Menu: Client -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>C3D4E5F6-A7B8-9012-CDEF-AB3456789012</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+
+		<!-- ═══ POST: Send to API ═══ -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.downloadurl</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFURL</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{0, 1}</key>
+							<dict>
+								<key>Type</key>
+								<string>Variable</string>
+								<key>VariableName</key>
+								<string>BaseURL</string>
+							</dict>
+						</dict>
+						<key>string</key>
+						<string>￼</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenString</string>
+				</dict>
+				<key>WFHTTPMethod</key>
+				<string>POST</string>
+				<key>WFHTTPBodyType</key>
+				<string>Json</string>
+				<key>WFJSONValues</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>WFDictionaryFieldValueItems</key>
+						<array>
+							<!-- secret -->
+							<dict>
+								<key>WFItemType</key>
+								<integer>0</integer>
+								<key>WFKey</key>
+								<dict>
+									<key>Value</key>
+									<dict>
+										<key>string</key>
+										<string>secret</string>
+									</dict>
+									<key>WFSerializationType</key>
+									<string>WFTextTokenString</string>
+								</dict>
+								<key>WFValue</key>
+								<dict>
+									<key>Value</key>
+									<dict>
+										<key>attachmentsByRange</key>
+										<dict>
+											<key>{0, 1}</key>
+											<dict>
+												<key>Type</key>
+												<string>Variable</string>
+												<key>VariableName</key>
+												<string>Secret</string>
+											</dict>
+										</dict>
+										<key>string</key>
+										<string>￼</string>
+									</dict>
+									<key>WFSerializationType</key>
+									<string>WFTextTokenString</string>
+								</dict>
+							</dict>
+							<!-- action -->
+							<dict>
+								<key>WFItemType</key>
+								<integer>0</integer>
+								<key>WFKey</key>
+								<dict>
+									<key>Value</key>
+									<dict>
+										<key>string</key>
+										<string>action</string>
+									</dict>
+									<key>WFSerializationType</key>
+									<string>WFTextTokenString</string>
+								</dict>
+								<key>WFValue</key>
+								<dict>
+									<key>Value</key>
+									<dict>
+										<key>attachmentsByRange</key>
+										<dict>
+											<key>{0, 1}</key>
+											<dict>
+												<key>Type</key>
+												<string>Variable</string>
+												<key>VariableName</key>
+												<string>ActionType</string>
+											</dict>
+										</dict>
+										<key>string</key>
+										<string>￼</string>
+									</dict>
+									<key>WFSerializationType</key>
+									<string>WFTextTokenString</string>
+								</dict>
+							</dict>
+							<!-- image -->
+							<dict>
+								<key>WFItemType</key>
+								<integer>0</integer>
+								<key>WFKey</key>
+								<dict>
+									<key>Value</key>
+									<dict>
+										<key>string</key>
+										<string>image</string>
+									</dict>
+									<key>WFSerializationType</key>
+									<string>WFTextTokenString</string>
+								</dict>
+								<key>WFValue</key>
+								<dict>
+									<key>Value</key>
+									<dict>
+										<key>attachmentsByRange</key>
+										<dict>
+											<key>{0, 1}</key>
+											<dict>
+												<key>Type</key>
+												<string>Variable</string>
+												<key>VariableName</key>
+												<string>ImageData</string>
+											</dict>
+										</dict>
+										<key>string</key>
+										<string>￼</string>
+									</dict>
+									<key>WFSerializationType</key>
+									<string>WFTextTokenString</string>
+								</dict>
+							</dict>
+							<!-- fileName -->
+							<dict>
+								<key>WFItemType</key>
+								<integer>0</integer>
+								<key>WFKey</key>
+								<dict>
+									<key>Value</key>
+									<dict>
+										<key>string</key>
+										<string>fileName</string>
+									</dict>
+									<key>WFSerializationType</key>
+									<string>WFTextTokenString</string>
+								</dict>
+								<key>WFValue</key>
+								<dict>
+									<key>Value</key>
+									<dict>
+										<key>string</key>
+										<string>receipt.jpg</string>
+									</dict>
+									<key>WFSerializationType</key>
+									<string>WFTextTokenString</string>
+								</dict>
+							</dict>
+							<!-- mimeType -->
+							<dict>
+								<key>WFItemType</key>
+								<integer>0</integer>
+								<key>WFKey</key>
+								<dict>
+									<key>Value</key>
+									<dict>
+										<key>string</key>
+										<string>mimeType</string>
+									</dict>
+									<key>WFSerializationType</key>
+									<string>WFTextTokenString</string>
+								</dict>
+								<key>WFValue</key>
+								<dict>
+									<key>Value</key>
+									<dict>
+										<key>string</key>
+										<string>image/jpeg</string>
+									</dict>
+									<key>WFSerializationType</key>
+									<string>WFTextTokenString</string>
+								</dict>
+							</dict>
+							<!-- clientName -->
+							<dict>
+								<key>WFItemType</key>
+								<integer>0</integer>
+								<key>WFKey</key>
+								<dict>
+									<key>Value</key>
+									<dict>
+										<key>string</key>
+										<string>clientName</string>
+									</dict>
+									<key>WFSerializationType</key>
+									<string>WFTextTokenString</string>
+								</dict>
+								<key>WFValue</key>
+								<dict>
+									<key>Value</key>
+									<dict>
+										<key>attachmentsByRange</key>
+										<dict>
+											<key>{0, 1}</key>
+											<dict>
+												<key>Type</key>
+												<string>Variable</string>
+												<key>VariableName</key>
+												<string>ClientName</string>
+											</dict>
+										</dict>
+										<key>string</key>
+										<string>￼</string>
+									</dict>
+									<key>WFSerializationType</key>
+									<string>WFTextTokenString</string>
+								</dict>
+							</dict>
+						</array>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFDictionaryFieldValue</string>
+				</dict>
+			</dict>
+		</dict>
+
+		<!-- Set Variable "Response" -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariableName</key>
+				<string>Response</string>
+			</dict>
+		</dict>
+
+		<!-- ═══ EXTRACT RESPONSE FIELDS ═══ -->
+
+		<!-- Get "message" -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.getvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariable</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>Response</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.getvalueforkey</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFDictionaryKey</key>
+				<string>message</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariableName</key>
+				<string>Message</string>
+			</dict>
+		</dict>
+
+		<!-- Get "error" -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.getvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariable</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>Response</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.getvalueforkey</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFDictionaryKey</key>
+				<string>error</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariableName</key>
+				<string>ErrorMsg</string>
+			</dict>
+		</dict>
+
+		<!-- Get "notionUrl" -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.getvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariable</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>Response</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.getvalueforkey</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFDictionaryKey</key>
+				<string>notionUrl</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariableName</key>
+				<string>NotionUrl</string>
+			</dict>
+		</dict>
+
+		<!-- ═══ IF: Message has any value (success) ═══ -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.getvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariable</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>Message</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>D4E5F6A7-B8C9-0123-DEFA-BC4567890123</string>
+				<key>WFControlFlowMode</key>
+				<integer>0</integer>
+				<key>WFCondition</key>
+				<integer>100</integer>
+			</dict>
+		</dict>
+
+		<!-- SUCCESS: Show Notification -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.notification</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFNotificationActionTitle</key>
+				<string>✓ RH Ops</string>
+				<key>WFNotificationActionBody</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{0, 1}</key>
+							<dict>
+								<key>Type</key>
+								<string>Variable</string>
+								<key>VariableName</key>
+								<string>Message</string>
+							</dict>
+						</dict>
+						<key>string</key>
+						<string>￼</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenString</string>
+				</dict>
+			</dict>
+		</dict>
+
+		<!-- MENU: Review in Notion / Done -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>E5F6A7B8-C9D0-1234-EFAB-CD5678901234</string>
+				<key>WFControlFlowMode</key>
+				<integer>0</integer>
+				<key>WFMenuItems</key>
+				<array>
+					<string>📋 Review in Notion</string>
+					<string>✅ Done</string>
+				</array>
+			</dict>
+		</dict>
+
+		<!-- Case: Review in Notion -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>E5F6A7B8-C9D0-1234-EFAB-CD5678901234</string>
+				<key>WFControlFlowMode</key>
+				<integer>1</integer>
+				<key>WFMenuItemTitle</key>
+				<string>📋 Review in Notion</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.getvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFVariable</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>NotionUrl</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.openurl</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict/>
+		</dict>
+
+		<!-- Case: Done -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>E5F6A7B8-C9D0-1234-EFAB-CD5678901234</string>
+				<key>WFControlFlowMode</key>
+				<integer>1</integer>
+				<key>WFMenuItemTitle</key>
+				<string>✅ Done</string>
+			</dict>
+		</dict>
+
+		<!-- End Menu: Review -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>E5F6A7B8-C9D0-1234-EFAB-CD5678901234</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+
+		<!-- OTHERWISE: Show Error -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>D4E5F6A7-B8C9-0123-DEFA-BC4567890123</string>
+				<key>WFControlFlowMode</key>
+				<integer>1</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.alert</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFAlertActionTitle</key>
+				<string>Error</string>
+				<key>WFAlertActionMessage</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{0, 1}</key>
+							<dict>
+								<key>Type</key>
+								<string>Variable</string>
+								<key>VariableName</key>
+								<string>ErrorMsg</string>
+							</dict>
+						</dict>
+						<key>string</key>
+						<string>￼</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenString</string>
+				</dict>
+			</dict>
+		</dict>
+
+		<!-- End If: Success -->
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>D4E5F6A7-B8C9-0123-DEFA-BC4567890123</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+
+	</array>
+</dict>
+</plist>

@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# clasp — contains the GAS script ID; keep out of version control
+.clasp.json
+
+# Claude session data
+.claude/
+
+# Node (if ever used locally)
+node_modules/

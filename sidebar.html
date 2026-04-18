@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 13px; color: #222; padding: 12px; background: #fff; }
+  h2 { font-size: 15px; font-weight: bold; margin-bottom: 14px; border-bottom: 2px solid #000; padding-bottom: 6px; }
+  label { display: block; font-size: 11px; font-weight: bold; text-transform: uppercase; color: #555; margin-bottom: 3px; margin-top: 10px; }
+  input, select, textarea { width: 100%; padding: 6px 8px; border: 1px solid #ccc; border-radius: 3px; font-size: 13px; }
+  textarea { resize: vertical; min-height: 48px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .row3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; }
+  .line-item { background: #f7f7f7; border: 1px solid #ddd; border-radius: 4px; padding: 8px; margin-top: 8px; }
+  .line-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .line-item-header span { font-weight: bold; font-size: 12px; }
+  .remove-btn { background: none; border: none; color: #999; cursor: pointer; font-size: 16px; line-height: 1; padding: 0; }
+  .remove-btn:hover { color: #c00; }
+  .desc-hint { font-size: 10px; color: #888; margin-top: 2px; margin-bottom: 4px; }
+  .add-btn { margin-top: 8px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; padding: 5px 10px; cursor: pointer; font-size: 12px; width: 100%; }
+  .add-btn:hover { background: #e0e0e0; }
+  .divider { border: none; border-top: 1px solid #eee; margin: 14px 0; }
+  .totals { background: #f7f7f7; border-radius: 4px; padding: 8px; margin-top: 8px; font-size: 12px; }
+  .totals-row { display: flex; justify-content: space-between; padding: 2px 0; }
+  .totals-row.total { font-weight: bold; font-size: 14px; border-top: 1px solid #ccc; margin-top: 4px; padding-top: 4px; }
+  .generate-btn { margin-top: 14px; width: 100%; padding: 10px; background: #000; color: #fff; border: none; border-radius: 3px; font-size: 14px; font-weight: bold; cursor: pointer; }
+  .generate-btn:hover { background: #333; }
+  .generate-btn:disabled { background: #999; cursor: default; }
+  .status { margin-top: 10px; padding: 8px; border-radius: 3px; font-size: 12px; display: none; }
+  .status.success { background: #e6f4ea; color: #1e6e37; border: 1px solid #b7dfbf; display: block; }
+  .status.error { background: #fce8e6; color: #c5221f; border: 1px solid #f5b7b1; display: block; }
+  .status a { color: inherit; font-weight: bold; }
+  .status a.open-drive-btn { display: block; margin-top: 8px; width: 100%; padding: 8px; background: #1e6e37; color: #fff; border: none; border-radius: 3px; font-size: 12px; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; }
+  .status a.open-drive-btn:hover { background: #165c2e; }
+  .draft-email-btn { margin-top: 6px; width: 100%; padding: 8px; background: #1a73e8; color: #fff; border: none; border-radius: 3px; font-size: 12px; font-weight: bold; cursor: pointer; }
+  .draft-email-btn:hover { background: #1557b0; }
+  .draft-email-btn:disabled { cursor: default; opacity: 0.8; }
+  .reset-btn { margin-top: 6px; width: 100%; padding: 6px; background: none; color: #1e6e37; border: 1px solid #b7dfbf; border-radius: 3px; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { background: #d4edda; }
+  .loading { text-align: center; color: #666; font-size: 12px; padding: 20px; }
+  .checkbox-row { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+  .checkbox-row input { width: auto; }
+  .section-label { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #555; margin-top: 10px; margin-bottom: 4px; display: block; }
+</style>
+</head>
+<body>
+
+<h2>&#x1f9fe; Generate Invoice</h2>
+<div id="loadingMsg" class="loading">Loading&#x2026;</div>
+<div id="form" style="display:none">
+
+  <label>Client</label>
+  <select id="client" onchange="onClientChange()">
+    <option value="">&#x2014; Select client &#x2014;</option>
+  </select>
+
+  <label>Project <span style="font-weight:normal;text-transform:none">(optional)</span></label>
+  <select id="project">
+    <option value="">&#x2014; No project &#x2014;</option>
+  </select>
+
+  <label>Invoice Type</label>
+  <select id="invoiceType">
+    <option value="Final">Final</option>
+    <option value="Deposit">Deposit</option>
+    <option value="Retainer">Retainer</option>
+    <option value="Add-On">Add-On</option>
+  </select>
+
+  <div class="row2">
+    <div><label>Issue Date</label><input type="date" id="issueDate" oninput="updateDueDate()" /></div>
+    <div><label>Due Date</label><input type="date" id="dueDate" /></div>
+  </div>
+
+  <hr class="divider">
+  <span class="section-label">Client Details</span>
+  <input type="text" id="clientName" placeholder="Legal name" style="margin-bottom:4px" />
+
+  <label>Billing Street</label>
+  <input type="text" id="clientStreet" placeholder="Street address" style="margin-bottom:4px" />
+
+  <div class="row3">
+    <div><label>City</label><input type="text" id="clientCity" placeholder="City" /></div>
+    <div><label>State</label><input type="text" id="clientState" placeholder="PR" /></div>
+    <div><label>ZIP</label><input type="text" id="clientZip" placeholder="00000" /></div>
+  </div>
+
+  <label>Country</label>
+  <input type="text" id="clientCountry" placeholder="US" style="margin-bottom:4px" />
+
+  <label>Phone <span style="font-weight:normal;text-transform:none">(optional)</span></label>
+  <input type="text" id="clientPhone" placeholder="+1 (787) 000-0000" style="margin-bottom:4px" />
+
+  <label>Email <span style="font-weight:normal;text-transform:none">(optional)</span></label>
+  <input type="text" id="clientEmail" placeholder="billing@client.com" style="margin-bottom:4px" />
+
+  <label>Website <span style="font-weight:normal;text-transform:none">(optional)</span></label>
+  <input type="text" id="clientWebsite" placeholder="https://client.com" />
+
+  <hr class="divider">
+
+  <label>Line Items</label>
+  <div id="lineItems"></div>
+  <button class="add-btn" onclick="addLineItem()">+ Add Line Item</button>
+
+  <hr class="divider">
+
+  <label>Tax ($)</label>
+  <input type="number" id="tax" value="0" min="0" step="0.01" oninput="updateTotals()" />
+
+  <div class="totals">
+    <div class="totals-row"><span>Subtotal</span><span id="subtotalDisplay">$0.00</span></div>
+    <div class="totals-row"><span>Tax</span><span id="taxDisplay">$0.00</span></div>
+    <div class="totals-row total"><span>Total</span><span id="totalDisplay">$0.00</span></div>
+  </div>
+
+  <div class="checkbox-row">
+    <input type="checkbox" id="exportPdf" checked />
+    <label style="margin:0;text-transform:none;font-weight:normal">Export as PDF</label>
+  </div>
+
+  <div class="checkbox-row">
+    <input type="checkbox" id="logToNotion" checked />
+    <label style="margin:0;text-transform:none;font-weight:normal">Log to Notion Invoices database</label>
+  </div>
+
+  <button class="generate-btn" id="generateBtn" onclick="generate()">Generate Invoice</button>
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+<?!= include('form-shared') ?>
+</script>
+</body>
+</html>
