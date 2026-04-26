@@ -1208,7 +1208,7 @@ function submitNewClient() {
     billingCity: $('nc-city').value.trim(), billingState: $('nc-state').value.trim(),
     billingZip: $('nc-zip').value.trim(), billingCountry: $('nc-country').value.trim() || 'US',
     withholdingAgent: $('nc-withholding').checked,
-    withholdingRate:  $('nc-withholding').checked ? (parseFloat($('nc-withholding-rate').value) || 10) : 10,
+    withholdingRate:  $('nc-withholding').checked ? (parseFloat($('nc-withholding-rate').value) || 10) : 0,
     notes: $('nc-notes').value.trim(),
     phone: $('nc-phone').value.trim(), website: $('nc-website').value.trim(),
     contacts: contacts, projectName: $('nc-projname').value.trim(),
@@ -1486,18 +1486,16 @@ function renderNewProjectForm(clientId) {
 
   // Load clients into dropdown if no clientId was provided
   if (!clientId) {
-    google.script.run
-      .withSuccessHandler(function(clients) {
-        var sel = $('np-client');
-        if (!sel || clients.error) return;
-        clients.forEach(function(c) {
-          var opt = document.createElement('option');
-          opt.value = c.id;
-          opt.textContent = c.name;
-          sel.appendChild(opt);
-        });
-      })
-      .getClients();
+    cachedGetClients(function(clients) {
+      var sel = $('np-client');
+      if (!sel || !clients || clients.error) return;
+      clients.forEach(function(c) {
+        var opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        sel.appendChild(opt);
+      });
+    });
   }
 }
 
@@ -2082,7 +2080,7 @@ function submitEditClient(clientId) {
       phone: $('ec-phone').value.trim(), website: $('ec-website').value.trim(),
       notes: $('ec-notes').value.trim(),
       withholdingAgent: $('ec-withholding').checked,
-      withholdingRate:  $('ec-withholding').checked ? (parseFloat($('ec-withholding-rate').value) || 10) : 10,
+      withholdingRate:  $('ec-withholding').checked ? (parseFloat($('ec-withholding-rate').value) || 10) : 0,
     });
 }
 
@@ -2915,13 +2913,8 @@ function _loadEditExpenseDropdowns(selectedClientId, selectedProjectId, selected
   });
   cachedGetProjects(function(projects) {
     if (!projects || projects.error) return;
-    var sel = $('ee-project');
-    projects.forEach(function(p) {
-      var opt = document.createElement('option');
-      opt.value = p.id; opt.textContent = p.name || p.projectId;
-      if (p.id === selectedProjectId) opt.selected = true;
-      sel.appendChild(opt);
-    });
+    window._allProjectsForExpEdit = projects;
+    _filterEditExpenseProjects(selectedClientId, selectedProjectId);
   });
   cachedGetContractors(function(contractors) {
     if (!contractors || contractors.error) return;
@@ -2935,12 +2928,27 @@ function _loadEditExpenseDropdowns(selectedClientId, selectedProjectId, selected
   });
 }
 
-/** Auto-set Type when client changes in the Edit Expense form. */
+/** Re-populate the project dropdown filtered to the selected client. */
+function _filterEditExpenseProjects(clientId, preserveId) {
+  var sel = $('ee-project');
+  if (!sel) return;
+  var projects = window._allProjectsForExpEdit || [];
+  sel.innerHTML = '<option value="">-- None --</option>';
+  var filtered = clientId ? projects.filter(function(p) { return p.clientId === clientId; }) : projects;
+  filtered.forEach(function(p) {
+    var opt = document.createElement('option');
+    opt.value = p.id; opt.textContent = p.name || p.projectId;
+    if (p.id === preserveId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+/** Auto-set Type and re-filter projects when client changes in the Edit Expense form. */
 function onEditExpenseClientChange() {
   var clientId = $('ee-client').value;
   var typeSel = $('ee-type');
-  if (!typeSel) return;
-  typeSel.value = clientId ? 'Project' : 'Overhead';
+  if (typeSel) typeSel.value = clientId ? 'Project' : 'Overhead';
+  _filterEditExpenseProjects(clientId, null);
 }
 
 /** Handle file selection for receipt replacement in Edit Expense form. */
@@ -3913,9 +3921,14 @@ function _loadEditPaymentDropdowns(selectedClientId, selectedInvoiceId) {
     .withSuccessHandler(function(invoices) {
       if (!invoices || invoices.error) return;
       var sel = $('ep-invoice');
-      invoices.forEach(function(inv) {
+      // Show open invoices + always include the currently linked invoice even if Paid/Void
+      var visible = invoices.filter(function(inv) {
+        return inv.status !== 'Paid' && inv.status !== 'Void' || inv.id === selectedInvoiceId;
+      });
+      visible.forEach(function(inv) {
         var opt = document.createElement('option');
-        opt.value = inv.id; opt.textContent = inv.invoiceId + ' — ' + (inv.clientName || 'No client');
+        var statusTag = (inv.status === 'Paid' || inv.status === 'Void') ? ' [' + inv.status + ']' : (inv.status && inv.status !== 'Sent' ? ' [' + inv.status + ']' : '');
+        opt.value = inv.id; opt.textContent = inv.invoiceId + ' — ' + formatMoney(inv.total) + statusTag + (inv.clientName ? ' (' + inv.clientName + ')' : '');
         if (inv.id === selectedInvoiceId) opt.selected = true;
         sel.appendChild(opt);
       });
