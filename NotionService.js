@@ -456,7 +456,7 @@ function createNotionClient(props) {
   const properties = {};
   properties[C.NAME]   = { title: [{ text: { content: props.name } }] };
   properties[C.TYPE]   = { select: { name: props.type || 'Business' } };
-  properties[C.STATUS] = { select: { name: 'Active' } };
+  properties[C.STATUS] = { select: { name: props.status || 'Active' } };
   if (props.billingEmail)   properties[C.BILLING_EMAIL]   = { email: props.billingEmail };
   if (props.billingStreet)  properties[C.BILLING_STREET]  = { rich_text: [{ text: { content: props.billingStreet } }] };
   if (props.billingCity)    properties[C.BILLING_CITY]    = { rich_text: [{ text: { content: props.billingCity } }] };
@@ -467,7 +467,7 @@ function createNotionClient(props) {
   if (props.website) properties[C.WEBSITE] = { url: props.website };
   if (props.notes)   properties[C.NOTES]   = { rich_text: [{ text: { content: props.notes } }] };
   if (props.withholdingAgent !== undefined) properties[C.WITHHOLDING_AGENT] = { checkbox: !!props.withholdingAgent };
-  if (props.withholdingRate  !== undefined) properties[C.WITHHOLDING_RATE]  = { number: parseFloat(props.withholdingRate) || 10 };
+  if (props.withholdingRate  !== undefined) properties[C.WITHHOLDING_RATE]  = { number: parseFloat(props.withholdingRate) || 0 };
   return _notionCreatePage(CONFIG.NOTION_CLIENTS_DB, properties);
 }
 
@@ -493,7 +493,7 @@ function updateClientInfo(clientId, props) {
   if (props.website !== undefined) properties[C.WEBSITE] = props.website ? { url: props.website } : { url: null };
   if (props.notes !== undefined)   properties[C.NOTES]   = { rich_text: [{ text: { content: props.notes || '' } }] };
   if (props.withholdingAgent !== undefined) properties[C.WITHHOLDING_AGENT] = { checkbox: !!props.withholdingAgent };
-  if (props.withholdingRate  !== undefined) properties[C.WITHHOLDING_RATE]  = { number: parseFloat(props.withholdingRate) || 10 };
+  if (props.withholdingRate  !== undefined) properties[C.WITHHOLDING_RATE]  = { number: parseFloat(props.withholdingRate) || 0 };
   return _notionUpdatePage(clientId, properties);
 }
 

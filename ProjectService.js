@@ -32,7 +32,7 @@ function createProject(data) {
       name:      data.name,
       clientId:  data.clientId,
       type:      data.type || 'One-Off',
-      status:    'Draft',
+      status:    data.status || 'Draft',
       startDate: data.startDate || '',
       notes:     data.notes || '',
     });

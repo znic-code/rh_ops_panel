@@ -1116,9 +1116,11 @@ function renderNewClientForm() {
   html += '<div class="card"><div class="card-header"><h2>Client Information</h2></div><div class="card-body">'
     + '<div class="form-group"><label class="form-label">Client Name *</label>'
     + '<input class="form-input" id="nc-name" placeholder="Legal / business name"></div>'
-    + '<div class="form-row form-row-2">'
+    + '<div class="form-row form-row-3">'
     + '<div class="form-group"><label class="form-label">Type</label>'
     + '<select class="form-select" id="nc-type"><option>Business</option><option>Individual</option></select></div>'
+    + '<div class="form-group"><label class="form-label">Status</label>'
+    + '<select class="form-select" id="nc-client-status"><option selected>Active</option><option>Inactive</option></select></div>'
     + '<div class="form-group"><label class="form-label">Billing Email</label>'
     + '<input class="form-input" id="nc-email" type="email" placeholder="billing@client.com"></div></div>'
     + '<div class="form-group"><label class="form-label">Billing Street</label>'
@@ -1203,7 +1205,7 @@ function submitNewClient() {
   });
 
   var data = {
-    name: name, type: $('nc-type').value,
+    name: name, type: $('nc-type').value, status: $('nc-client-status').value,
     billingEmail: $('nc-email').value.trim(), billingStreet: $('nc-street').value.trim(),
     billingCity: $('nc-city').value.trim(), billingState: $('nc-state').value.trim(),
     billingZip: $('nc-zip').value.trim(), billingCountry: $('nc-country').value.trim() || 'US',
@@ -1471,8 +1473,9 @@ function renderNewProjectForm(clientId) {
   }
 
   html += '<div class="form-group"><label class="form-label">Project Name *</label><input class="form-input" id="np-name" placeholder="e.g. Website Redesign"></div>'
-    + '<div class="form-row form-row-2">'
+    + '<div class="form-row form-row-3">'
     + '<div class="form-group"><label class="form-label">Type</label><select class="form-select" id="np-type"><option>One-Off</option><option>Retainer</option></select></div>'
+    + '<div class="form-group"><label class="form-label">Status</label><select class="form-select" id="np-status-val"><option>Draft</option><option selected>Active</option><option>Paused</option><option>Closed</option></select></div>'
     + '<div class="form-group"><label class="form-label">Start Date</label><input class="form-input" id="np-start" type="date"></div></div>'
     + '<div class="form-row form-row-2">'
     + '<div class="form-group"><label class="form-label">End Date</label><input class="form-input" id="np-end" type="date"></div>'
@@ -1484,12 +1487,12 @@ function renderNewProjectForm(clientId) {
   $('content').innerHTML = html;
   $('np-start').value = new Date().toISOString().split('T')[0];
 
-  // Load clients into dropdown if no clientId was provided
+  // Load active clients into dropdown if no clientId was provided
   if (!clientId) {
     cachedGetClients(function(clients) {
       var sel = $('np-client');
       if (!sel || !clients || clients.error) return;
-      clients.forEach(function(c) {
+      clients.filter(function(c) { return c.status === 'Active'; }).forEach(function(c) {
         var opt = document.createElement('option');
         opt.value = c.id;
         opt.textContent = c.name;
@@ -1529,8 +1532,8 @@ function submitNewProject(clientId) {
     })
     .panelCreateProject({
       name: name, clientId: resolvedClientId,
-      type: $('np-type').value, startDate: $('np-start').value,
-      endDate: $('np-end').value,
+      type: $('np-type').value, status: $('np-status-val').value,
+      startDate: $('np-start').value, endDate: $('np-end').value,
       notes: $('np-notes').value.trim(),
     });
 }
@@ -2904,7 +2907,7 @@ function _loadEditExpenseDropdowns(selectedClientId, selectedProjectId, selected
   cachedGetClients(function(clients) {
     if (!clients || clients.error) return;
     var sel = $('ee-client');
-    clients.forEach(function(c) {
+    clients.filter(function(c) { return c.status === 'Active' || c.id === selectedClientId; }).forEach(function(c) {
       var opt = document.createElement('option');
       opt.value = c.id; opt.textContent = c.name;
       if (c.id === selectedClientId) opt.selected = true;
@@ -3123,7 +3126,7 @@ function _loadExpenseDropdowns(data) {
   cachedGetClients(function(clients) {
     if (!clients || clients.error) return;
     var sel = $('exp-client');
-    clients.forEach(function(c) {
+    clients.filter(function(c) { return c.status === 'Active'; }).forEach(function(c) {
       var opt = document.createElement('option');
       opt.value = c.id; opt.textContent = c.name;
       sel.appendChild(opt);
@@ -3910,7 +3913,7 @@ function _loadEditPaymentDropdowns(selectedClientId, selectedInvoiceId) {
   cachedGetClients(function(clients) {
     if (!clients || clients.error) return;
     var sel = $('ep-client');
-    clients.forEach(function(c) {
+    clients.filter(function(c) { return c.status === 'Active' || c.id === selectedClientId; }).forEach(function(c) {
       var opt = document.createElement('option');
       opt.value = c.id; opt.textContent = c.name;
       if (c.id === selectedClientId) opt.selected = true;
@@ -4021,7 +4024,7 @@ function renderNewPaymentForm(data) {
 
   // ── Mark Invoice as Paid ──
   html += '<div class="form-group" style="display:flex;align-items:center;gap:8px">'
-    + '<input type="checkbox" id="pay-markpaid"><label for="pay-markpaid" style="font-size:13px">Mark invoice as Paid</label></div>';
+    + '<input type="checkbox" id="pay-markpaid" checked><label for="pay-markpaid" style="font-size:13px">Mark invoice as Paid</label></div>';
 
   html += '<div class="form-group"><label class="form-label">Notes</label>'
     + '<textarea class="form-textarea" id="pay-notes" rows="2"></textarea></div>';
@@ -4048,7 +4051,7 @@ function _loadPaymentDropdowns(data) {
     if (!clients || clients.error) return;
     window._paymentClients = clients;
     var sel = $('pay-client');
-    clients.forEach(function(c) {
+    clients.filter(function(c) { return c.status === 'Active'; }).forEach(function(c) {
       var opt = document.createElement('option');
       opt.value = c.id; opt.textContent = c.name;
       sel.appendChild(opt);
@@ -4108,10 +4111,14 @@ function onPaymentClientChange() {
       banner.style.cssText += ';background:#fef3c7;border-color:#d97706;color:#92400e';
       _updateWithholdingBanner(rate);
     }
+    // Withholding clients typically pay in net only — don't auto-mark as Paid
+    if ($('pay-markpaid')) $('pay-markpaid').checked = false;
   } else {
     if (group)  group.style.display  = 'none';
     if (banner) banner.style.display = 'none';
     if ($('pay-withheld')) $('pay-withheld').value = '';
+    // Non-withholding clients — pre-check Mark as Paid
+    if ($('pay-markpaid')) $('pay-markpaid').checked = true;
   }
 }
 
@@ -4996,6 +5003,10 @@ function renderEditQuoteForm(quotePageId) {
       if (!_quoteLineItems.length) _quoteLineItems = [{ id: Date.now(), name: '', description: '', qty: 1, price: 0 }];
 
       var html = '<div class="form-card"><div class="card"><div class="card-header"><h2>Edit Quote — ' + esc(q.quoteId) + '</h2></div><div class="card-body">'
+        + (data.clientName || data.projectName ? '<div class="form-row form-row-2" style="margin-bottom:12px">'
+          + (data.clientName ? '<div class="form-group"><label class="form-label">Client</label><div class="form-input" style="background:#f5f0eb;color:#5a4f44">' + esc(data.clientName) + '</div></div>' : '')
+          + (data.projectName ? '<div class="form-group"><label class="form-label">Project</label><div class="form-input" style="background:#f5f0eb;color:#5a4f44">' + esc(data.projectName) + '</div></div>' : '')
+          + '</div>' : '')
         + '<div class="form-row form-row-2">'
         + '<div class="form-group"><label class="form-label">Issue Date</label><input class="form-input" id="nq-issue" type="date" value="' + (q.issuedDate || '') + '"></div>'
         + '<div class="form-group"><label class="form-label">Valid Until</label><input class="form-input" id="nq-valid" type="date" value="' + (q.validUntil || '') + '"></div>'
@@ -5034,6 +5045,8 @@ function submitEditQuote(quotePageId) {
     lineItems.push({ name: name, description: desc, qty: qty, price: price });
   });
   if (!valid || !lineItems.length) { $('nq-status').innerHTML = '<div class="status-banner error">Each line item needs a name.</div>'; return; }
+  var issueD = $('nq-issue').value, validD = $('nq-valid').value;
+  if (issueD && validD && validD < issueD) { $('nq-status').innerHTML = '<div class="status-banner error">Valid Until must be on or after the Issue Date.</div>'; return; }
 
   $('nq-submit').disabled = true; $('nq-submit').textContent = 'Saving\u2026';
   $('nq-status').innerHTML = '<div class="loading"><span class="spinner"></span> Regenerating PDF\u2026</div>';
@@ -5220,7 +5233,7 @@ function _loadNewQuoteDropdowns() {
   cachedGetClients(function(clients) {
     if (!clients || clients.error) return;
     var sel = $('nq-client');
-    clients.forEach(function(c) {
+    clients.filter(function(c) { return c.status === 'Active'; }).forEach(function(c) {
       var opt = document.createElement('option');
       opt.value = c.id; opt.textContent = c.name;
       sel.appendChild(opt);
@@ -5299,6 +5312,8 @@ function submitNewQuote() {
   });
 
   if (!valid || !lineItems.length) { $('nq-status').innerHTML = '<div class="status-banner error">Each line item needs a name.</div>'; return; }
+  var issueD = $('nq-issue').value, validD = $('nq-valid').value;
+  if (issueD && validD && validD < issueD) { $('nq-status').innerHTML = '<div class="status-banner error">Valid Until must be on or after the Issue Date.</div>'; return; }
 
   $('nq-submit').disabled = true;
   $('nq-submit').textContent = 'Creating\u2026';
@@ -6008,6 +6023,8 @@ function submitQuickInvoice(clientId, projectId) {
     $('qi-status').innerHTML = '<div class="status-banner error">Please add at least one line item with a name.</div>';
     return;
   }
+  var zeroItems = lineItems.filter(function(item) { return !item.price || item.price <= 0; });
+  if (zeroItems.length && !confirm(zeroItems.length + ' line item(s) have a $0 price. Continue anyway?')) return;
 
   var btn = $('qi-submit');
   btn.disabled = true; btn.textContent = 'Creating\u2026';

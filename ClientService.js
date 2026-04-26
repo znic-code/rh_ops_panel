@@ -42,6 +42,7 @@ function createFullClient(data) {
     var clientPage = createNotionClient({
       name:           data.name,
       type:           data.type,
+      status:         data.status || 'Active',
       billingEmail:   data.billingEmail,
       billingStreet:  data.billingStreet,
       billingCity:    data.billingCity,
