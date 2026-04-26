@@ -4051,9 +4051,13 @@ function _loadPaymentDropdowns(data) {
       if (!invoices || invoices.error) return;
       window._allInvoices = invoices;
       var sel = $('pay-invoice');
-      invoices.forEach(function(inv) {
+      var open = invoices.filter(function(inv) {
+        return inv.status !== 'Paid' && inv.status !== 'Void';
+      });
+      open.forEach(function(inv) {
         var opt = document.createElement('option');
-        opt.value = inv.id; opt.textContent = inv.invoiceId + ' — ' + formatMoney(inv.total) + (inv.clientName ? ' (' + inv.clientName + ')' : '');
+        var statusTag = inv.status && inv.status !== 'Sent' ? ' [' + inv.status + ']' : '';
+        opt.value = inv.id; opt.textContent = inv.invoiceId + ' — ' + formatMoney(inv.total) + statusTag + (inv.clientName ? ' (' + inv.clientName + ')' : '');
         sel.appendChild(opt);
       });
       if (data && data.invoiceId) { sel.value = data.invoiceId; }
