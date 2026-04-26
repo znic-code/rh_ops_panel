@@ -2544,7 +2544,7 @@ function renderInvoiceView(invoiceId, clientId) {
 
       html += '<div class="card" style="margin-top:20px"><div class="card-header"><h2>Log Payment</h2></div><div class="card-body">'
         + (isWithholdingClient ? '<div id="lp-banner" class="status-banner" style="background:#fef3c7;border-color:#d97706;color:#92400e;margin-bottom:12px">Withholding client (' + Math.round(withholdingRate * 100) + '%) — withheld by client: ' + formatMoney(suggestedWithheld) + ', invoice credit: ' + formatMoney(balance) + '</div>' : '')
-        + '<div class="form-group"><label class="form-label">Amount Received (check) *</label><input class="form-input" id="lp-amount" type="number" step="0.01" value="' + (suggestedReceived > 0 ? suggestedReceived.toFixed(2) : '') + '" oninput="onInlinePaymentAmountChange()"></div>'
+        + '<div class="form-group"><label class="form-label">Amount Received *</label><input class="form-input" id="lp-amount" type="number" step="0.01" value="' + (suggestedReceived > 0 ? suggestedReceived.toFixed(2) : '') + '" oninput="onInlinePaymentAmountChange()"></div>'
         + (isWithholdingClient
           ? '<div class="form-group"><label class="form-label">Amount Withheld by Client <span style="font-size:11px;color:#8c7e6e">(auto-calculated, editable)</span></label><input class="form-input" id="lp-withheld" type="number" step="0.01" value="' + suggestedWithheld.toFixed(2) + '" placeholder="0.00"></div>'
           : '<input type="hidden" id="lp-withheld" value="0">')
@@ -3994,7 +3994,7 @@ function renderNewPaymentForm(data) {
   // ── Core Fields ──
   html += '<div class="form-row form-row-2">'
     + '<div class="form-group"><label class="form-label">Description</label><input class="form-input" id="pay-description" placeholder="Check # / Txn ref / Description"></div>'
-    + '<div class="form-group"><label class="form-label">Amount Received (check) *</label><input class="form-input" id="pay-amount" type="number" step="0.01" min="0" oninput="onPaymentAmountChange()"></div></div>';
+    + '<div class="form-group"><label class="form-label">Amount Received *</label><input class="form-input" id="pay-amount" type="number" step="0.01" min="0" oninput="onPaymentAmountChange()"></div></div>';
 
   html += '<div class="form-group" id="pay-withheld-group" style="display:none">'
     + '<label class="form-label">Amount Withheld</label>'
