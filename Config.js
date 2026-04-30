@@ -42,6 +42,21 @@ const CONFIG = {
 
 };
 
+/**
+ * Returns company info, preferring Script Properties over hardcoded CONFIG values.
+ * Script Properties keys: company_name, company_email, company_address, company_phone
+ * This lets the Settings page update company info without a code deployment.
+ */
+function getCompanyInfo() {
+  var sp = PropertiesService.getScriptProperties();
+  return {
+    name:    sp.getProperty('company_name')    || CONFIG.COMPANY_NAME,
+    email:   sp.getProperty('company_email')   || CONFIG.COMPANY_EMAIL,
+    address: sp.getProperty('company_address') || CONFIG.COMPANY_ADDRESS,
+    phone:   sp.getProperty('company_phone')   || CONFIG.COMPANY_PHONE,
+  };
+}
+
 // ── Notion Property Name Constants ───────────────────────────
 // Single source of truth for every Notion property name used by the panel.
 // Reference these constants everywhere instead of inline string literals so

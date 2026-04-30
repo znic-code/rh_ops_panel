@@ -1858,9 +1858,27 @@ function panelGetSettings() {
   try {
     var raw = PropertiesService.getScriptProperties().getProperty('settings_reminders');
     var reminders = raw ? JSON.parse(raw) : _SETTINGS_DEFAULTS.reminders;
-    return { reminders: reminders };
+    return { reminders: reminders, company: getCompanyInfo() };
   } catch (e) {
-    return { reminders: _SETTINGS_DEFAULTS.reminders };
+    return { reminders: _SETTINGS_DEFAULTS.reminders, company: getCompanyInfo() };
+  }
+}
+
+/**
+ * Save company info to Script Properties.
+ * Keys: company_name, company_email, company_address, company_phone
+ */
+function panelSaveCompanyInfo(data) {
+  _requireRole(['admin']);
+  try {
+    var sp = PropertiesService.getScriptProperties();
+    if (data.name    !== undefined) sp.setProperty('company_name',    data.name.trim());
+    if (data.email   !== undefined) sp.setProperty('company_email',   data.email.trim());
+    if (data.address !== undefined) sp.setProperty('company_address', data.address.trim());
+    if (data.phone   !== undefined) sp.setProperty('company_phone',   data.phone.trim());
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
   }
 }
 
@@ -2800,7 +2818,7 @@ function dailyHealthCheckEmail() {
       + '</div>';
 
     GmailApp.sendEmail(
-      CONFIG.COMPANY_EMAIL,
+      getCompanyInfo().email,
       'RH Ops Health Check — ' + errors.length + ' error(s), ' + warnings.length + ' warning(s)',
       'Health check found issues. View the HTML version of this email for details.',
       { htmlBody: html, name: 'RH Ops Panel' }

@@ -106,11 +106,11 @@ function buildTemplateVariables(params) {
     // Dates
     todayDate:      todayFormatted,
 
-    // Company
-    companyName:    CONFIG.COMPANY_NAME,
-    companyEmail:   CONFIG.COMPANY_EMAIL,
-    companyAddress: CONFIG.COMPANY_ADDRESS,
-    companyPhone:   CONFIG.COMPANY_PHONE,
+    // Company — reads from Script Properties via getCompanyInfo(), falls back to Config.js
+    companyName:    getCompanyInfo().name,
+    companyEmail:   getCompanyInfo().email,
+    companyAddress: getCompanyInfo().address,
+    companyPhone:   getCompanyInfo().phone,
   };
 }
 

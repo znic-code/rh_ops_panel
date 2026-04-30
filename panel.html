@@ -6334,8 +6334,25 @@ function renderSettings() {
       var enabled = r.enabled ? true : false;
       var daysBefore = r.daysBefore || 3;
       var intervals = (r.overdueIntervals || [7, 14, 30]).join(', ');
+      var co = settings.company || {};
 
       var html = '<div class="form-card" style="max-width:640px">';
+
+      // Company Info section
+      html += '<div class="card"><div class="card-header"><h2>Company Info</h2></div><div class="card-body">'
+        + '<p style="font-size:13px;color:#8c7b6b;margin-bottom:16px">Appears on all invoice emails, reminder emails, and document templates. Overrides the hardcoded defaults in Config.js.</p>'
+        + '<div class="form-row form-row-2">'
+        + '<div class="form-group"><label class="form-label">Company Name</label>'
+        + '<input class="form-input" id="co-name" value="' + esc(co.name || '') + '" placeholder="Road Hazards Media"></div>'
+        + '<div class="form-group"><label class="form-label">Email</label>'
+        + '<input class="form-input" id="co-email" type="email" value="' + esc(co.email || '') + '" placeholder="hello@roadhazardsmedia.com"></div></div>'
+        + '<div class="form-group"><label class="form-label">Address</label>'
+        + '<input class="form-input" id="co-address" value="' + esc(co.address || '') + '" placeholder="763 Calle Vesta, San Juan, PR 00923"></div>'
+        + '<div class="form-group"><label class="form-label">Phone</label>'
+        + '<input class="form-input" id="co-phone" value="' + esc(co.phone || '') + '" placeholder="+1 (787) 607-4678"></div>'
+        + '<button class="btn btn-primary" id="co-save-btn" onclick="saveCompanyInfo()">Save Company Info</button>'
+        + '<div id="co-status" style="margin-top:12px"></div>'
+        + '</div></div>';
 
       // Invoice Reminders section
       html += '<div class="card"><div class="card-header"><h2>Invoice Reminders</h2></div><div class="card-body">'
@@ -6501,6 +6518,31 @@ function saveSettings() {
       $('settings-status').innerHTML = '<div class="status-banner error">' + esc(e.message) + '</div>';
     })
     .panelSaveSettings(data);
+}
+
+/** Save company info fields to Script Properties via panelSaveCompanyInfo(). */
+function saveCompanyInfo() {
+  var btn = $('co-save-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      btn.disabled = false; btn.textContent = 'Save Company Info';
+      if (r.success) {
+        $('co-status').innerHTML = '<div class="status-banner success" style="animation:fadeOut 2s 1s forwards">Company info saved.</div>';
+      } else {
+        $('co-status').innerHTML = '<div class="status-banner error">' + esc(r.error || 'Save failed.') + '</div>';
+      }
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false; btn.textContent = 'Save Company Info';
+      $('co-status').innerHTML = '<div class="status-banner error">' + esc(e.message) + '</div>';
+    })
+    .panelSaveCompanyInfo({
+      name:    $('co-name').value.trim(),
+      email:   $('co-email').value.trim(),
+      address: $('co-address').value.trim(),
+      phone:   $('co-phone').value.trim(),
+    });
 }
 
 // ── TEMPLATE MANAGEMENT (SETTINGS) ──────────────────────────
