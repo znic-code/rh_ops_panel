@@ -324,6 +324,8 @@ body {
 }
 .form-textarea { resize: vertical; min-height: 70px; }
 .form-input:disabled, .form-select:disabled { background: #f7f4ee; color: #5a4f44; cursor: default; }
+.form-check { display: flex; align-items: center; gap: 8px; }
+.form-hint { font-size: 11px; color: #8c7e6e; margin-top: 3px; }
 .form-row { display: grid; gap: 12px; }
 .form-row-2 { grid-template-columns: 1fr 1fr; }
 .form-row-3 { grid-template-columns: 2fr 1fr 1fr; }
@@ -1137,7 +1139,7 @@ function renderNewClientForm() {
     + '<input class="form-input" id="nc-website" placeholder="https://client.com"></div>'
     + '<div class="form-group"><label class="form-label">Notes</label>'
     + '<textarea class="form-textarea" id="nc-notes" placeholder="Internal notes about this client"></textarea></div>'
-    + '<div class="form-group" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+    + '<div class="form-group" class="form-check" style="flex-wrap:wrap">'
     + '<input type="checkbox" id="nc-withholding" onchange="onWithholdingToggle(\'nc\')">'
     + '<label for="nc-withholding" style="font-size:13px;cursor:pointer">Withholding Agent</label>'
     + '<span id="nc-withholding-rate-wrap" style="display:none;align-items:center;gap:4px;font-size:13px">'
@@ -1644,7 +1646,7 @@ function renderProjectView(projectId, clientId) {
         + '</div><div class="card-body">'
         + '<div class="form-row form-row-2">'
         + '<div class="form-group"><label class="form-label">Expense ID</label><input class="form-input" id="qe-id" placeholder="EXP-001"></div>'
-        + '<div class="form-group"><label class="form-label">Description *</label><input class="form-input" id="qe-desc"></div></div>'
+        + '<div class="form-group"><label class="form-label">Description *</label><input class="form-input" id="qe-desc" placeholder="Brief description of expense"></div></div>'
         + '<div class="form-row form-row-2">'
         + '<div class="form-group"><label class="form-label">Amount *</label><input class="form-input" id="qe-amount" type="number" step="0.01" min="0"></div>'
         + '<div class="form-group"><label class="form-label">Date</label><input class="form-input" id="qe-date" type="date" value="' + todayISO + '"></div></div>'
@@ -2053,7 +2055,7 @@ function renderEditClientForm(clientId) {
         + '<input class="form-input" id="ec-website" value="' + esc(c.website) + '"></div>'
         + '<div class="form-group"><label class="form-label">Notes</label>'
         + '<textarea class="form-textarea" id="ec-notes">' + esc(c.notes) + '</textarea></div>'
-        + '<div class="form-group" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+        + '<div class="form-group" class="form-check" style="flex-wrap:wrap">'
         + '<input type="checkbox" id="ec-withholding"' + (c.withholdingAgent ? ' checked' : '') + ' onchange="onWithholdingToggle(\'ec\')">'
         + '<label for="ec-withholding" style="font-size:13px;cursor:pointer">Withholding Agent</label>'
         + '<span id="ec-withholding-rate-wrap" style="display:' + (c.withholdingAgent ? 'flex' : 'none') + ';align-items:center;gap:4px;font-size:13px">'
@@ -2576,7 +2578,7 @@ function renderInvoiceView(invoiceId, clientId) {
         + '<div class="form-group"><label class="form-label">Method</label><select class="form-select" id="lp-method">'
         + '<option>Check</option><option>ACH</option><option>Wire</option><option>Card</option><option>Other</option></select></div>'
         + '<div class="form-group"><label class="form-label">Date</label><input class="form-input" id="lp-date" type="date"></div></div>'
-        + '<div class="form-group" style="display:flex;align-items:center;gap:8px">'
+        + '<div class="form-group" class="form-check">'
         + '<input type="checkbox" id="lp-markpaid"' + (isWithholdingClient ? '' : ' checked') + '><label for="lp-markpaid" style="font-size:13px">Mark invoice as Paid</label></div>'
         + '<div id="lp-status" style="margin-bottom:8px"></div>'
         + '<button class="btn btn-primary" id="lp-submit" onclick="submitLogPayment(\'' + jsEsc(inv.id) + '\',\'' + jsEsc(inv.clientId||'') + '\')">Log Payment</button>'
@@ -2900,7 +2902,7 @@ function renderEditExpenseForm(expensePageId) {
         html += '<div style="margin-bottom:8px"><a href="' + esc(e.receiptUrl) + '" target="_blank" style="font-size:13px;color:var(--accent)">📎 View current receipt</a></div>';
       }
       html += '<input type="hidden" id="ee-receipt-url" value="' + esc(e.receiptUrl || '') + '">'
-        + '<div style="display:flex;align-items:center;gap:8px">'
+        + '<div class="form-check">'
         + '<input type="file" id="ee-receipt-file" accept="image/*,.pdf" style="display:none" onchange="onEditReceiptSelected()">'
         + '<button type="button" class="btn btn-secondary" onclick="$(\'ee-receipt-file\').click()">' + (e.receiptUrl ? 'Replace Receipt' : 'Attach Receipt') + '</button>'
         + '<span id="ee-receipt-filename" style="font-size:12px;color:#8c7e6e"></span>'
@@ -3118,7 +3120,7 @@ function renderNewExpenseForm(data) {
     + '<select class="form-select" id="exp-contractor"><option value="">None</option></select></div>';
 
   // ── Extras ──
-  html += '<div class="form-group" style="display:flex;align-items:center;gap:8px">'
+  html += '<div class="form-group" class="form-check">'
     + '<input type="checkbox" id="exp-billable"><label for="exp-billable" style="font-size:13px">Billable</label></div>';
 
   html += '<div class="form-group"><label class="form-label">Notes</label>'
@@ -3797,7 +3799,7 @@ function renderEditPaymentForm(paymentPageId) {
       // Amount Withheld (always shown so past payments can be corrected)
       html += '<div class="form-group"><label class="form-label">Amount Withheld</label>'
         + '<input class="form-input" id="ep-withheld" type="number" step="0.01" min="0" placeholder="0.00" value="' + (p.amountWithheld || '') + '">'
-        + '<div style="font-size:11px;color:#8c7e6e;margin-top:3px">Leave blank or 0 if no withholding applies.</div></div>';
+        + '<div class="form-hint">Leave blank or 0 if no withholding applies.</div></div>';
 
       // Date + Method
       html += '<div class="form-row form-row-2">'
@@ -3820,7 +3822,7 @@ function renderEditPaymentForm(paymentPageId) {
         html += '<div style="margin-bottom:8px"><a href="' + esc(p.receiptUrl) + '" target="_blank" style="font-size:13px;color:var(--accent)">\uD83D\uDCCE View current receipt</a></div>';
       }
       html += '<input type="hidden" id="ep-receipt-url" value="' + esc(p.receiptUrl || '') + '">'
-        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+        + '<div class="form-check" style="flex-wrap:wrap">'
         + '<input type="file" id="ep-receipt-file" accept="image/*,.pdf" style="display:none" onchange="onEditPaymentReceiptSelected()">'
         + '<button type="button" class="btn btn-secondary" onclick="$(\'ep-receipt-file\').click()">' + (p.receiptUrl ? 'Replace Receipt' : 'Attach Receipt') + '</button>'
         + '<button type="button" class="btn btn-secondary" onclick="openEditPaymentDrivePicker()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Drive</button>'
@@ -4051,7 +4053,7 @@ function renderNewPaymentForm(data) {
     + '<option>Check</option><option>ACH</option><option>Wire</option><option>Card</option><option>Zelle</option><option>Other</option></select></div></div>';
 
   // ── Mark Invoice as Paid ──
-  html += '<div class="form-group" style="display:flex;align-items:center;gap:8px">'
+  html += '<div class="form-group" class="form-check">'
     + '<input type="checkbox" id="pay-markpaid" checked><label for="pay-markpaid" style="font-size:13px">Mark invoice as Paid</label></div>';
 
   html += '<div class="form-group"><label class="form-label">Notes</label>'
@@ -4616,7 +4618,7 @@ function renderNewContractorForm() {
   $('topbar-actions').innerHTML = '';
   var html = '<div class="form-card"><div class="card"><div class="card-header"><h2>New Contractor</h2></div><div class="card-body">'
     + '<div class="form-row form-row-2">'
-    + '<div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="nco-name"></div>'
+    + '<div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="nco-name" placeholder="Full name"></div>'
     + '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="nco-email" type="email"></div></div>'
     + '<div class="form-row form-row-2">'
     + '<div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="nco-phone"></div>'
@@ -4631,7 +4633,7 @@ function renderNewContractorForm() {
     + '<div class="form-group"><label class="form-label">Payment Method</label><select class="form-select" id="nco-payment">'
     + '<option value="">-- Select --</option><option>Check</option><option>Zelle</option><option>ACH</option><option>Wire</option><option>Other</option></select></div></div>'
     + _w9FieldHtml('nco', '')
-    + '<div class="form-group" style="display:flex;align-items:center;gap:8px">'
+    + '<div class="form-group" class="form-check">'
     + '<input type="checkbox" id="nco-partner"><label for="nco-partner" style="font-size:13px">Is Partner</label></div>'
     + '<div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="nco-notes" rows="3"></textarea></div>'
     + '<div id="nco-status" style="margin-bottom:8px"></div>'
@@ -4706,7 +4708,7 @@ function renderEditContractorForm(contractorId) {
       });
       html += '</select></div></div>'
         + _w9FieldHtml('eco', c.w9Url)
-        + '<div class="form-group" style="display:flex;align-items:center;gap:8px">'
+        + '<div class="form-group" class="form-check">'
         + '<input type="checkbox" id="eco-partner"' + (c.isPartner ? ' checked' : '') + '><label for="eco-partner" style="font-size:13px">Is Partner</label></div>'
         + '<div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="eco-notes" rows="3">' + esc(c.notes) + '</textarea></div>'
         + '<div id="eco-status"></div>'
@@ -5290,13 +5292,13 @@ function _renderQuoteLineItemsUI() {
   _quoteLineItems.forEach(function(item) {
     html += '<div class="line-item-row" id="nqli-' + item.id + '" style="border:1px solid #e8e1d9;border-radius:6px;padding:12px;margin-bottom:8px">'
       + '<div class="form-row form-row-2">'
-      + '<div class="form-group" style="margin-bottom:6px"><label class="form-label" style="font-size:11px">Item Name *</label>'
+      + '<div class="form-group" style="margin-bottom:6px"><label class="form-label">Item Name *</label>'
       + '<input class="form-input" id="nqli-name-' + item.id + '" value="' + esc(item.name) + '" placeholder="e.g. Photography"></div>'
       + '<div class="form-group" style="margin-bottom:6px;display:flex;gap:8px">'
-      + '<div style="flex:1"><label class="form-label" style="font-size:11px">Qty</label><input class="form-input" id="nqli-qty-' + item.id + '" type="number" step="1" min="1" value="' + item.qty + '" oninput="_renderQuoteTotals()"></div>'
-      + '<div style="flex:2"><label class="form-label" style="font-size:11px">Unit Price ($)</label><input class="form-input" id="nqli-price-' + item.id + '" type="number" step="0.01" min="0" value="' + item.price + '" oninput="_renderQuoteTotals()"></div>'
+      + '<div style="flex:1"><label class="form-label">Qty</label><input class="form-input" id="nqli-qty-' + item.id + '" type="number" step="1" min="1" value="' + item.qty + '" oninput="_renderQuoteTotals()"></div>'
+      + '<div style="flex:2"><label class="form-label">Unit Price ($)</label><input class="form-input" id="nqli-price-' + item.id + '" type="number" step="0.01" min="0" value="' + item.price + '" oninput="_renderQuoteTotals()"></div>'
       + '</div></div>'
-      + '<div class="form-group" style="margin-bottom:0"><label class="form-label" style="font-size:11px">Description</label>'
+      + '<div class="form-group" style="margin-bottom:0"><label class="form-label">Description</label>'
       + '<input class="form-input" id="nqli-desc-' + item.id + '" value="' + esc(item.description) + '" placeholder="Optional details"></div>'
       + (_quoteLineItems.length > 1 ? '<button class="btn btn-danger btn-sm" style="margin-top:8px" onclick="removeQuoteLineItem(' + item.id + ')">Remove</button>' : '')
       + '</div>';
@@ -5405,7 +5407,7 @@ function renderReports() {
       // ── Tax Summary card ──
       html += '<div class="card" style="margin-bottom:20px">'
         + '<div class="card-header"><h2>Tax Summary</h2>'
-        + '<div style="display:flex;align-items:center;gap:8px">'
+        + '<div class="form-check">'
         + '<select class="form-select" id="tax-year" style="width:100px">';
       for (var y = currentYear; y >= 2023; y--) {
         html += '<option value="' + y + '"' + (y === currentYear ? ' selected' : '') + '>' + y + '</option>';
@@ -6251,7 +6253,7 @@ function renderCloneInvoiceForm(data) {
     + '</div>';
 
   if (mode === 'revise' && paidPayments.length) {
-    html += '<div class="form-group" style="display:flex;align-items:center;gap:8px;margin-top:12px">'
+    html += '<div class="form-group" class="form-check" style="margin-top:12px">'
       + '<input type="checkbox" id="rev-transfer" checked>'
       + '<label for="rev-transfer" style="font-size:13px">Transfer ' + paidPayments.length
       + ' logged payment' + (paidPayments.length !== 1 ? 's' : '') + ' to the new invoice</label>'
