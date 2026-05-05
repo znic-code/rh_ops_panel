@@ -1587,7 +1587,7 @@ function renderProjectView(projectId, clientId) {
 
       // Quick Create Invoice form (hidden by default)
       var todayISO = new Date().toISOString().split('T')[0];
-      var dueISO = new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0];
+      var dueISO = _addDaysClient(todayISO, 14);
       html += '<div class="card" id="quick-invoice-card" style="margin-top:20px;display:none"><div class="card-header"><h2>Create Invoice</h2>'
         + '<button class="btn btn-secondary btn-sm" onclick="toggleCreateInvoiceForm()">Cancel</button>'
         + '</div><div class="card-body">'
@@ -5326,6 +5326,9 @@ function submitNewQuote() {
         var msg = '<div class="status-banner success">&#10003; Quote <strong>' + esc(result.quoteId) + '</strong> created!';
         if (result.url) msg += ' <a href="' + esc(result.url) + '" target="_blank">View PDF &rarr;</a>';
         msg += '</div>';
+        if (result.notionError) {
+          msg += '<div class="status-banner warning" style="margin-top:6px">⚠ PDF created but Notion record failed — verify in Notion manually. (' + esc(result.notionError) + ')</div>';
+        }
         if (result.pageId) {
           msg += '<button class="btn btn-secondary" style="margin-top:8px" onclick="navigate(\'quote\',\'' + jsEsc(result.quoteId) + '\',{quoteId:\'' + jsEsc(result.pageId) + '\'})">View Quote &rarr;</button>';
         }
@@ -6026,6 +6029,12 @@ function submitQuickInvoice(clientId, projectId) {
   var zeroItems = lineItems.filter(function(item) { return !item.price || item.price <= 0; });
   if (zeroItems.length && !confirm(zeroItems.length + ' line item(s) have a $0 price. Continue anyway?')) return;
 
+  var issueVal = $('qi-issue').value, dueVal = $('qi-due').value;
+  if (issueVal && dueVal && dueVal < issueVal) {
+    $('qi-status').innerHTML = '<div class="status-banner error">Due Date must be on or after the Issue Date.</div>';
+    return;
+  }
+
   var btn = $('qi-submit');
   btn.disabled = true; btn.textContent = 'Creating\u2026';
   $('qi-status').innerHTML = '<div class="loading"><span class="spinner"></span> Generating invoice PDF\u2026</div>';
@@ -6046,11 +6055,15 @@ function submitQuickInvoice(clientId, projectId) {
       if (r.success) {
         var msg = 'Invoice <strong>' + esc(r.invoiceId) + '</strong> created!';
         if (r.url) msg += ' <a href="' + esc(r.url) + '" target="_blank" style="color:inherit;text-decoration:underline">Open in Drive \u2197</a>';
-        $('qi-status').innerHTML = '<div class="status-banner success">' + msg + '</div>';
+        var bannerHtml = '<div class="status-banner success">' + msg + '</div>';
+        if (r.notionError) {
+          bannerHtml += '<div class="status-banner warning" style="margin-top:6px">\u26a0 PDF created but Notion record failed \u2014 verify in Notion manually. (' + esc(r.notionError) + ')</div>';
+        }
+        $('qi-status').innerHTML = bannerHtml;
         // Reload project view after a short delay to show the new invoice
         setTimeout(function() {
           navigate('project', currentView.title, { projectId: projectId, clientId: clientId });
-        }, 1500);
+        }, r.notionError ? 4000 : 1500);
       } else {
         $('qi-status').innerHTML = '<div class="status-banner error">' + esc(r.error) + '</div>';
       }
