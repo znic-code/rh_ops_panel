@@ -323,6 +323,7 @@ body {
   box-shadow: 0 0 0 3px rgba(214,40,40,.1);
 }
 .form-textarea { resize: vertical; min-height: 70px; }
+.form-input:disabled, .form-select:disabled { background: #f7f4ee; color: #5a4f44; cursor: default; }
 .form-row { display: grid; gap: 12px; }
 .form-row-2 { grid-template-columns: 1fr 1fr; }
 .form-row-3 { grid-template-columns: 2fr 1fr 1fr; }
@@ -1159,8 +1160,11 @@ function renderNewClientForm() {
     + '<input class="form-input" id="nc-startdate" type="date"></div></div>'
     + '</div></div>';
 
-  html += '<div id="nc-status" style="margin-top:16px"></div>'
-    + '<button class="btn btn-primary" id="nc-submit" onclick="submitNewClient()" style="margin-top:8px">Create Client</button>';
+  html += '<div id="nc-status" style="margin-top:16px;margin-bottom:8px"></div>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button class="btn btn-primary" id="nc-submit" onclick="submitNewClient()">Create Client</button>'
+    + '<button class="btn btn-secondary" onclick="goBack()">Cancel</button>'
+    + '</div>';
   html += '</div>';
 
   $('content').innerHTML = html;
@@ -1345,8 +1349,11 @@ function renderAddContactForm(clientId) {
     + '<div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="ac-phone" placeholder="Phone"></div></div>'
     + '<div class="form-group"><label class="form-label">Role</label><input class="form-input" id="ac-role" placeholder="e.g. Director"></div>'
     + '<div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="ac-notes" placeholder="Internal notes"></textarea></div>'
-    + '<div id="ac-status"></div>'
+    + '<div id="ac-status" style="margin-bottom:8px"></div>'
+    + '<div style="display:flex;gap:8px">'
     + '<button class="btn btn-primary" id="ac-submit" onclick="submitAddContact(\'' + jsEsc(clientId) + '\')">Add Contact</button>'
+    + '<button class="btn btn-secondary" onclick="goBack()">Cancel</button>'
+    + '</div>'
     + '</div></div></div>';
   $('content').innerHTML = html;
 }
@@ -1481,8 +1488,11 @@ function renderNewProjectForm(clientId) {
     + '<div class="form-group"><label class="form-label">End Date</label><input class="form-input" id="np-end" type="date"></div>'
     + '<div class="form-group"></div></div>'
     + '<div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="np-notes" placeholder="Optional notes"></textarea></div>'
-    + '<div id="np-status"></div>'
+    + '<div id="np-status" style="margin-bottom:8px"></div>'
+    + '<div style="display:flex;gap:8px">'
     + '<button class="btn btn-primary" id="np-submit" onclick="submitNewProject(\'' + jsEsc(clientId || '') + '\')">Create Project</button>'
+    + '<button class="btn btn-secondary" onclick="goBack()">Cancel</button>'
+    + '</div>'
     + '</div></div></div>';
   $('content').innerHTML = html;
   $('np-start').value = new Date().toISOString().split('T')[0];
@@ -1614,7 +1624,7 @@ function renderProjectView(projectId, clientId) {
         + '<div class="form-group"><label class="form-label">Due Date *</label>'
         + '<input class="form-input" id="qi-due" type="date" value="' + dueISO + '"></div>'
         + '</div>'
-        + '<div style="margin:16px 0 8px"><strong style="font-size:14px">Line Items</strong></div>'
+        + '<label class="form-label" style="margin-top:8px;display:block">Line Items</label>'
         + '<div id="qi-items"></div>'
         + '<button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="addQuickLineItem()">+ Add Item</button>'
         + '<div style="margin-top:16px;padding:12px;background:#f7f4ee;border-radius:8px;font-size:14px">'
@@ -1622,10 +1632,10 @@ function renderProjectView(projectId, clientId) {
         + '<div style="display:flex;justify-content:space-between"><span>Tax</span><span id="qi-tax-display">$0.00</span></div>'
         + '<div style="display:flex;justify-content:space-between;font-weight:700;margin-top:4px;padding-top:4px;border-top:1px solid #d9d2c7"><span>Total</span><span id="qi-total">$0.00</span></div>'
         + '</div>'
-        + '<div style="margin-top:16px;display:flex;gap:8px">'
+        + '<div id="qi-status" style="margin-top:12px"></div>'
+        + '<div style="margin-top:8px;display:flex;gap:8px">'
         + '<button class="btn btn-primary" id="qi-submit" onclick="submitQuickInvoice(\'' + jsEsc(p.clientId || '') + '\',\'' + jsEsc(projectId) + '\')">Create Invoice</button>'
         + '</div>'
-        + '<div id="qi-status" style="margin-top:12px"></div>'
         + '</div></div>';
 
       // Quick Log Expense form (hidden by default)
@@ -1652,9 +1662,9 @@ function renderProjectView(projectId, clientId) {
         + '<div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:4px">'
         + '<label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="qe-billable"> Billable</label></div></div>'
         + '<div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="qe-notes" rows="2"></textarea></div>'
-        + '<div style="margin-top:12px;display:flex;gap:8px">'
-        + '<button class="btn btn-primary" id="qe-submit" onclick="submitQuickExpense(\'' + jsEsc(p.clientId || '') + '\',\'' + jsEsc(projectId) + '\')">Log Expense</button></div>'
         + '<div id="qe-status" style="margin-top:12px"></div>'
+        + '<div style="margin-top:8px;display:flex;gap:8px">'
+        + '<button class="btn btn-primary" id="qe-submit" onclick="submitQuickExpense(\'' + jsEsc(p.clientId || '') + '\',\'' + jsEsc(projectId) + '\')">Log Expense</button></div>'
         + '</div></div>';
 
       // Grid: Invoices + Agreements
@@ -1838,8 +1848,11 @@ function renderNewAgreementForm(projectId, clientId) {
     + '<input class="form-input" id="na-url" placeholder="https://drive.google.com/..."></div>'
     + '<div class="form-group"><label class="form-label">Notes</label>'
     + '<textarea class="form-textarea" id="na-notes" placeholder="Optional notes"></textarea></div>'
-    + '<div id="na-status"></div>'
+    + '<div id="na-status" style="margin-bottom:8px"></div>'
+    + '<div style="display:flex;gap:8px">'
     + '<button class="btn btn-primary" id="na-submit" onclick="submitNewAgreement(\'' + jsEsc(projectId) + '\',\'' + jsEsc(clientId||'') + '\')">Create Agreement</button>'
+    + '<button class="btn btn-secondary" onclick="goBack()">Cancel</button>'
+    + '</div>'
     + '</div></div></div>';
   $('content').innerHTML = html;
   $('na-date').value = new Date().toISOString().split('T')[0];
@@ -2045,8 +2058,11 @@ function renderEditClientForm(clientId) {
         + '<label for="ec-withholding" style="font-size:13px;cursor:pointer">Withholding Agent</label>'
         + '<span id="ec-withholding-rate-wrap" style="display:' + (c.withholdingAgent ? 'flex' : 'none') + ';align-items:center;gap:4px;font-size:13px">'
         + '<input class="form-input" id="ec-withholding-rate" type="number" step="0.1" min="0" max="100" value="' + (c.withholdingRate || 10) + '" style="width:70px;padding:4px 8px">%</span></div>'
-        + '<div id="ec-status"></div>'
+        + '<div id="ec-status" style="margin-bottom:8px"></div>'
+        + '<div style="display:flex;gap:8px">'
         + '<button class="btn btn-primary" id="ec-submit" onclick="submitEditClient(\'' + jsEsc(clientId) + '\')">Save Changes</button>'
+        + '<button class="btn btn-secondary" onclick="goBack()">Cancel</button>'
+        + '</div>'
         + '</div></div></div>';
       $('content').innerHTML = html;
     })
@@ -2101,7 +2117,7 @@ function renderEditProjectForm(projectId) {
       var p = data.project;
       var html = '<div class="form-card"><div class="card"><div class="card-header"><h2>Edit Project</h2></div><div class="card-body">'
         + '<div class="form-group"><label class="form-label">Client</label>'
-        + '<input class="form-input" value="' + esc(data.clientName || '') + '" disabled style="background:#f7f4ee;color:#6b6459;cursor:not-allowed"></div>'
+        + '<input class="form-input" value="' + esc(data.clientName || '') + '" disabled></div>'
         + '<div class="form-group"><label class="form-label">Project Name *</label><input class="form-input" id="ep-name" value="' + esc(p.name) + '"></div>'
         + '<div class="form-row form-row-2">'
         + '<div class="form-group"><label class="form-label">Status</label><select class="form-select" id="ep-status-val">'
@@ -2117,8 +2133,11 @@ function renderEditProjectForm(projectId) {
         + '<div class="form-group"><label class="form-label">Start Date</label><input class="form-input" id="ep-start" type="date" value="' + esc(p.startDate) + '"></div>'
         + '<div class="form-group"><label class="form-label">End Date</label><input class="form-input" id="ep-end" type="date" value="' + esc(p.endDate) + '"></div></div>'
         + '<div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="ep-notes">' + esc(p.notes) + '</textarea></div>'
-        + '<div id="ep-status"></div>'
+        + '<div id="ep-status" style="margin-bottom:8px"></div>'
+        + '<div style="display:flex;gap:8px">'
         + '<button class="btn btn-primary" id="ep-submit" onclick="submitEditProject(\'' + jsEsc(projectId) + '\')">Save Changes</button>'
+        + '<button class="btn btn-secondary" onclick="goBack()">Cancel</button>'
+        + '</div>'
         + '</div></div></div>';
       $('content').innerHTML = html;
     })
@@ -2191,8 +2210,11 @@ function renderEditAgreementForm(agreementId) {
         + '<div class="form-group"><label class="form-label">Effective Date</label><input class="form-input" id="ea-date" type="date" value="' + esc(ag.effectiveDate) + '"></div></div>'
         + '<div class="form-group"><label class="form-label">Drive File URL</label><input class="form-input" id="ea-url" value="' + esc(ag.fileUrl) + '"></div>'
         + '<div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="ea-notes">' + esc(ag.notes) + '</textarea></div>'
-        + '<div id="ea-status"></div>'
+        + '<div id="ea-status" style="margin-bottom:8px"></div>'
+        + '<div style="display:flex;gap:8px">'
         + '<button class="btn btn-primary" id="ea-submit" onclick="submitEditAgreement(\'' + jsEsc(agreementId) + '\')">Save Changes</button>'
+        + '<button class="btn btn-secondary" onclick="goBack()">Cancel</button>'
+        + '</div>'
         + '</div></div></div>';
       $('content').innerHTML = html;
     })
@@ -2556,8 +2578,8 @@ function renderInvoiceView(invoiceId, clientId) {
         + '<div class="form-group"><label class="form-label">Date</label><input class="form-input" id="lp-date" type="date"></div></div>'
         + '<div class="form-group" style="display:flex;align-items:center;gap:8px">'
         + '<input type="checkbox" id="lp-markpaid"' + (isWithholdingClient ? '' : ' checked') + '><label for="lp-markpaid" style="font-size:13px">Mark invoice as Paid</label></div>'
-        + '<div id="lp-status"></div>'
-        + '<button class="btn btn-success" id="lp-submit" onclick="submitLogPayment(\'' + jsEsc(inv.id) + '\',\'' + jsEsc(inv.clientId||'') + '\')">Log Payment</button>'
+        + '<div id="lp-status" style="margin-bottom:8px"></div>'
+        + '<button class="btn btn-primary" id="lp-submit" onclick="submitLogPayment(\'' + jsEsc(inv.id) + '\',\'' + jsEsc(inv.clientId||'') + '\')">Log Payment</button>'
         + '</div></div>';
 
       html += '<div id="project-status" style="margin-top:20px"></div>';
@@ -2889,8 +2911,11 @@ function renderEditExpenseForm(expensePageId) {
       // Notes
       html += '<div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="ee-notes" rows="3">' + esc(e.notes) + '</textarea></div>';
 
-      html += '<div id="ee-status-msg"></div>'
+      html += '<div id="ee-banner" style="margin-bottom:8px"></div>'
+        + '<div style="display:flex;gap:8px">'
         + '<button class="btn btn-primary" id="ee-submit" onclick="submitEditExpense(\'' + e.id + '\')">Save Changes</button>'
+        + '<button class="btn btn-secondary" onclick="goBack()">Cancel</button>'
+        + '</div>'
         + '</div></div></div>';
 
       $('content').innerHTML = html;
@@ -2995,24 +3020,24 @@ function uploadEditReceipt() {
 function submitEditExpense(expensePageId) {
   var description = $('ee-description').value.trim();
   var amount = parseFloat($('ee-amount').value);
-  if (!description) { $('ee-status-msg').innerHTML = '<div class="status-banner error">Description is required.</div>'; return; }
-  if (!amount || amount <= 0) { $('ee-status-msg').innerHTML = '<div class="status-banner error">Amount must be greater than zero.</div>'; return; }
+  if (!description) { $('ee-banner').innerHTML = '<div class="status-banner error">Description is required.</div>'; return; }
+  if (!amount || amount <= 0) { $('ee-banner').innerHTML = '<div class="status-banner error">Amount must be greater than zero.</div>'; return; }
 
   $('ee-submit').disabled = true; $('ee-submit').textContent = 'Saving…';
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
         _ssClear();
-        $('ee-status-msg').innerHTML = '<div class="status-banner success">Expense updated.</div>';
+        $('ee-banner').innerHTML = '<div class="status-banner success">Expense updated.</div>';
         $('ee-submit').textContent = 'Saved';
         setTimeout(function() { goBack(); }, 600);
       } else {
-        $('ee-status-msg').innerHTML = '<div class="status-banner error">' + esc(result.error) + '</div>';
+        $('ee-banner').innerHTML = '<div class="status-banner error">' + esc(result.error) + '</div>';
         $('ee-submit').disabled = false; $('ee-submit').textContent = 'Save Changes';
       }
     })
     .withFailureHandler(function(err) {
-      $('ee-status-msg').innerHTML = '<div class="status-banner error">' + esc(err.message) + '</div>';
+      $('ee-banner').innerHTML = '<div class="status-banner error">' + esc(err.message) + '</div>';
       $('ee-submit').disabled = false; $('ee-submit').textContent = 'Save Changes';
     })
     .panelUpdateExpense(expensePageId, {
@@ -3807,8 +3832,11 @@ function renderEditPaymentForm(paymentPageId) {
       // Notes
       html += '<div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="ep-notes" rows="3">' + esc(p.notes) + '</textarea></div>';
 
-      html += '<div id="ep-status"></div>'
+      html += '<div id="ep-status" style="margin-bottom:8px"></div>'
+        + '<div style="display:flex;gap:8px">'
         + '<button class="btn btn-primary" id="ep-submit" onclick="submitEditPayment(\'' + p.id + '\')">Save Changes</button>'
+        + '<button class="btn btn-secondary" onclick="goBack()">Cancel</button>'
+        + '</div>'
         + '</div></div></div>';
 
       $('content').innerHTML = html;
@@ -4606,8 +4634,11 @@ function renderNewContractorForm() {
     + '<div class="form-group" style="display:flex;align-items:center;gap:8px">'
     + '<input type="checkbox" id="nco-partner"><label for="nco-partner" style="font-size:13px">Is Partner</label></div>'
     + '<div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="nco-notes" rows="3"></textarea></div>'
-    + '<div id="nco-status"></div>'
+    + '<div id="nco-status" style="margin-bottom:8px"></div>'
+    + '<div style="display:flex;gap:8px">'
     + '<button class="btn btn-primary" id="nco-submit" onclick="submitNewContractor()">Create Contractor</button>'
+    + '<button class="btn btn-secondary" onclick="goBack()">Cancel</button>'
+    + '</div>'
     + '</div></div></div>';
   $('content').innerHTML = html;
 }
@@ -5004,8 +5035,8 @@ function renderEditQuoteForm(quotePageId) {
 
       var html = '<div class="form-card"><div class="card"><div class="card-header"><h2>Edit Quote — ' + esc(q.quoteId) + '</h2></div><div class="card-body">'
         + (data.clientName || data.projectName ? '<div class="form-row form-row-2" style="margin-bottom:12px">'
-          + (data.clientName ? '<div class="form-group"><label class="form-label">Client</label><div class="form-input" style="background:#f5f0eb;color:#5a4f44">' + esc(data.clientName) + '</div></div>' : '')
-          + (data.projectName ? '<div class="form-group"><label class="form-label">Project</label><div class="form-input" style="background:#f5f0eb;color:#5a4f44">' + esc(data.projectName) + '</div></div>' : '')
+          + (data.clientName ? '<div class="form-group"><label class="form-label">Client</label><input class="form-input" value="' + esc(data.clientName) + '" disabled></div>' : '')
+          + (data.projectName ? '<div class="form-group"><label class="form-label">Project</label><input class="form-input" value="' + esc(data.projectName) + '" disabled></div>' : '')
           + '</div>' : '')
         + '<div class="form-row form-row-2">'
         + '<div class="form-group"><label class="form-label">Issue Date</label><input class="form-input" id="nq-issue" type="date" value="' + (q.issuedDate || '') + '"></div>'
@@ -5220,8 +5251,11 @@ function renderNewQuoteForm() {
     + '<div class="form-group"><label class="form-label">Quote Total</label><div id="nq-total-display" style="font-size:18px;font-weight:700;padding:8px 0;color:#2f2f2f">$0.00</div></div>'
     + '</div>'
 
-    + '<div id="nq-status"></div>'
+    + '<div id="nq-status" style="margin-bottom:8px"></div>'
+    + '<div style="display:flex;gap:8px">'
     + '<button class="btn btn-primary" id="nq-submit" onclick="submitNewQuote()">Create Quote</button>'
+    + '<button class="btn btn-secondary" onclick="goBack()">Cancel</button>'
+    + '</div>'
     + '</div></div></div>';
 
   $('content').innerHTML = html;
@@ -6363,8 +6397,8 @@ function renderSettings() {
         + '<input class="form-input" id="co-address" value="' + esc(co.address || '') + '" placeholder="763 Calle Vesta, San Juan, PR 00923"></div>'
         + '<div class="form-group"><label class="form-label">Phone</label>'
         + '<input class="form-input" id="co-phone" value="' + esc(co.phone || '') + '" placeholder="+1 (787) 607-4678"></div>'
+        + '<div id="co-status" style="margin-bottom:8px"></div>'
         + '<button class="btn btn-primary" id="co-save-btn" onclick="saveCompanyInfo()">Save Company Info</button>'
-        + '<div id="co-status" style="margin-top:12px"></div>'
         + '</div></div>';
 
       // Invoice Reminders section
@@ -6380,8 +6414,8 @@ function renderSettings() {
         + '<div class="form-group"><label class="form-label">Overdue Reminder Intervals (days)</label>'
         + '<input class="form-input" id="rem-intervals" placeholder="7, 14, 30" value="' + esc(intervals) + '"></div>'
         + '</div>'
+        + '<div id="settings-status" style="margin-bottom:8px"></div>'
         + '<button class="btn btn-primary" id="settings-save" onclick="saveSettings()">Save Settings</button>'
-        + '<div id="settings-status" style="margin-top:12px"></div>'
         + '</div></div>';
 
       // Email Templates section
@@ -6420,9 +6454,9 @@ function renderSettings() {
         + '<span style="font-size:11px;color:#8c7b6b">Conditionals \u2014 block is included only if the variable has a value</span><br>'
         + '<code>{{#driveLink}}View invoice: {{driveLink}}{{/driveLink}}</code> &nbsp; <code>{{#balanceDue}}Balance due: ${{balanceDue}}{{/balanceDue}}</code>'
         + '</div>'
+        + '<div id="tpl-form-status" style="margin-bottom:8px"></div>'
         + '<div style="display:flex;gap:8px"><button class="btn btn-primary" id="tpl-save-btn" onclick="saveEmailTemplate()">Save Template</button>'
         + '<button class="btn btn-secondary" onclick="cancelTemplateForm()">Cancel</button></div>'
-        + '<div id="tpl-form-status" style="margin-top:8px"></div>'
         + '</div>';
 
       // Template list (loaded async)
