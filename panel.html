@@ -1178,11 +1178,11 @@ function addNewContactEntry() {
   div.innerHTML = '<div class="contact-entry-header"><strong>Contact ' + n + (n === 1 ? ' (Primary)' : '') + '</strong>'
     + (n > 1 ? '<button class="remove-contact" onclick="this.closest(\'.contact-entry\').remove()">&times;</button>' : '')
     + '</div>'
-    + '<div class="form-group"><input class="form-input" id="ce-name-' + n + '" placeholder="Full name"></div>'
+    + '<div class="form-group"><label class="form-label">Full Name *</label><input class="form-input" id="ce-name-' + n + '" placeholder="Full name"></div>'
     + '<div class="form-row form-row-2">'
-    + '<div class="form-group"><input class="form-input" id="ce-email-' + n + '" placeholder="Email" type="email"></div>'
-    + '<div class="form-group"><input class="form-input" id="ce-phone-' + n + '" placeholder="Phone"></div></div>'
-    + '<div class="form-group"><input class="form-input" id="ce-role-' + n + '" placeholder="Role (e.g. Director, Billing)"></div>';
+    + '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="ce-email-' + n + '" placeholder="Email" type="email"></div>'
+    + '<div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="ce-phone-' + n + '" placeholder="Phone"></div></div>'
+    + '<div class="form-group"><label class="form-label">Role</label><input class="form-input" id="ce-role-' + n + '" placeholder="e.g. Director, Billing"></div>';
   $('nc-contacts').appendChild(div);
 }
 
@@ -1609,9 +1609,9 @@ function renderProjectView(projectId, clientId) {
         + '<input class="form-input" id="qi-tax" type="number" step="0.01" value="0" min="0" oninput="updateQuickTotals()"></div>'
         + '</div>'
         + '<div class="form-row form-row-2">'
-        + '<div class="form-group"><label class="form-label">Issue Date</label>'
+        + '<div class="form-group"><label class="form-label">Issue Date *</label>'
         + '<input class="form-input" id="qi-issue" type="date" value="' + todayISO + '" onchange="updateQuickDueDate()"></div>'
-        + '<div class="form-group"><label class="form-label">Due Date</label>'
+        + '<div class="form-group"><label class="form-label">Due Date *</label>'
         + '<input class="form-input" id="qi-due" type="date" value="' + dueISO + '"></div>'
         + '</div>'
         + '<div style="margin:16px 0 8px"><strong style="font-size:14px">Line Items</strong></div>'
@@ -2016,7 +2016,7 @@ function renderEditClientForm(clientId) {
         + '<div class="card"><div class="card-header"><h2>Edit Client</h2></div><div class="card-body">'
         + '<div class="form-group"><label class="form-label">Client Name *</label>'
         + '<input class="form-input" id="ec-name" value="' + esc(c.name) + '"></div>'
-        + '<div class="form-row form-row-2">'
+        + '<div class="form-row form-row-3">'
         + '<div class="form-group"><label class="form-label">Status</label>'
         + '<select class="form-select" id="ec-client-status">'
         + '<option' + (c.status==='Active'   ? ' selected' : '') + '>Active</option>'
