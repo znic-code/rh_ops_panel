@@ -816,7 +816,17 @@ function panelLogExpenseFromReceipt(data) {
 /** Log a payment. */
 function panelLogPayment(data) {
   var result = logPayment(data);
-  if (result.success) _cacheInvalidate(_CACHE_KEYS);
+  if (result.success) {
+    _cacheInvalidate(_CACHE_KEYS);
+    if (data.closeProject && data.projectId) {
+      try {
+        setProjectStatus(data.projectId, 'Closed');
+        result.projectClosed = true;
+      } catch (e) {
+        result.projectCloseError = e.message;
+      }
+    }
+  }
   return result;
 }
 
@@ -996,7 +1006,17 @@ function panelLogPaymentFromReceipt(data) {
     }
 
     var result = logPayment(data);
-    if (result.success) _cacheInvalidate(_CACHE_KEYS);
+    if (result.success) {
+      _cacheInvalidate(_CACHE_KEYS);
+      if (data.closeProject && data.projectId) {
+        try {
+          setProjectStatus(data.projectId, 'Closed');
+          result.projectClosed = true;
+        } catch (e) {
+          result.projectCloseError = e.message;
+        }
+      }
+    }
     return result;
   } catch (e) {
     return { success: false, error: e.message };

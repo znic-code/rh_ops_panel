@@ -2580,8 +2580,9 @@ function renderInvoiceView(invoiceId, clientId) {
         + '<div class="form-group"><label class="form-label">Date</label><input class="form-input" id="lp-date" type="date"></div></div>'
         + '<div class="form-group" class="form-check">'
         + '<input type="checkbox" id="lp-markpaid"' + (isWithholdingClient ? '' : ' checked') + '><label for="lp-markpaid" style="font-size:13px">Mark invoice as Paid</label></div>'
+        + (inv.projectId ? '<div class="form-group form-check"><input type="checkbox" id="lp-close-project"><label for="lp-close-project" style="font-size:13px">Close project</label></div>' : '')
         + '<div id="lp-status" style="margin-bottom:8px"></div>'
-        + '<button class="btn btn-primary" id="lp-submit" onclick="submitLogPayment(\'' + jsEsc(inv.id) + '\',\'' + jsEsc(inv.clientId||'') + '\')">Log Payment</button>'
+        + '<button class="btn btn-primary" id="lp-submit" onclick="submitLogPayment(\'' + jsEsc(inv.id) + '\',\'' + jsEsc(inv.clientId||'') + '\',\'' + jsEsc(inv.projectId||'') + '\')">Log Payment</button>'
         + '</div></div>';
 
       html += '<div id="project-status" style="margin-top:20px"></div>';
@@ -2598,18 +2599,23 @@ function renderInvoiceView(invoiceId, clientId) {
  * @param {string} invoiceId - Notion page ID of the invoice.
  * @param {string} clientId  - Notion page ID of the parent client.
  */
-function submitLogPayment(invoiceId, clientId) {
+function submitLogPayment(invoiceId, clientId, projectId) {
   var desc = $('lp-desc') ? $('lp-desc').value.trim() : '';
   var net = parseFloat($('lp-amount').value);  // check amount (client already withheld)
   if (!net || net <= 0) { $('lp-status').innerHTML = '<div class="status-banner error">Amount must be > 0.</div>'; return; }
   var withheld  = parseFloat($('lp-withheld').value) || 0;
   var netAmount = net;  // stored amount IS the check amount
+  var closeProject = !!($('lp-close-project') && $('lp-close-project').checked);
   $('lp-submit').disabled = true; $('lp-submit').textContent = 'Saving\u2026';
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
         _ssClear();
-        $('lp-status').innerHTML = '<div class="status-banner success">Payment logged.' + (result.invoiceUpdated ? ' Invoice marked as Paid.' : '') + '</div>';
+        var msg = 'Payment logged.';
+        if (result.invoiceUpdated) msg += ' Invoice marked as Paid.';
+        if (result.projectClosed)  msg += ' Project closed.';
+        if (result.projectCloseError) msg += ' (Could not close project: ' + esc(result.projectCloseError) + ')';
+        $('lp-status').innerHTML = '<div class="status-banner success">' + msg + '</div>';
         $('lp-submit').textContent = 'Logged';
       } else {
         $('lp-status').innerHTML = '<div class="status-banner error">' + esc(result.error) + '</div>';
@@ -2625,6 +2631,7 @@ function submitLogPayment(invoiceId, clientId) {
       amount: netAmount, amountWithheld: withheld,
       method: $('lp-method').value,
       paymentDate: $('lp-date').value, markPaid: $('lp-markpaid').checked,
+      closeProject: closeProject, projectId: projectId || '',
     });
 }
 
@@ -4032,7 +4039,7 @@ function renderNewPaymentForm(data) {
     + '<div class="form-group"><label class="form-label">Client</label>'
     + '<select class="form-select" id="pay-client" onchange="onPaymentClientChange()"><option value="">None</option></select></div>'
     + '<div class="form-group"><label class="form-label">Invoice</label>'
-    + '<select class="form-select" id="pay-invoice"><option value="">None</option></select></div></div>';
+    + '<select class="form-select" id="pay-invoice" onchange="onPaymentInvoiceChange()"><option value="">None</option></select></div></div>';
 
   // Withholding banner (hidden until a withholding client is selected)
   html += '<div id="pay-withholding-banner" style="display:none" class="status-banner" style="background:#fef3c7;border-color:#d97706;color:#92400e;margin-bottom:12px"></div>';
@@ -4052,9 +4059,11 @@ function renderNewPaymentForm(data) {
     + '<div class="form-group"><label class="form-label">Method</label><select class="form-select" id="pay-method">'
     + '<option>Check</option><option>ACH</option><option>Wire</option><option>Card</option><option>Zelle</option><option>Other</option></select></div></div>';
 
-  // ── Mark Invoice as Paid ──
-  html += '<div class="form-group" class="form-check">'
+  // ── Mark Invoice as Paid / Close Project ──
+  html += '<div class="form-group form-check">'
     + '<input type="checkbox" id="pay-markpaid" checked><label for="pay-markpaid" style="font-size:13px">Mark invoice as Paid</label></div>';
+  html += '<div id="pay-close-project-group" style="display:none" class="form-group form-check">'
+    + '<input type="checkbox" id="pay-close-project"><label for="pay-close-project" style="font-size:13px">Close project</label></div>';
 
   html += '<div class="form-group"><label class="form-label">Notes</label>'
     + '<textarea class="form-textarea" id="pay-notes" rows="2"></textarea></div>';
@@ -4149,6 +4158,21 @@ function onPaymentClientChange() {
     if ($('pay-withheld')) $('pay-withheld').value = '';
     // Non-withholding clients — pre-check Mark as Paid
     if ($('pay-markpaid')) $('pay-markpaid').checked = true;
+  }
+}
+
+/** Show/hide the Close Project checkbox based on whether the selected invoice has a project. */
+function onPaymentInvoiceChange() {
+  var invoiceId = $('pay-invoice') ? $('pay-invoice').value : '';
+  var invoices = window._allInvoices || [];
+  var inv = null;
+  for (var i = 0; i < invoices.length; i++) {
+    if (invoices[i].id === invoiceId) { inv = invoices[i]; break; }
+  }
+  var group = $('pay-close-project-group');
+  if (group) {
+    group.style.display = (inv && inv.projectId) ? '' : 'none';
+    if ($('pay-close-project')) $('pay-close-project').checked = false;
   }
 }
 
@@ -4392,8 +4416,11 @@ function submitNewPayment() {
     .withSuccessHandler(function(result) {
       if (result.success) {
         _ssClear();
-        $('pay-status').innerHTML = '<div class="status-banner success">Payment logged: ' + esc(result.payment.paymentId)
-          + (result.invoiceUpdated ? '. Invoice marked as Paid.' : '') + '</div>';
+        var msg = 'Payment logged: ' + esc(result.payment.paymentId);
+        if (result.invoiceUpdated) msg += '. Invoice marked as Paid.';
+        if (result.projectClosed)  msg += ' Project closed.';
+        if (result.projectCloseError) msg += ' (Could not close project: ' + esc(result.projectCloseError) + ')';
+        $('pay-status').innerHTML = '<div class="status-banner success">' + msg + '</div>';
         $('pay-submit').textContent = 'Logged';
         setTimeout(function() { navigateToRoot('payments', 'Payments'); }, 800);
       } else {
@@ -4414,6 +4441,15 @@ function submitNewPayment() {
       clientId:         $('pay-client').value || '',
       invoiceId:        $('pay-invoice').value || '',
       markPaid:         $('pay-markpaid').checked,
+      closeProject:     !!($('pay-close-project') && $('pay-close-project').checked),
+      projectId:        (function() {
+                          var selInv = $('pay-invoice') ? $('pay-invoice').value : '';
+                          var invs = window._allInvoices || [];
+                          for (var i = 0; i < invs.length; i++) {
+                            if (invs[i].id === selInv) return invs[i].projectId || '';
+                          }
+                          return '';
+                        })(),
       receiptFileId:    _paymentReceiptFileId || '',
       pickerSource:     _paymentReceiptPickerSource,
       receiptUrl:       '',
