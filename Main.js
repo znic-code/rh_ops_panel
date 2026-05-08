@@ -541,7 +541,12 @@ function panelCreateClient(data) {
 
 /** Add a contact to a client. */
 function panelAddContact(data) {
+  _requireRole(['admin', 'partner']);
   try {
+    if (data.clientId) {
+      var client = getClientById(data.clientId);
+      if (!client) return { success: false, error: 'Client not found.' };
+    }
     var page = createNotionContact(data);
     return { success: true, contact: { id: page.id, name: data.name, notionUrl: page.url || '' } };
   } catch (e) {
@@ -599,6 +604,11 @@ function panelArchiveContact(contactId) {
 
 /** Create a new project. */
 function panelCreateProject(data) {
+  _requireRole(['admin', 'partner']);
+  if (data.clientId) {
+    var client = getClientById(data.clientId);
+    if (!client) return { success: false, error: 'Client not found.' };
+  }
   var result = createProject(data);
   if (result.success) _cacheInvalidate(_CACHE_KEYS);
   return result;
@@ -606,6 +616,7 @@ function panelCreateProject(data) {
 
 /** Create a new agreement. */
 function panelCreateAgreement(data) {
+  _requireRole(['admin', 'partner']);
   var result = createAgreement(data);
   if (result.success) _cacheInvalidate(_CACHE_KEYS);
   return result;
@@ -666,6 +677,7 @@ function panelGetExpenseById(expensePageId) {
 
 /** Update an existing expense. */
 function panelUpdateExpense(expensePageId, data) {
+  _requireRole(['admin', 'partner']);
   try {
     var existing = getExpenseById(expensePageId);
 
@@ -788,6 +800,7 @@ function panelReExtractReceipt(fileId, context) {
  * Moves/copies the receipt file to the correct folder based on the final client selection.
  */
 function panelLogExpenseFromReceipt(data) {
+  _requireRole(['admin', 'partner']);
   try {
     // Pre-generate ID so the file can be renamed to match
     var expenseId = _generateExpenseId(data.expenseDate);
@@ -815,6 +828,7 @@ function panelLogExpenseFromReceipt(data) {
 
 /** Log a payment. */
 function panelLogPayment(data) {
+  _requireRole(['admin', 'partner']);
   var result = logPayment(data);
   if (result.success) {
     _cacheInvalidate(_CACHE_KEYS);
@@ -875,6 +889,7 @@ function panelGetPaymentById(paymentPageId) {
 
 /** Update an existing payment. */
 function panelUpdatePayment(paymentPageId, data) {
+  _requireRole(['admin', 'partner']);
   try {
     var existing = getPaymentById(paymentPageId);
 
@@ -988,6 +1003,7 @@ function panelPickerExtractPaymentReceipt(data) {
  * Moves/copies the receipt file to the correct folder based on the final client selection.
  */
 function panelLogPaymentFromReceipt(data) {
+  _requireRole(['admin', 'partner']);
   try {
     // Pre-generate ID so the file can be renamed to match
     var paymentId = _generatePaymentId(data.paymentDate);
