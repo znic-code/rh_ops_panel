@@ -1203,17 +1203,25 @@ function submitNewClient() {
   }
 
   var contacts = [];
-  document.querySelectorAll('.contact-entry').forEach(function(entry, idx) {
+  var skippedContacts = 0;
+  document.querySelectorAll('.contact-entry').forEach(function(entry) {
     var id = entry.id.replace('ce-', '');
-    var cName = $('ce-name-' + id) ? $('ce-name-' + id).value.trim() : '';
-    if (!cName) return;
-    contacts.push({
-      name: cName,
-      email: $('ce-email-' + id) ? $('ce-email-' + id).value.trim() : '',
-      phone: $('ce-phone-' + id) ? $('ce-phone-' + id).value.trim() : '',
-      role:  $('ce-role-' + id)  ? $('ce-role-' + id).value.trim()  : '',
-    });
+    var cName  = $('ce-name-'  + id) ? $('ce-name-'  + id).value.trim() : '';
+    var cEmail = $('ce-email-' + id) ? $('ce-email-' + id).value.trim() : '';
+    var cPhone = $('ce-phone-' + id) ? $('ce-phone-' + id).value.trim() : '';
+    var cRole  = $('ce-role-'  + id) ? $('ce-role-'  + id).value.trim() : '';
+    if (!cName) {
+      // Count rows that have partial data but no name
+      if (cEmail || cPhone || cRole) skippedContacts++;
+      return;
+    }
+    contacts.push({ name: cName, email: cEmail, phone: cPhone, role: cRole });
   });
+  if (skippedContacts > 0) {
+    $('nc-status').innerHTML = '<div class="status-banner warning" style="background:#fef3c7;border-color:#d97706;color:#92400e">'
+      + skippedContacts + ' contact row' + (skippedContacts > 1 ? 's' : '') + ' skipped — a name is required for each contact.</div>';
+    return;
+  }
 
   var data = {
     name: name, type: $('nc-type').value, status: $('nc-client-status').value,
@@ -1872,6 +1880,8 @@ function renderNewAgreementForm(projectId, clientId) {
 function submitNewAgreement(projectId, clientId) {
   var title = $('na-title').value.trim();
   if (!title) { $('na-status').innerHTML = '<div class="status-banner error">Title is required.</div>'; return; }
+  var naUrl = $('na-url').value.trim();
+  if (naUrl && !/^https?:\/\/.+/.test(naUrl)) { $('na-status').innerHTML = '<div class="status-banner error">Drive File URL must start with http:// or https://</div>'; return; }
   $('na-submit').disabled = true; $('na-submit').textContent = 'Creating\u2026';
 
   google.script.run
@@ -2243,6 +2253,8 @@ function renderEditAgreementForm(agreementId) {
 function submitEditAgreement(agreementId) {
   var title = $('ea-title').value.trim();
   if (!title) { $('ea-status').innerHTML = '<div class="status-banner error">Title is required.</div>'; return; }
+  var eaUrl = $('ea-url').value.trim();
+  if (eaUrl && !/^https?:\/\/.+/.test(eaUrl)) { $('ea-status').innerHTML = '<div class="status-banner error">Drive File URL must start with http:// or https://</div>'; return; }
   $('ea-submit').disabled = true; $('ea-submit').textContent = 'Saving\u2026';
   google.script.run
     .withSuccessHandler(function(result) {
@@ -6762,13 +6774,20 @@ function editEmailTemplate(templateId) {
 
 /** Save a new or edited email template via panelSaveEmailTemplate(). */
 function saveEmailTemplate() {
+  var name    = $('tpl-name').value.trim();
+  var subject = $('tpl-subject').value.trim();
+  var body    = $('tpl-body').value.trim();
+  if (!name)    { $('tpl-form-status').innerHTML = '<div class="status-banner error">Template name is required.</div>'; return; }
+  if (!subject) { $('tpl-form-status').innerHTML = '<div class="status-banner error">Subject is required.</div>'; return; }
+  if (!body)    { $('tpl-form-status').innerHTML = '<div class="status-banner error">Body is required.</div>'; return; }
+
   var btn = $('tpl-save-btn');
   btn.disabled = true; btn.textContent = 'Saving\u2026';
   var data = {
     id: $('tpl-edit-id').value || null,
-    name: $('tpl-name').value.trim(),
+    name: name,
     type: $('tpl-type').value,
-    subject: $('tpl-subject').value.trim(),
+    subject: subject,
     body: $('tpl-body').value,
   };
   google.script.run
