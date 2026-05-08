@@ -744,6 +744,7 @@ function render() {
 function $(id) { return document.getElementById(id); }           // DOM shortcut
 function esc(str) { return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }  // HTML-escape for XSS prevention
 function jsEsc(str) { return (str||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/\n/g,'\\n').replace(/\r/g,'\\r'); }  // JS string escape for inline onclick handlers (uses &quot; for HTML attribute safety)
+var _EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;  // Basic email format check (used across multiple forms)
 function badgeClass(status) { return (status || '').toLowerCase().replace(/\s+/g, '-'); }  // Map status to CSS class (e.g. "Active" → "active")
 
 /** Format ISO date string to human-readable (e.g. "Mar 17, 2026"). */
@@ -1196,6 +1197,10 @@ function addNewContactEntry() {
 function submitNewClient() {
   var name = $('nc-name').value.trim();
   if (!name) { $('nc-status').innerHTML = '<div class="status-banner error">Client name is required.</div>'; return; }
+  if ($('nc-withholding').checked) {
+    var ncRate = parseFloat($('nc-withholding-rate').value);
+    if (!ncRate || ncRate <= 0) { $('nc-status').innerHTML = '<div class="status-banner error">Withholding rate must be greater than 0%.</div>'; return; }
+  }
 
   var contacts = [];
   document.querySelectorAll('.contact-entry').forEach(function(entry, idx) {
@@ -1216,7 +1221,7 @@ function submitNewClient() {
     billingCity: $('nc-city').value.trim(), billingState: $('nc-state').value.trim(),
     billingZip: $('nc-zip').value.trim(), billingCountry: $('nc-country').value.trim() || 'US',
     withholdingAgent: $('nc-withholding').checked,
-    withholdingRate:  $('nc-withholding').checked ? (parseFloat($('nc-withholding-rate').value) || 10) : 0,
+    withholdingRate:  $('nc-withholding').checked ? (parseFloat($('nc-withholding-rate').value) || 0) : 0,
     notes: $('nc-notes').value.trim(),
     phone: $('nc-phone').value.trim(), website: $('nc-website').value.trim(),
     contacts: contacts, projectName: $('nc-projname').value.trim(),
@@ -1522,6 +1527,9 @@ function submitNewProject(clientId) {
 
   var name = $('np-name').value.trim();
   if (!name) { $('np-status').innerHTML = '<div class="status-banner error">Project name is required.</div>'; return; }
+  var startD = $('np-start') ? $('np-start').value : '';
+  var endD   = $('np-end')   ? $('np-end').value   : '';
+  if (startD && endD && endD < startD) { $('np-status').innerHTML = '<div class="status-banner error">End date must be on or after the start date.</div>'; return; }
   $('np-submit').disabled = true; $('np-submit').textContent = 'Creating\u2026';
 
   google.script.run
@@ -2076,6 +2084,10 @@ function renderEditClientForm(clientId) {
 function submitEditClient(clientId) {
   var name = $('ec-name').value.trim();
   if (!name) { $('ec-status').innerHTML = '<div class="status-banner error">Client name is required.</div>'; return; }
+  if ($('ec-withholding').checked) {
+    var ecRate = parseFloat($('ec-withholding-rate').value);
+    if (!ecRate || ecRate <= 0) { $('ec-status').innerHTML = '<div class="status-banner error">Withholding rate must be greater than 0%.</div>'; return; }
+  }
   $('ec-submit').disabled = true; $('ec-submit').textContent = 'Saving\u2026';
   google.script.run
     .withSuccessHandler(function(result) {
@@ -2101,7 +2113,7 @@ function submitEditClient(clientId) {
       phone: $('ec-phone').value.trim(), website: $('ec-website').value.trim(),
       notes: $('ec-notes').value.trim(),
       withholdingAgent: $('ec-withholding').checked,
-      withholdingRate:  $('ec-withholding').checked ? (parseFloat($('ec-withholding-rate').value) || 10) : 0,
+      withholdingRate:  $('ec-withholding').checked ? (parseFloat($('ec-withholding-rate').value) || 0) : 0,
     });
 }
 
@@ -2151,6 +2163,9 @@ function renderEditProjectForm(projectId) {
 function submitEditProject(projectId) {
   var name = $('ep-name').value.trim();
   if (!name) { $('ep-status').innerHTML = '<div class="status-banner error">Name is required.</div>'; return; }
+  var startD = $('ep-start') ? $('ep-start').value : '';
+  var endD   = $('ep-end')   ? $('ep-end').value   : '';
+  if (startD && endD && endD < startD) { $('ep-status').innerHTML = '<div class="status-banner error">End date must be on or after the start date.</div>'; return; }
   var newStatus = $('ep-status-val').value;
   $('ep-submit').disabled = true; $('ep-submit').textContent = 'Saving\u2026';
 
@@ -2603,6 +2618,7 @@ function submitLogPayment(invoiceId, clientId, projectId) {
   var desc = $('lp-desc') ? $('lp-desc').value.trim() : '';
   var net = parseFloat($('lp-amount').value);  // check amount (client already withheld)
   if (!net || net <= 0) { $('lp-status').innerHTML = '<div class="status-banner error">Amount must be > 0.</div>'; return; }
+  if (!$('lp-date').value) { $('lp-status').innerHTML = '<div class="status-banner error">Date is required.</div>'; return; }
   var withheld  = parseFloat($('lp-withheld').value) || 0;
   var netAmount = net;  // stored amount IS the check amount
   var closeProject = !!($('lp-close-project') && $('lp-close-project').checked);
@@ -3531,6 +3547,7 @@ function submitNewExpense() {
 
   if (!description) { $('exp-status').innerHTML = '<div class="status-banner error">Description is required.</div>'; return; }
   if (!amount || amount <= 0) { $('exp-status').innerHTML = '<div class="status-banner error">Amount must be greater than zero.</div>'; return; }
+  if (!$('exp-date').value) { $('exp-status').innerHTML = '<div class="status-banner error">Date is required.</div>'; return; }
 
   $('exp-submit').disabled = true; $('exp-submit').textContent = 'Logging\u2026';
 
@@ -4407,6 +4424,7 @@ function _applyPaymentExtraction(data) {
 function submitNewPayment() {
   var net = parseFloat($('pay-amount').value);  // check amount (client already withheld)
   if (!net || net <= 0) { $('pay-status').innerHTML = '<div class="status-banner error">Amount must be greater than zero.</div>'; return; }
+  if (!$('pay-date').value) { $('pay-status').innerHTML = '<div class="status-banner error">Date is required.</div>'; return; }
   var withheld  = parseFloat(($('pay-withheld') ? $('pay-withheld').value : '') || '0') || 0;
   var netAmount = net;  // stored amount IS the check amount
 
@@ -4975,6 +4993,10 @@ function submitConvertToInvoice(quotePageId) {
   var dueISO   = $('cti-due')   ? $('cti-due').value   : '';
   var type     = $('cti-type')  ? $('cti-type').value  : 'Deposit';
 
+  if (!issueISO) { $('cti-status').innerHTML = '<div class="status-banner error">Issue Date is required.</div>'; return; }
+  if (!dueISO)   { $('cti-status').innerHTML = '<div class="status-banner error">Due Date is required.</div>'; return; }
+  if (dueISO < issueISO) { $('cti-status').innerHTML = '<div class="status-banner error">Due Date must be on or after the Issue Date.</div>'; return; }
+
   $('cti-submit').disabled = true;
   $('cti-submit').textContent = 'Converting\u2026';
   $('cti-status').innerHTML = '';
@@ -5209,6 +5231,9 @@ function submitCloneQuote(originalQuoteId, clientId, projectId, mode) {
     lineItems.push({ name: name, description: desc, qty: qty, price: price });
   });
   if (!valid || !lineItems.length) { $('nq-status').innerHTML = '<div class="status-banner error">Each line item needs a name.</div>'; return; }
+
+  var issueD = $('nq-issue').value, validD = $('nq-valid').value;
+  if (issueD && validD && validD < issueD) { $('nq-status').innerHTML = '<div class="status-banner error">Valid Until must be on or after the Issue Date.</div>'; return; }
 
   var btn = $('nq-submit');
   btn.disabled = true; btn.textContent = 'Creating\u2026';
@@ -6611,6 +6636,11 @@ function saveSettings() {
 
 /** Save company info fields to Script Properties via panelSaveCompanyInfo(). */
 function saveCompanyInfo() {
+  var email = $('co-email').value.trim();
+  if (email && !_EMAIL_RE.test(email)) {
+    $('co-status').innerHTML = '<div class="status-banner error">Enter a valid email address.</div>';
+    return;
+  }
   var btn = $('co-save-btn');
   btn.disabled = true; btn.textContent = 'Saving…';
   google.script.run
@@ -6849,9 +6879,6 @@ function toggleRecurringFields() {
  * @param {string} projectId - Notion page ID of the project.
  */
 function saveRecurringConfig(projectId) {
-  var btn = $('rec-save');
-  btn.disabled = true; btn.textContent = 'Saving\u2026';
-
   var config = {
     enabled: $('rec-toggle').classList.contains('on'),
     amount: parseFloat($('rec-amount').value) || 0,
@@ -6859,6 +6886,14 @@ function saveRecurringConfig(projectId) {
     dayOfMonth: parseInt($('rec-day').value) || 1,
     dueDays: parseInt($('rec-due').value) || 14,
   };
+
+  if (config.enabled && config.amount <= 0) {
+    $('rec-status').innerHTML = '<div class="status-banner error">Amount must be greater than $0 when recurring billing is enabled.</div>';
+    return;
+  }
+
+  var btn = $('rec-save');
+  btn.disabled = true; btn.textContent = 'Saving\u2026';
 
   google.script.run
     .withSuccessHandler(function(r) {
@@ -6971,7 +7006,7 @@ function _renderRoleTable() {
 function addRoleEntry() {
   var email = $('role-new-email').value.trim().toLowerCase();
   var role  = $('role-new-role').value;
-  if (!email || email.indexOf('@') === -1) {
+  if (!email || !_EMAIL_RE.test(email)) {
     $('roles-status').innerHTML = '<div class="status-banner error">Enter a valid email address.</div>';
     return;
   }

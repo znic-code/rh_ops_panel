@@ -678,6 +678,9 @@ function panelGetExpenseById(expensePageId) {
 /** Update an existing expense. */
 function panelUpdateExpense(expensePageId, data) {
   _requireRole(['admin', 'partner']);
+  if (!data.description || !data.description.trim()) return { success: false, error: 'Description is required.' };
+  if (!data.amount || parseFloat(data.amount) <= 0)  return { success: false, error: 'Amount must be greater than zero.' };
+  if (!data.expenseDate) return { success: false, error: 'Date is required.' };
   try {
     var existing = getExpenseById(expensePageId);
 
@@ -890,6 +893,8 @@ function panelGetPaymentById(paymentPageId) {
 /** Update an existing payment. */
 function panelUpdatePayment(paymentPageId, data) {
   _requireRole(['admin', 'partner']);
+  if (!data.amount || parseFloat(data.amount) <= 0) return { success: false, error: 'Amount must be greater than zero.' };
+  if (!data.paymentDate) return { success: false, error: 'Date is required.' };
   try {
     var existing = getPaymentById(paymentPageId);
 
@@ -1907,9 +1912,13 @@ function panelGetSettings() {
 function panelSaveCompanyInfo(data) {
   _requireRole(['admin']);
   try {
+    var email = (data.email || '').trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { success: false, error: 'Invalid email address format.' };
+    }
     var sp = PropertiesService.getScriptProperties();
     if (data.name    !== undefined) sp.setProperty('company_name',    data.name.trim());
-    if (data.email   !== undefined) sp.setProperty('company_email',   data.email.trim());
+    if (data.email   !== undefined) sp.setProperty('company_email',   email);
     if (data.address !== undefined) sp.setProperty('company_address', data.address.trim());
     if (data.phone   !== undefined) sp.setProperty('company_phone',   data.phone.trim());
     return { success: true };
