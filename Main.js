@@ -708,7 +708,9 @@ function panelSaveUploadedAgreement(data) {
         data.fileId,
         client.driveFolderId || null,
         contractId,
-        data.title.trim()
+        client.name || '',
+        data.title.trim(),
+        data.language || 'English'
       );
     } catch (e) {
       return { success: false, error: 'Could not move file to Drive: ' + e.message };

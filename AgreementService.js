@@ -116,12 +116,35 @@ function _resolveTemplateId(contractType, language) {
 }
 
 /**
- * Build the Drive/Notion document file name.
- * Format: {contractId} - {clientShortName} - {title}
+ * Build the Drive file name for an agreement.
+ *
+ * Convention:
+ *   MSA : {ID} — {ClientName} {LANG}[.ext]
+ *   SOW : {ID} — {ClientName} — {Title} {LANG}[.ext]
+ *
+ * @param {string}        contractId  e.g. 'RH-MSA-26-0512-01'
+ * @param {Object|string} client      Client object (uses .name) or plain name string
+ * @param {string}        title       User-supplied title (ignored for MSAs)
+ * @param {string}        language    'English' | 'Spanish'  → 'EN' | 'ES'
+ * @param {string}        [ext]       File extension without dot (e.g. 'pdf'). Omit for Google Docs.
+ * @returns {string}
  */
-function _buildAgreementFileName(contractId, client, title) {
-  var shortName = client.name || (client.legalName ? client.legalName.split(' ')[0] : 'Client');
-  return contractId + ' - ' + shortName + ' - ' + title;
+function _buildAgreementFileName(contractId, client, title, language, ext) {
+  var clientName = (typeof client === 'string' ? client : (client.name || client.legalName || 'Client')).trim();
+  var lang       = (language === 'Spanish') ? 'ES' : 'EN';
+  var isMSA      = contractId.indexOf('-MSA-') !== -1;
+
+  var name;
+  if (isMSA) {
+    // MSA: ID — ClientName LANG
+    name = contractId + ' — ' + clientName + ' ' + lang;
+  } else {
+    // SOW: ID — ClientName — Title LANG
+    var safeTitle = (title || '').trim();
+    name = contractId + ' — ' + clientName + (safeTitle ? ' — ' + safeTitle : '') + ' ' + lang;
+  }
+
+  return ext ? name + '.' + ext.toLowerCase() : name;
 }
 
 // ── Placeholder map ──────────────────────────────────────────
@@ -396,7 +419,7 @@ function generateAgreement(data) {
   var templateId = _resolveTemplateId(data.contractType, data.language);
   if (!templateId) return { success: false, error: 'Template not found for: ' + data.contractType };
 
-  var fileName = _buildAgreementFileName(contractId, client, data.title.trim());
+  var fileName = _buildAgreementFileName(contractId, client, data.title.trim(), data.language);
 
   // ── 7. Copy template → Drive ──────────────────────────────
   var docId, docUrl;
@@ -510,15 +533,17 @@ function processAgreementStaged(base64Data, fileName, mimeType) {
 /**
  * Move a staged agreement file to its final Drive location and rename it.
  * Destination: 03_Clients/{Client}/Contracts/{year}/ (or LEGAL_CONTRACTS_DIR/{year}/ as fallback).
- * Final name:  {agreementId} — {title}.{ext}
+ * Final name follows the shared _buildAgreementFileName convention.
  *
  * @param {string}      fileId              Staged Drive file ID
  * @param {string|null} clientDriveFolderId Client root Drive folder (or null)
  * @param {string}      agreementId         Generated or user-supplied agreement ID
- * @param {string}      title               Agreement title
+ * @param {string}      clientName          Client display name
+ * @param {string}      title               Agreement title (used for SOWs; ignored for MSAs)
+ * @param {string}      language            'English' | 'Spanish'
  * @returns {{ fileId: string, fileUrl: string }}
  */
-function _moveAgreementToFinalFolder(fileId, clientDriveFolderId, agreementId, title) {
+function _moveAgreementToFinalFolder(fileId, clientDriveFolderId, agreementId, clientName, title, language) {
   var year = String(new Date().getFullYear());
 
   var folderId;
@@ -533,7 +558,7 @@ function _moveAgreementToFinalFolder(fileId, clientDriveFolderId, agreementId, t
   var file     = DriveApp.getFileById(fileId);
   var origName = file.getName();
   var ext      = origName.indexOf('.') !== -1 ? origName.split('.').pop().toLowerCase() : 'pdf';
-  var name     = agreementId + (title ? ' — ' + title : '') + '.' + ext;
+  var name     = _buildAgreementFileName(agreementId, clientName, title, language, ext);
 
   file.setName(name);
   file.moveTo(DriveApp.getFolderById(folderId));
