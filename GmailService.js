@@ -77,9 +77,8 @@ function resolveTemplateVariables(template, variables) {
  * @returns {Object}  Variable name -> value map
  */
 function buildTemplateVariables(params) {
-  // Format today's date
-  var today = new Date();
-  var todayFormatted = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  var todayFormatted = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  var co = getCompanyInfo(); // single read — avoids 4 separate Script Properties lookups
 
   return {
     // Contact / Client
@@ -93,7 +92,6 @@ function buildTemplateVariables(params) {
     // Document
     documentId:     params.documentId || params.invoiceId || '',
     documentType:   params.documentType || '',
-    invoiceId:      params.invoiceId || params.documentId || '',
     projectName:    params.projectName || '',
 
     // Financials
@@ -106,11 +104,11 @@ function buildTemplateVariables(params) {
     // Dates
     todayDate:      todayFormatted,
 
-    // Company — reads from Script Properties via getCompanyInfo(), falls back to Config.js
-    companyName:    getCompanyInfo().name,
-    companyEmail:   getCompanyInfo().email,
-    companyAddress: getCompanyInfo().address,
-    companyPhone:   getCompanyInfo().phone,
+    // Company
+    companyName:    co.name,
+    companyEmail:   co.email,
+    companyAddress: co.address,
+    companyPhone:   co.phone,
   };
 }
 

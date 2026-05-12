@@ -695,7 +695,7 @@ function render() {
   content.innerHTML = '<div class="loading"><span class="spinner"></span> Loading&hellip;</div>';
 
   // Financial/operational pages require at least partner role
-  var _financialViews = ['agreements','expenses','newExpense','expense','editExpense','payments','newPayment','payment','editPayment','reports','contractors','contractor','newContractor','editContractor','quotes','quote','newQuote','cloneInvoice','invoices','editQuote','cloneQuote'];
+  var _financialViews = ['agreements','agreement','newAgreement','generateAgreement','expenses','newExpense','expense','editExpense','payments','newPayment','payment','editPayment','reports','contractors','contractor','newContractor','editContractor','quotes','quote','newQuote','cloneInvoice','invoices','editQuote','cloneQuote'];
   // Settings requires admin
   var _adminViews = ['settings'];
 
@@ -1720,7 +1720,7 @@ function renderProjectView(projectId, clientId) {
           if (inv.driveLink) {
             html += '<a href="' + esc(inv.driveLink) + '" target="_blank" class="action-btn" title="Open in Drive" onclick="event.stopPropagation()">View</a>';
           }
-          html += '<button class="action-btn blue" title="Send email" onclick="event.stopPropagation();openComposeEmail(\'invoice\',\'' + jsEsc(inv.id) + '\',\'' + jsEsc(inv.invoiceId) + '\',\'' + jsEsc(clientId||'') + '\',{total:' + (parseFloat(inv.total)||0) + ',dueDate:\'' + jsEsc(inv.dueDate||'') + '\',driveLink:\'' + jsEsc(inv.driveLink||'') + '\'})">Send</button>';
+          html += '<button class="action-btn blue" title="Send email" onclick="event.stopPropagation();openComposeEmail(\'invoice\',\'' + jsEsc(inv.id) + '\',\'' + jsEsc(inv.invoiceId) + '\',\'' + jsEsc(clientId||'') + '\',{total:' + (parseFloat(inv.total)||0) + ',dueDate:\'' + jsEsc(inv.dueDate||'') + '\',issueDate:\'' + jsEsc(inv.issuedDate||'') + '\',driveLink:\'' + jsEsc(inv.driveLink||'') + '\',projectId:\'' + jsEsc(inv.projectId||'') + '\'})">Send</button>';
           html += '</div></td></tr>';
         });
         html += '</tbody></table></div>';
@@ -1747,7 +1747,7 @@ function renderProjectView(projectId, clientId) {
           if (ag.fileUrl) {
             html += '<a href="' + esc(ag.fileUrl) + '" target="_blank" class="action-btn" title="Open file" onclick="event.stopPropagation()">View</a>';
           }
-          html += '<button class="action-btn blue" title="Send email" onclick="event.stopPropagation();openComposeEmail(\'agreement\',\'' + jsEsc(ag.id) + '\',\'' + jsEsc(ag.title) + '\',\'' + jsEsc(clientId||'') + '\',{fileUrl:\'' + jsEsc(ag.fileUrl||'') + '\'})">Send</button>';
+          html += '<button class="action-btn blue" title="Send email" onclick="event.stopPropagation();openComposeEmail(\'agreement\',\'' + jsEsc(ag.id) + '\',\'' + jsEsc(ag.agreementId||ag.title) + '\',\'' + jsEsc(clientId||'') + '\',{fileUrl:\'' + jsEsc(ag.fileUrl||'') + '\'})">Send</button>';
           html += '<button class="action-btn" title="Edit agreement" onclick="event.stopPropagation();navigate(\'editAgreement\',\'Edit Agreement\',{agreementId:\'' + jsEsc(ag.id) + '\'})">Edit</button>';
           html += '</div></td></tr>';
         });
@@ -2548,7 +2548,7 @@ function renderAgreementView(agreementId, clientId) {
       if (status === 'Draft') {
         html += '<button class="btn btn-primary btn-sm" onclick="submitMarkAgreementSent(\'' + jsEsc(ag.id) + '\')">Mark as Sent</button>';
       }
-      html += '<button class="btn btn-secondary btn-sm" onclick="openComposeEmail(\'agreement\',\'' + jsEsc(ag.id) + '\',\'' + jsEsc(ag.title) + '\',\'' + jsEsc(ag.clientId||'') + '\',{fileUrl:\'' + jsEsc(ag.fileUrl||'') + '\'})">Send Email</button>';
+      html += '<button class="btn btn-secondary btn-sm" onclick="openComposeEmail(\'agreement\',\'' + jsEsc(ag.id) + '\',\'' + jsEsc(ag.agreementId||ag.title) + '\',\'' + jsEsc(ag.clientId||'') + '\',{fileUrl:\'' + jsEsc(ag.fileUrl||'') + '\'})">Send Email</button>';
       if (ag.docType === 'MSA') {
         html += '<button class="btn btn-secondary btn-sm" onclick="launchCompanionSOW(\'' + jsEsc(ag.id) + '\',\'' + jsEsc(ag.clientId||'') + '\')" title="Generate a new SOW pre-linked to this MSA">+ Companion SOW</button>';
       }
@@ -7088,6 +7088,7 @@ function renderSettings() {
         + '<div class="form-group"><label class="form-label">Type *</label>'
         + '<select class="form-select" id="tpl-type">'
         + '<option value="invoice">Invoice</option>'
+        + '<option value="quote">Quote</option>'
         + '<option value="agreement">Agreement</option>'
         + '<option value="reminder_upcoming">Reminder (Upcoming)</option>'
         + '<option value="reminder_overdue">Reminder (Overdue)</option>'
@@ -7101,8 +7102,8 @@ function renderSettings() {
         + '<span style="font-size:11px;color:#8c7b6b">Client &amp; Contact</span><br>'
         + '<code>{{clientName}}</code> <code>{{clientEmail}}</code> <code>{{clientPhone}}</code> <code>{{clientWebsite}}</code> '
         + '<code>{{contactName}}</code> <code>{{contactRole}}</code><br>'
-        + '<span style="font-size:11px;color:#8c7b6b">Document</span><br>'
-        + '<code>{{documentId}}</code> <code>{{documentType}}</code> <code>{{invoiceId}}</code> <code>{{projectName}}</code><br>'
+        + '<span style="font-size:11px;color:#8c7b6b">Document &mdash; <code>{{documentId}}</code> is the invoice/agreement/quote ID</span><br>'
+        + '<code>{{documentId}}</code> <code>{{documentType}}</code> <code>{{projectName}}</code><br>'
         + '<span style="font-size:11px;color:#8c7b6b">Financials &amp; Dates</span><br>'
         + '<code>{{total}}</code> <code>{{balanceDue}}</code> <code>{{issueDate}}</code> <code>{{dueDate}}</code> <code>{{todayDate}}</code> <code>{{driveLink}}</code><br>'
         + '<span style="font-size:11px;color:#8c7b6b">Company</span><br>'
@@ -7342,7 +7343,11 @@ function editEmailTemplate(templateId) {
       for (var i = 0; i < templates.length; i++) {
         if (templates[i].id === templateId) { t = templates[i]; break; }
       }
-      if (!t) return;
+      if (!t) {
+        var listEl = $('tpl-list');
+        if (listEl) listEl.insertAdjacentHTML('afterbegin', '<div class="status-banner error" style="margin-bottom:8px">Template not found.</div>');
+        return;
+      }
       $('tpl-edit-id').value = t.id;
       $('tpl-name').value = t.name;
       $('tpl-type').value = t.type;
@@ -7352,6 +7357,10 @@ function editEmailTemplate(templateId) {
       $('tpl-form').style.display = 'block';
       $('tpl-create-btn').textContent = 'Cancel';
       $('tpl-form').scrollIntoView({ behavior: 'smooth' });
+    })
+    .withFailureHandler(function(e) {
+      var listEl = $('tpl-list');
+      if (listEl) listEl.insertAdjacentHTML('afterbegin', '<div class="status-banner error" style="margin-bottom:8px">Failed to load template: ' + esc(e.message) + '</div>');
     })
     .panelGetEmailTemplates();
 }
@@ -7401,10 +7410,17 @@ function deleteEmailTemplate(templateId, templateName) {
   if (!confirm('Delete template "' + templateName + '"? This cannot be undone.')) return;
   google.script.run
     .withSuccessHandler(function(result) {
-      if (result.success) { loadTemplateList(); }
-      else { alert('Failed to delete: ' + result.error); }
+      if (result.success) {
+        loadTemplateList();
+      } else {
+        var listEl = $('tpl-list');
+        if (listEl) listEl.insertAdjacentHTML('afterbegin', '<div class="status-banner error" style="margin-bottom:8px">Failed to delete: ' + esc(result.error) + '</div>');
+      }
     })
-    .withFailureHandler(function(e) { alert('Error: ' + e.message); })
+    .withFailureHandler(function(e) {
+      var listEl = $('tpl-list');
+      if (listEl) listEl.insertAdjacentHTML('afterbegin', '<div class="status-banner error" style="margin-bottom:8px">Error: ' + esc(e.message) + '</div>');
+    })
     .panelDeleteEmailTemplate(templateId);
 }
 
@@ -7417,10 +7433,17 @@ function resetEmailTemplate(templateId, templateName) {
   if (!confirm('Reset "' + templateName + '" back to the original default? Your customizations will be lost.')) return;
   google.script.run
     .withSuccessHandler(function(result) {
-      if (result.success) { loadTemplateList(); }
-      else { alert('Failed to reset: ' + result.error); }
+      if (result.success) {
+        loadTemplateList();
+      } else {
+        var listEl = $('tpl-list');
+        if (listEl) listEl.insertAdjacentHTML('afterbegin', '<div class="status-banner error" style="margin-bottom:8px">Failed to reset: ' + esc(result.error) + '</div>');
+      }
     })
-    .withFailureHandler(function(e) { alert('Error: ' + e.message); })
+    .withFailureHandler(function(e) {
+      var listEl = $('tpl-list');
+      if (listEl) listEl.insertAdjacentHTML('afterbegin', '<div class="status-banner error" style="margin-bottom:8px">Error: ' + esc(e.message) + '</div>');
+    })
     .panelResetEmailTemplate(templateId);
 }
 
@@ -7595,7 +7618,7 @@ function _renderRoleTable() {
     var role = _roleTable[email];
     html += '<tr>'
       + '<td>' + esc(email) + '</td>'
-      + '<td><select class="form-select" style="padding:4px 8px;font-size:13px" onchange="_roleTable[\'' + jsEsc(email) + '\']=this.value">'
+      + '<td><select class="form-select" style="padding:4px 8px;font-size:13px" onchange="_roleTable[\'' + jsEsc(email) + '\']=this.value;saveRoleTable()">'
       + ['admin','partner','staff'].map(function(r) {
           return '<option value="' + r + '"' + (role === r ? ' selected' : '') + '>' + r.charAt(0).toUpperCase() + r.slice(1) + '</option>';
         }).join('')

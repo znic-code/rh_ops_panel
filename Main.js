@@ -1318,6 +1318,7 @@ function panelGetComposeData(params) {
 
 /** Resolve a specific template with variables (for template switch in compose view). */
 function panelResolveTemplate(templateId, variables) {
+  _requireRole(['admin', 'partner']);
   try {
     var templates = getEmailTemplates();
     var template = null;
@@ -1339,6 +1340,7 @@ function panelResolveTemplate(templateId, variables) {
  * If email fails, status is NOT updated. If status update fails, a warning is returned.
  */
 function panelSendDocumentEmail(params) {
+  _requireRole(['admin', 'partner']);
   // Step 1: Send the email
   var emailResult = sendEmail({
     to: params.to,
@@ -1990,6 +1992,7 @@ var _SETTINGS_DEFAULTS = {
 };
 
 function panelGetSettings() {
+  _requireRole(['admin']);
   try {
     var raw = PropertiesService.getScriptProperties().getProperty('settings_reminders');
     var reminders = raw ? JSON.parse(raw) : _SETTINGS_DEFAULTS.reminders;
@@ -2716,11 +2719,12 @@ function panelQuickPing() {
  * database schemas, configuration, and trigger status.
  * @returns {Object} { checks: Array<{name, status, message}>, timestamp }
  */
-function panelHealthCheck() {
-  _requireRole(['admin']);
-  // Clear the quick ping cache so next page load gets fresh data
-  try { CacheService.getScriptCache().remove('_healthCheckResult'); } catch (_) {}
-
+/**
+ * Internal health check logic — no auth guard so it can be called from
+ * time-driven triggers (which have no user session).
+ * panelHealthCheck() is the public panel RPC that wraps this with _requireRole.
+ */
+function _runHealthChecks() {
   var checks = [];
 
   // ── 1. Notion API token ────────────────────────────────────
@@ -2857,6 +2861,13 @@ function panelHealthCheck() {
   return { checks: checks, timestamp: new Date().toISOString() };
 }
 
+/** Public RPC — requires admin role, clears cache, delegates to _runHealthChecks(). */
+function panelHealthCheck() {
+  _requireRole(['admin']);
+  try { CacheService.getScriptCache().remove('_healthCheckResult'); } catch (_) {}
+  return _runHealthChecks();
+}
+
 // ── DAILY HEALTH CHECK EMAIL TRIGGER ──────────────────────────
 
 /**
@@ -2869,7 +2880,7 @@ function dailyHealthCheckEmail() {
     // Invalidate the cached quick ping so next panel load gets fresh data
     try { CacheService.getScriptCache().remove('_healthCheckResult'); } catch (_) {}
 
-    var result = panelHealthCheck();
+    var result = _runHealthChecks();
     var checks = result.checks || [];
 
     var errors = checks.filter(function(c) { return c.status === 'error'; });
