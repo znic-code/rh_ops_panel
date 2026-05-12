@@ -127,15 +127,48 @@ function _buildAgreementFileName(contractId, client, title) {
 // ── Placeholder map ──────────────────────────────────────────
 
 /**
- * Format scope line items for replaceText.
- * First item has no prefix (template's existing bullet marker is reused).
- * Subsequent items are separated by newline + "- ".
+ * Fill a bullet-list placeholder with one or more items.
+ * The placeholder must live in a list-item (bullet) paragraph in the template.
+ *
+ *  - 0 items / blank → replaces with "N/A"
+ *  - 1 item          → simple replaceText, preserves existing bullet formatting
+ *  - 2+ items        → replaces text of first item in-place, then inserts new
+ *                      paragraphs with copied list attributes for each remaining item
+ *
+ * Must be called BEFORE the generic replaceText loop so the placeholder is
+ * already gone when the loop runs (loop becomes a silent no-op for these keys).
+ *
+ * @param {GoogleAppsScript.Document.Body} body
+ * @param {string} placeholder  Literal placeholder, e.g. '{{STRATEGY_LINE_ITEMS}}'
+ * @param {string} raw          Raw multi-line textarea input from the form
  */
-function _formatLineItems(raw) {
-  if (!raw || !raw.trim()) return 'N/A';
-  var lines = raw.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
-  if (lines.length === 0) return 'N/A';
-  return lines[0] + (lines.length > 1 ? '\n- ' + lines.slice(1).join('\n- ') : '');
+function _fillBulletItems(body, placeholder, raw) {
+  var escaped = escapeRegex(placeholder);
+  if (!raw || !raw.trim()) { body.replaceText(escaped, 'N/A'); return; }
+  var items = raw.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+  if (items.length === 0) { body.replaceText(escaped, 'N/A'); return; }
+  if (items.length === 1) { body.replaceText(escaped, items[0]); return; }
+
+  // Locate the list-item paragraph that contains the placeholder
+  var found = body.findText(escaped);
+  if (!found) {
+    // Placeholder absent in this template (e.g. MSA has no scope section) — no-op
+    return;
+  }
+
+  var textEl   = found.getElement();       // Text node inside the paragraph
+  var listItem = textEl.getParent();       // The Paragraph / ListItem element
+  var attrs    = listItem.getAttributes(); // Captures LIST_ID, GLYPH_TYPE, NESTING_LEVEL, etc.
+  var idx      = body.getChildIndex(listItem);
+
+  // Replace the placeholder in the existing paragraph with the first item
+  textEl.asText().replaceText(escaped, items[0]);
+
+  // Insert new paragraphs after it, each inheriting the same list attributes
+  for (var i = 1; i < items.length; i++) {
+    var newPara = body.insertParagraph(idx + i, items[i]);
+    newPara.setAttributes(attrs);
+  }
 }
 
 /**
@@ -200,10 +233,12 @@ function _buildPlaceholderMap(data, client, contact, idMSA, idSOW) {
     '{{END_DATE}}':   formatDate(data.endDate   || ''),
     '{{DEADLINE}}':   formatDate(data.deadline  || ''),
 
-    // §4 Scope (SOW)
-    '{{STRATEGY_LINE_ITEMS}}':             _formatLineItems(data.strategyItems),
-    '{{PRODUCTION_LINE_ITEMS}}':           _formatLineItems(data.productionItems),
-    '{{CONTENT_DELIVERABLES_LINE_ITEMS}}': _formatLineItems(data.contentItems),
+    // §4 Scope (SOW) — these placeholders are filled by _fillBulletItems() before
+    // the replaceText loop runs; the entries here are intentional no-ops kept
+    // so the keys stay documented alongside the rest of the map.
+    '{{STRATEGY_LINE_ITEMS}}':             '',
+    '{{PRODUCTION_LINE_ITEMS}}':           '',
+    '{{CONTENT_DELIVERABLES_LINE_ITEMS}}': '',
 
     // §7 Fees — SOW Retainer
     '{{MONTHLY_RETAINER}}':    data.monthlyRetainer    ? _formatMoney(data.monthlyRetainer)    : '',
@@ -376,6 +411,13 @@ function generateAgreement(data) {
     var placeholders = _buildPlaceholderMap(data, client, contact, idMSA, idSOW);
     var doc  = DocumentApp.openById(docId);
     var body = doc.getBody();
+
+    // Bullet-list placeholders must be handled with element-level DOM manipulation
+    // so that each item becomes a proper list paragraph (not a plain "- text" line).
+    // These run first; the generic loop below becomes a silent no-op for these keys.
+    _fillBulletItems(body, '{{STRATEGY_LINE_ITEMS}}',             data.strategyItems   || '');
+    _fillBulletItems(body, '{{PRODUCTION_LINE_ITEMS}}',           data.productionItems || '');
+    _fillBulletItems(body, '{{CONTENT_DELIVERABLES_LINE_ITEMS}}', data.contentItems    || '');
 
     for (var key in placeholders) {
       body.replaceText(escapeRegex(key), placeholders[key]);
