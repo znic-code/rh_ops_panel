@@ -553,6 +553,24 @@ var currentRoot = 'dashboard'; // Root sidebar section (for active highlight)
 var _userRole  = null;    // 'admin' | 'partner' | 'staff' — set at load time
 var _userEmail = '';      // Caller's email — set at load time
 
+// ── LIST PAGE CACHE ──────────────────────────────────────────
+// Data is fetched once per session and stored here.
+// Nulled out by write operations so the next navigation refetches.
+var _listCache = {
+  clients:     null,
+  projects:    null,
+  agreements:  null,
+  invoices:    null,
+  quotes:      null,
+  expenses:    null,
+  payments:    null,
+  contractors: null,
+};
+function _invalidate(/*...keys*/) {
+  var keys = Array.prototype.slice.call(arguments);
+  keys.forEach(function(k) { if (k in _listCache) _listCache[k] = null; });
+}
+
 // ── NAVIGATION ─────────────────────────────────────────────
 
 // ── SESSION CACHE HELPERS ──────────────────────────────────
@@ -856,6 +874,11 @@ function updateEntityStatus(selectEl, entityType, entityId) {
     selectEl.disabled = false;
     if (result.success) {
       _ssClear();
+      // Invalidate the relevant list cache
+      if (entityType === 'project')   _invalidate('projects');
+      if (entityType === 'invoice')   _invalidate('invoices');
+      if (entityType === 'agreement') _invalidate('agreements');
+      if (entityType === 'quote')     _invalidate('quotes');
       // Update the select badge color
       selectEl.className = 'status-select ' + badgeClass(newStatus);
       if (statusEl) statusEl.innerHTML = '<div class="status-banner success" style="animation:fadeOut 2s 1s forwards">' + esc(entityType.charAt(0).toUpperCase() + entityType.slice(1)) + ' status updated to <strong>' + esc(newStatus) + '</strong></div>';
@@ -900,41 +923,49 @@ function renderClients() {
   _clientSort = { col: 'name', dir: 'asc' };
   _clientFilterType = '';
 
+  if (_listCache.clients !== null) { _doRenderClients(_listCache.clients); return; }
+
+  showLoading('Loading clients\u2026');
   cachedGetClients(function(data) {
       if (data.error) { showError(data.error); return; }
-      _cachedClients = data || [];
-
-      var html = '<div class="stat-cards">'
-        + '<div class="stat-card"><div class="stat-label">Total Clients</div><div class="stat-value">' + _cachedClients.length + '</div></div>'
-        + '<div class="stat-card"><div class="stat-label">Business</div><div class="stat-value">' + _cachedClients.filter(function(c){return c.type==='Business'}).length + '</div></div>'
-        + '<div class="stat-card"><div class="stat-label">Individual</div><div class="stat-value">' + _cachedClients.filter(function(c){return c.type==='Individual'}).length + '</div></div>'
-        + '</div>';
-
-      html += '<div class="card">'
-        + '<div class="card-header"><h2>All Clients</h2>'
-        + '<div class="search-wrap"><span class="s-icon">&#x1F50D;</span>'
-        + '<input class="search-input" id="client-search" placeholder="Search clients\u2026" oninput="filterClientList()" '
-        + 'onkeydown="if(event.key===\'Escape\'){this.value=\'\';filterClientList()}">'
-        + '</div></div>'
-        + '<div class="filter-bar">'
-        + '<div class="filter-group"><span class="filter-label">Type</span>'
-        + '<select class="filter-select" id="client-filter-type" onchange="filterClientList()">'
-        + '<option value="">All</option><option value="Business">Business</option><option value="Individual">Individual</option>'
-        + '</select></div></div>'
-        + '<div class="table-wrap"><table class="data-table">'
-        + '<thead><tr>'
-        + sortableTh('Name', 'name', _clientSort, 'toggleClientSort')
-        + sortableTh('Type', 'type', _clientSort, 'toggleClientSort')
-        + sortableTh('Email', 'billingEmail', _clientSort, 'toggleClientSort', 'hide-mobile')
-        + sortableTh('Phone', 'phone', _clientSort, 'toggleClientSort', 'hide-mobile')
-        + '<th>Actions</th>'
-        + '</tr></thead>'
-        + '<tbody id="client-tbody"></tbody>'
-        + '</table></div></div>';
-
-      $('content').innerHTML = html;
-      filterClientList();
+      _listCache.clients = data || [];
+      _doRenderClients(_listCache.clients);
     }, function(e) { showError(e.message); });
+}
+
+function _doRenderClients(data) {
+  _cachedClients = data || [];
+
+  var html = '<div class="stat-cards">'
+    + '<div class="stat-card"><div class="stat-label">Total Clients</div><div class="stat-value">' + _cachedClients.length + '</div></div>'
+    + '<div class="stat-card"><div class="stat-label">Business</div><div class="stat-value">' + _cachedClients.filter(function(c){return c.type==='Business'}).length + '</div></div>'
+    + '<div class="stat-card"><div class="stat-label">Individual</div><div class="stat-value">' + _cachedClients.filter(function(c){return c.type==='Individual'}).length + '</div></div>'
+    + '</div>';
+
+  html += '<div class="card">'
+    + '<div class="card-header"><h2>All Clients</h2>'
+    + '<div class="search-wrap"><span class="s-icon">&#x1F50D;</span>'
+    + '<input class="search-input" id="client-search" placeholder="Search clients\u2026" oninput="filterClientList()" '
+    + 'onkeydown="if(event.key===\'Escape\'){this.value=\'\';filterClientList()}">'
+    + '</div></div>'
+    + '<div class="filter-bar">'
+    + '<div class="filter-group"><span class="filter-label">Type</span>'
+    + '<select class="filter-select" id="client-filter-type" onchange="filterClientList()">'
+    + '<option value="">All</option><option value="Business">Business</option><option value="Individual">Individual</option>'
+    + '</select></div></div>'
+    + '<div class="table-wrap"><table class="data-table">'
+    + '<thead><tr>'
+    + sortableTh('Name', 'name', _clientSort, 'toggleClientSort')
+    + sortableTh('Type', 'type', _clientSort, 'toggleClientSort')
+    + sortableTh('Email', 'billingEmail', _clientSort, 'toggleClientSort', 'hide-mobile')
+    + sortableTh('Phone', 'phone', _clientSort, 'toggleClientSort', 'hide-mobile')
+    + '<th>Actions</th>'
+    + '</tr></thead>'
+    + '<tbody id="client-tbody"></tbody>'
+    + '</table></div></div>';
+
+  $('content').innerHTML = html;
+  filterClientList();
 }
 
 /** Apply type filter + text search + sort to cached clients, then re-render tbody. */
@@ -1011,50 +1042,58 @@ function renderProjects() {
   _projectFilterStatus = '';
   _projectFilterType = '';
 
+  if (_listCache.projects !== null) { _doRenderProjects(_listCache.projects); return; }
+
+  showLoading('Loading projects\u2026');
   cachedGetProjects(function(data) {
       if (data.error) { showError(data.error); return; }
-      _cachedProjects = data || [];
-      var activeN = _cachedProjects.filter(function(p){return p.status==='Active'}).length;
-      var draftN  = _cachedProjects.filter(function(p){return p.status==='Draft'}).length;
-      var pausedN = _cachedProjects.filter(function(p){return p.status==='Paused'}).length;
-      var closedN = _cachedProjects.filter(function(p){return p.status==='Closed'}).length;
-
-      var html = '<div class="stat-cards">'
-        + '<div class="stat-card"><div class="stat-label">Total Projects</div><div class="stat-value">' + _cachedProjects.length + '</div></div>'
-        + '<div class="stat-card"><div class="stat-label">Active</div><div class="stat-value">' + activeN + '</div></div>'
-        + '<div class="stat-card"><div class="stat-label">Draft</div><div class="stat-value">' + draftN + '</div></div>'
-        + '<div class="stat-card"><div class="stat-label">Closed</div><div class="stat-value">' + closedN + '</div></div>'
-        + '</div>';
-
-      html += '<div class="card">'
-        + '<div class="card-header"><h2>All Projects</h2>'
-        + '<div class="search-wrap"><span class="s-icon">&#x1F50D;</span>'
-        + '<input class="search-input" id="project-search" placeholder="Search projects\u2026" oninput="filterProjectList()" '
-        + 'onkeydown="if(event.key===\'Escape\'){this.value=\'\';filterProjectList()}">'
-        + '</div></div>'
-        + '<div class="filter-bar">'
-        + '<div class="filter-group"><span class="filter-label">Status</span>'
-        + '<select class="filter-select" id="project-filter-status" onchange="filterProjectList()">'
-        + '<option value="">All</option><option value="Active">Active</option><option value="Draft">Draft</option><option value="Paused">Paused</option><option value="Closed">Closed</option>'
-        + '</select></div>'
-        + '<div class="filter-group"><span class="filter-label">Type</span>'
-        + '<select class="filter-select" id="project-filter-type" onchange="filterProjectList()">'
-        + '<option value="">All</option><option value="One-Off">One-Off</option><option value="Retainer">Retainer</option>'
-        + '</select></div></div>'
-        + '<div class="table-wrap"><table class="data-table">'
-        + '<thead><tr>'
-        + sortableTh('Name', 'name', _projectSort, 'toggleProjectSort')
-        + sortableTh('Client', 'clientName', _projectSort, 'toggleProjectSort', 'hide-mobile')
-        + sortableTh('Type', 'type', _projectSort, 'toggleProjectSort')
-        + sortableTh('Status', 'status', _projectSort, 'toggleProjectSort')
-        + sortableTh('Start Date', 'startDate', _projectSort, 'toggleProjectSort', 'hide-mobile')
-        + '</tr></thead>'
-        + '<tbody id="project-tbody"></tbody>'
-        + '</table></div></div>';
-
-      $('content').innerHTML = html;
-      filterProjectList();
+      _listCache.projects = data || [];
+      _doRenderProjects(_listCache.projects);
     }, function(e) { showError(e.message); });
+}
+
+function _doRenderProjects(data) {
+  _cachedProjects = data || [];
+  var activeN = _cachedProjects.filter(function(p){return p.status==='Active'}).length;
+  var draftN  = _cachedProjects.filter(function(p){return p.status==='Draft'}).length;
+  var pausedN = _cachedProjects.filter(function(p){return p.status==='Paused'}).length;
+  var closedN = _cachedProjects.filter(function(p){return p.status==='Closed'}).length;
+
+  var html = '<div class="stat-cards">'
+    + '<div class="stat-card"><div class="stat-label">Total Projects</div><div class="stat-value">' + _cachedProjects.length + '</div></div>'
+    + '<div class="stat-card"><div class="stat-label">Active</div><div class="stat-value">' + activeN + '</div></div>'
+    + '<div class="stat-card"><div class="stat-label">Draft</div><div class="stat-value">' + draftN + '</div></div>'
+    + '<div class="stat-card"><div class="stat-label">Closed</div><div class="stat-value">' + closedN + '</div></div>'
+    + '</div>';
+
+  html += '<div class="card">'
+    + '<div class="card-header"><h2>All Projects</h2>'
+    + '<div class="search-wrap"><span class="s-icon">&#x1F50D;</span>'
+    + '<input class="search-input" id="project-search" placeholder="Search projects\u2026" oninput="filterProjectList()" '
+    + 'onkeydown="if(event.key===\'Escape\'){this.value=\'\';filterProjectList()}">'
+    + '</div></div>'
+    + '<div class="filter-bar">'
+    + '<div class="filter-group"><span class="filter-label">Status</span>'
+    + '<select class="filter-select" id="project-filter-status" onchange="filterProjectList()">'
+    + '<option value="">All</option><option value="Active">Active</option><option value="Draft">Draft</option><option value="Paused">Paused</option><option value="Closed">Closed</option>'
+    + '</select></div>'
+    + '<div class="filter-group"><span class="filter-label">Type</span>'
+    + '<select class="filter-select" id="project-filter-type" onchange="filterProjectList()">'
+    + '<option value="">All</option><option value="One-Off">One-Off</option><option value="Retainer">Retainer</option>'
+    + '</select></div></div>'
+    + '<div class="table-wrap"><table class="data-table">'
+    + '<thead><tr>'
+    + sortableTh('Name', 'name', _projectSort, 'toggleProjectSort')
+    + sortableTh('Client', 'clientName', _projectSort, 'toggleProjectSort', 'hide-mobile')
+    + sortableTh('Type', 'type', _projectSort, 'toggleProjectSort')
+    + sortableTh('Status', 'status', _projectSort, 'toggleProjectSort')
+    + sortableTh('Start Date', 'startDate', _projectSort, 'toggleProjectSort', 'hide-mobile')
+    + '</tr></thead>'
+    + '<tbody id="project-tbody"></tbody>'
+    + '</table></div></div>';
+
+  $('content').innerHTML = html;
+  filterProjectList();
 }
 
 /** Apply status filter + type filter + text search + sort to cached projects, then re-render tbody. */
@@ -1254,7 +1293,7 @@ function submitNewClient() {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('clients', 'projects');
         var msg = '<div class="status-banner success">\u2705 <strong>' + esc(name) + '</strong> created successfully!';
         if (result.client && result.client.notionUrl) msg += '<br><a href="' + esc(result.client.notionUrl) + '" target="_blank">Open in Notion &rarr;</a>';
         if (result.driveFolderId) msg += '<br><a href="https://drive.google.com/drive/folders/' + esc(result.driveFolderId) + '" target="_blank">Open Drive Folder &rarr;</a>';
@@ -1554,7 +1593,7 @@ function submitNewProject(clientId) {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('projects');
         var msg = '<div class="status-banner success">\u2705 Project <strong>' + esc(name) + '</strong> created.';
         if (result.project && result.project.notionUrl) msg += '<br><a href="' + esc(result.project.notionUrl) + '" target="_blank">Open in Notion &rarr;</a>';
         msg += '</div><button class="btn btn-secondary" onclick="navigate(\'project\',\'' + jsEsc(name) + '\',{projectId:\'' + jsEsc(result.project.id) + '\',clientId:\'' + jsEsc(resolvedClientId) + '\'})">View Project &rarr;</button>';
@@ -2194,7 +2233,7 @@ function submitGenerateAgreement(projectId, clientId) {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('agreements');
         var msg = '<div class="status-banner success">✅ <strong>' + esc(result.contractId) + '</strong> generated.';
         if (result.driveUrl)  msg += '&nbsp;<a href="' + esc(result.driveUrl)  + '" target="_blank">Open in Drive &rarr;</a>';
         if (result.notionUrl) msg += '&nbsp;&middot;&nbsp;<a href="' + esc(result.notionUrl) + '" target="_blank">Open in Notion &rarr;</a>';
@@ -2410,7 +2449,7 @@ function submitEditClient(clientId) {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('clients');
         $('ec-status').innerHTML = '<div class="status-banner success">Client updated.</div>';
         $('ec-submit').disabled = false; $('ec-submit').textContent = 'Save Changes';
       } else {
@@ -2498,7 +2537,7 @@ function submitEditProject(projectId) {
       // Now update status
       google.script.run
         .withSuccessHandler(function(r2) {
-          _ssClear();
+          _ssClear(); _invalidate('projects');
           if (r2.success) {
             $('ep-status').innerHTML = '<div class="status-banner success">Project updated.</div>';
           } else {
@@ -2625,7 +2664,7 @@ function submitMarkAgreementSent(agreementId) {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('agreements');
         renderAgreementView(agreementId, '');
       } else {
         alert('Could not mark as sent: ' + result.error);
@@ -2648,7 +2687,7 @@ function submitUpdateAgreementInfo(agreementId) {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('agreements');
         statusEl.innerHTML = '<div class="status-banner success">Saved.</div>';
         btn.textContent = 'Save Changes';
         btn.disabled = false;
@@ -2681,7 +2720,7 @@ function submitLogSignedCopy(agreementId) {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('agreements');
         statusEl.innerHTML = '<div class="status-banner success">✅ Signed copy logged. Status updated to Signed.</div>';
         btn.textContent = '✅ Logged';
         // Refresh view after short delay
@@ -2768,65 +2807,72 @@ function renderAgreements() {
     ? '<button class="btn btn-primary" onclick="navigate(\'newAgreement\',\'New Agreement\',{})">+ New Agreement</button>'
     : '';
 
-  showLoading('Loading agreements…');
   _agreementSort = { col: 'effectiveDate', dir: 'desc' };
 
+  if (_listCache.agreements !== null) { _doRenderAgreements(_listCache.agreements); return; }
+
+  showLoading('Loading agreements…');
   google.script.run
     .withSuccessHandler(function(agreements) {
       if (!agreements || agreements.error) { showError((agreements && agreements.error) || 'Failed to load agreements.'); return; }
-      _cachedAgreements = agreements;
-
-      // Build dynamic client list
-      var clientNames = [];
-      agreements.forEach(function(a) {
-        if (a.clientName && clientNames.indexOf(a.clientName) === -1) clientNames.push(a.clientName);
-      });
-      clientNames.sort();
-
-      var html = '<div class="stat-cards" id="agr-stats">'
-        + '<div class="stat-card"><div class="stat-label">Drafts</div><div class="stat-value" id="agr-stat-drafts" style="color:#d97706">—</div></div>'
-        + '<div class="stat-card"><div class="stat-label">Awaiting Signature</div><div class="stat-value" id="agr-stat-sent">—</div></div>'
-        + '<div class="stat-card"><div class="stat-label">Active</div><div class="stat-value" id="agr-stat-signed" style="color:#16a34a">—</div></div>'
-        + '</div>';
-
-      html += '<div class="card">'
-        + '<div class="card-header"><h2>All Agreements</h2>'
-        + '<div class="search-wrap"><span class="s-icon">&#x1F50D;</span>'
-        + '<input class="search-input" id="agr-search" placeholder="Search agreements…" oninput="filterAgreementList()"'
-        + ' onkeydown="if(event.key===\'Escape\'){this.value=\'\';filterAgreementList()}"></div></div>'
-        + '<div class="filter-bar">'
-        + '<div class="filter-group"><span class="filter-label">Status</span>'
-        + '<select class="filter-select" id="agr-filter-status" onchange="filterAgreementList()">'
-        + '<option value="">All</option><option>Draft</option><option>Sent</option><option>Signed</option><option>Void</option>'
-        + '</select></div>'
-        + '<div class="filter-group"><span class="filter-label">Type</span>'
-        + '<select class="filter-select" id="agr-filter-type" onchange="filterAgreementList()">'
-        + '<option value="">All</option><option value="MSA">MSA</option>'
-        + '<option value="SOW (Retainer)">SOW — Retainer</option>'
-        + '<option value="SOW (Project)">SOW — Project</option>'
-        + '</select></div>'
-        + '<div class="filter-group"><span class="filter-label">Client</span>'
-        + '<select class="filter-select" id="agr-filter-client" onchange="filterAgreementList()">'
-        + '<option value="">All</option>';
-      clientNames.forEach(function(n) { html += '<option>' + esc(n) + '</option>'; });
-      html += '</select></div>'
-        + '</div>'
-        + '<div class="table-wrap"><table class="data-table">'
-        + '<thead id="agr-thead"><tr>'
-        + sortableTh('Agreement ID', 'agreementId',  _agreementSort, 'toggleAgreementSort', '')
-        + sortableTh('Type',         'docType',       _agreementSort, 'toggleAgreementSort', 'hide-mobile')
-        + sortableTh('Client',       'clientName',    _agreementSort, 'toggleAgreementSort', 'hide-mobile')
-        + sortableTh('Title',        'title',         _agreementSort, 'toggleAgreementSort', 'hide-mobile')
-        + '<th>Status</th>'
-        + sortableTh('Date',         'effectiveDate', _agreementSort, 'toggleAgreementSort', '')
-        + '</tr></thead><tbody id="agr-tbody"></tbody>'
-        + '</table></div></div>';
-
-      $('content').innerHTML = html;
-      filterAgreementList();
+      _listCache.agreements = agreements;
+      _doRenderAgreements(agreements);
     })
     .withFailureHandler(function(e) { showError(e.message); })
     .panelGetAllAgreements();
+}
+
+function _doRenderAgreements(agreements) {
+  _cachedAgreements = agreements;
+
+  // Build dynamic client list
+  var clientNames = [];
+  agreements.forEach(function(a) {
+    if (a.clientName && clientNames.indexOf(a.clientName) === -1) clientNames.push(a.clientName);
+  });
+  clientNames.sort();
+
+  var html = '<div class="stat-cards" id="agr-stats">'
+    + '<div class="stat-card"><div class="stat-label">Drafts</div><div class="stat-value" id="agr-stat-drafts" style="color:#d97706">—</div></div>'
+    + '<div class="stat-card"><div class="stat-label">Awaiting Signature</div><div class="stat-value" id="agr-stat-sent">—</div></div>'
+    + '<div class="stat-card"><div class="stat-label">Active</div><div class="stat-value" id="agr-stat-signed" style="color:#16a34a">—</div></div>'
+    + '</div>';
+
+  html += '<div class="card">'
+    + '<div class="card-header"><h2>All Agreements</h2>'
+    + '<div class="search-wrap"><span class="s-icon">&#x1F50D;</span>'
+    + '<input class="search-input" id="agr-search" placeholder="Search agreements…" oninput="filterAgreementList()"'
+    + ' onkeydown="if(event.key===\'Escape\'){this.value=\'\';filterAgreementList()}"></div></div>'
+    + '<div class="filter-bar">'
+    + '<div class="filter-group"><span class="filter-label">Status</span>'
+    + '<select class="filter-select" id="agr-filter-status" onchange="filterAgreementList()">'
+    + '<option value="">All</option><option>Draft</option><option>Sent</option><option>Signed</option><option>Void</option>'
+    + '</select></div>'
+    + '<div class="filter-group"><span class="filter-label">Type</span>'
+    + '<select class="filter-select" id="agr-filter-type" onchange="filterAgreementList()">'
+    + '<option value="">All</option><option value="MSA">MSA</option>'
+    + '<option value="SOW (Retainer)">SOW — Retainer</option>'
+    + '<option value="SOW (Project)">SOW — Project</option>'
+    + '</select></div>'
+    + '<div class="filter-group"><span class="filter-label">Client</span>'
+    + '<select class="filter-select" id="agr-filter-client" onchange="filterAgreementList()">'
+    + '<option value="">All</option>';
+  clientNames.forEach(function(n) { html += '<option>' + esc(n) + '</option>'; });
+  html += '</select></div>'
+    + '</div>'
+    + '<div class="table-wrap"><table class="data-table">'
+    + '<thead id="agr-thead"><tr>'
+    + sortableTh('Agreement ID', 'agreementId',  _agreementSort, 'toggleAgreementSort', '')
+    + sortableTh('Type',         'docType',       _agreementSort, 'toggleAgreementSort', 'hide-mobile')
+    + sortableTh('Client',       'clientName',    _agreementSort, 'toggleAgreementSort', 'hide-mobile')
+    + sortableTh('Title',        'title',         _agreementSort, 'toggleAgreementSort', 'hide-mobile')
+    + '<th>Status</th>'
+    + sortableTh('Date',         'effectiveDate', _agreementSort, 'toggleAgreementSort', '')
+    + '</tr></thead><tbody id="agr-tbody"></tbody>'
+    + '</table></div></div>';
+
+  $('content').innerHTML = html;
+  filterAgreementList();
 }
 
 function filterAgreementList() {
@@ -2910,77 +2956,85 @@ function renderInvoices() {
   $('topbar-actions').innerHTML = '';
   _invoiceSort = { col: 'issuedDate', dir: 'desc' };
 
+  if (_listCache.invoices !== null) { _doRenderInvoices(_listCache.invoices); return; }
+
+  showLoading('Loading invoices…');
   google.script.run
     .withSuccessHandler(function(invoices) {
       if (invoices.error) { showError(invoices.error); return; }
-      _cachedInvoices = invoices;
-
-      var html = '<div class="stat-cards" id="inv-stats">'
-        + '<div class="stat-card"><div class="stat-label">Total Invoiced</div><div class="stat-value" id="inv-stat-total">—</div></div>'
-        + '<div class="stat-card"><div class="stat-label">Outstanding</div><div class="stat-value" id="inv-stat-outstanding">—</div></div>'
-        + '<div class="stat-card"><div class="stat-label">Overdue</div><div class="stat-value" id="inv-stat-overdue" style="color:#dc2626">—</div></div>'
-        + '<div class="stat-card"><div class="stat-label">Paid</div><div class="stat-value" id="inv-stat-paid" style="color:#16a34a">—</div></div>'
-        + '</div>';
-
-      // Build dynamic filter lists
-      var invClientNames = [], invProjectNames = [];
-      invoices.forEach(function(i) {
-        if (i.clientName  && invClientNames.indexOf(i.clientName)   === -1) invClientNames.push(i.clientName);
-        if (i.projectName && invProjectNames.indexOf(i.projectName) === -1) invProjectNames.push(i.projectName);
-      });
-      invClientNames.sort();
-      invProjectNames.sort();
-
-      html += '<div class="card">'
-        + '<div class="card-header"><h2>All Invoices</h2>'
-        + '<div class="search-wrap"><span class="s-icon">&#x1F50D;</span>'
-        + '<input class="search-input" id="inv-search" placeholder="Search invoices\u2026" oninput="filterInvoiceList()"'
-        + ' onkeydown="if(event.key===\'Escape\'){this.value=\'\';filterInvoiceList()}">'
-        + '</div></div>'
-        + '<div class="filter-bar">'
-        + '<div class="filter-group"><span class="filter-label">Status</span>'
-        + '<select class="filter-select" id="inv-filter-status" onchange="filterInvoiceList()">'
-        + '<option value="">All</option><option>Draft</option><option>Sent</option><option>Paid</option><option>Overdue</option><option>Void</option></select></div>'
-        + '<div class="filter-group"><span class="filter-label">Client</span>'
-        + '<select class="filter-select" id="inv-filter-client" onchange="filterInvoiceList()">'
-        + '<option value="">All</option>';
-      invClientNames.forEach(function(n) { html += '<option>' + esc(n) + '</option>'; });
-      html += '</select></div>'
-        + '<div class="filter-group"><span class="filter-label">Project</span>'
-        + '<select class="filter-select" id="inv-filter-project" onchange="filterInvoiceList()">'
-        + '<option value="">All</option>';
-      invProjectNames.forEach(function(n) { html += '<option>' + esc(n) + '</option>'; });
-      html += '</select></div>'
-        + '<div class="filter-group"><span class="filter-label">Type</span>'
-        + '<select class="filter-select" id="inv-filter-type" onchange="filterInvoiceList()">'
-        + '<option value="">All</option><option>Deposit</option><option>Final</option><option>Add-On</option><option>Retainer</option></select></div>'
-        + '<div style="width:100%;margin:0;padding:0;border:0"></div>'
-        + '<div class="filter-group"><span class="filter-label">From</span>'
-        + '<input class="filter-select" id="inv-filter-from" type="date" onchange="filterInvoiceList()" style="width:130px"></div>'
-        + '<div class="filter-group"><span class="filter-label">To</span>'
-        + '<input class="filter-select" id="inv-filter-to" type="date" onchange="filterInvoiceList()" style="width:130px"></div>'
-        + '<div class="filter-group" style="align-items:center;display:flex;gap:6px">'
-        + '<input type="checkbox" id="inv-filter-outstanding" onchange="filterInvoiceList()">'
-        + '<label for="inv-filter-outstanding" class="filter-label" style="margin:0;cursor:pointer">Outstanding only</label></div>'
-        + '</div>'
-        + '<div class="table-wrap"><table class="data-table">'
-        + '<thead id="inv-thead"><tr>'
-        + sortableTh('Issued','issuedDate',_invoiceSort,'toggleInvoiceSort','')
-        + sortableTh('Due','dueDate',_invoiceSort,'toggleInvoiceSort','hide-mobile')
-        + sortableTh('Invoice ID','invoiceId',_invoiceSort,'toggleInvoiceSort','')
-        + sortableTh('Client','clientName',_invoiceSort,'toggleInvoiceSort','hide-mobile')
-        + sortableTh('Project','projectName',_invoiceSort,'toggleInvoiceSort','hide-mobile')
-        + sortableTh('Type','type',_invoiceSort,'toggleInvoiceSort','hide-mobile')
-        + sortableTh('Total','total',_invoiceSort,'toggleInvoiceSort','')
-        + '<th>Status</th>'
-        + '</tr></thead><tbody id="inv-tbody"></tbody>'
-        + '</table></div></div>';
-
-      $('content').innerHTML = html;
-      filterInvoiceList();
+      _listCache.invoices = invoices;
+      _doRenderInvoices(invoices);
     })
     .withFailureHandler(function(e) { showError(e.message); })
     .panelGetAllInvoices();
+}
+
+function _doRenderInvoices(invoices) {
+  _cachedInvoices = invoices;
+
+  var html = '<div class="stat-cards" id="inv-stats">'
+    + '<div class="stat-card"><div class="stat-label">Total Invoiced</div><div class="stat-value" id="inv-stat-total">—</div></div>'
+    + '<div class="stat-card"><div class="stat-label">Outstanding</div><div class="stat-value" id="inv-stat-outstanding">—</div></div>'
+    + '<div class="stat-card"><div class="stat-label">Overdue</div><div class="stat-value" id="inv-stat-overdue" style="color:#dc2626">—</div></div>'
+    + '<div class="stat-card"><div class="stat-label">Paid</div><div class="stat-value" id="inv-stat-paid" style="color:#16a34a">—</div></div>'
+    + '</div>';
+
+  // Build dynamic filter lists
+  var invClientNames = [], invProjectNames = [];
+  invoices.forEach(function(i) {
+    if (i.clientName  && invClientNames.indexOf(i.clientName)   === -1) invClientNames.push(i.clientName);
+    if (i.projectName && invProjectNames.indexOf(i.projectName) === -1) invProjectNames.push(i.projectName);
+  });
+  invClientNames.sort();
+  invProjectNames.sort();
+
+  html += '<div class="card">'
+    + '<div class="card-header"><h2>All Invoices</h2>'
+    + '<div class="search-wrap"><span class="s-icon">&#x1F50D;</span>'
+    + '<input class="search-input" id="inv-search" placeholder="Search invoices…" oninput="filterInvoiceList()"'
+    + ' onkeydown="if(event.key===\'Escape\'){this.value=\'\';filterInvoiceList()}">'
+    + '</div></div>'
+    + '<div class="filter-bar">'
+    + '<div class="filter-group"><span class="filter-label">Status</span>'
+    + '<select class="filter-select" id="inv-filter-status" onchange="filterInvoiceList()">'
+    + '<option value="">All</option><option>Draft</option><option>Sent</option><option>Paid</option><option>Overdue</option><option>Void</option></select></div>'
+    + '<div class="filter-group"><span class="filter-label">Client</span>'
+    + '<select class="filter-select" id="inv-filter-client" onchange="filterInvoiceList()">'
+    + '<option value="">All</option>';
+  invClientNames.forEach(function(n) { html += '<option>' + esc(n) + '</option>'; });
+  html += '</select></div>'
+    + '<div class="filter-group"><span class="filter-label">Project</span>'
+    + '<select class="filter-select" id="inv-filter-project" onchange="filterInvoiceList()">'
+    + '<option value="">All</option>';
+  invProjectNames.forEach(function(n) { html += '<option>' + esc(n) + '</option>'; });
+  html += '</select></div>'
+    + '<div class="filter-group"><span class="filter-label">Type</span>'
+    + '<select class="filter-select" id="inv-filter-type" onchange="filterInvoiceList()">'
+    + '<option value="">All</option><option>Deposit</option><option>Final</option><option>Add-On</option><option>Retainer</option></select></div>'
+    + '<div style="width:100%;margin:0;padding:0;border:0"></div>'
+    + '<div class="filter-group"><span class="filter-label">From</span>'
+    + '<input class="filter-select" id="inv-filter-from" type="date" onchange="filterInvoiceList()" style="width:130px"></div>'
+    + '<div class="filter-group"><span class="filter-label">To</span>'
+    + '<input class="filter-select" id="inv-filter-to" type="date" onchange="filterInvoiceList()" style="width:130px"></div>'
+    + '<div class="filter-group" style="align-items:center;display:flex;gap:6px">'
+    + '<input type="checkbox" id="inv-filter-outstanding" onchange="filterInvoiceList()">'
+    + '<label for="inv-filter-outstanding" class="filter-label" style="margin:0;cursor:pointer">Outstanding only</label></div>'
+    + '</div>'
+    + '<div class="table-wrap"><table class="data-table">'
+    + '<thead id="inv-thead"><tr>'
+    + sortableTh('Issued','issuedDate',_invoiceSort,'toggleInvoiceSort','')
+    + sortableTh('Due','dueDate',_invoiceSort,'toggleInvoiceSort','hide-mobile')
+    + sortableTh('Invoice ID','invoiceId',_invoiceSort,'toggleInvoiceSort','')
+    + sortableTh('Client','clientName',_invoiceSort,'toggleInvoiceSort','hide-mobile')
+    + sortableTh('Project','projectName',_invoiceSort,'toggleInvoiceSort','hide-mobile')
+    + sortableTh('Type','type',_invoiceSort,'toggleInvoiceSort','hide-mobile')
+    + sortableTh('Total','total',_invoiceSort,'toggleInvoiceSort','')
+    + '<th>Status</th>'
+    + '</tr></thead><tbody id="inv-tbody"></tbody>'
+    + '</table></div></div>';
+
+  $('content').innerHTML = html;
+  filterInvoiceList();
 }
 
 function filterInvoiceList() {
@@ -3221,7 +3275,7 @@ function submitLogPayment(invoiceId, clientId, projectId) {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('payments', 'invoices');
         var msg = 'Payment logged.';
         if (result.invoiceUpdated) msg += ' Invoice marked as Paid.';
         if (result.projectClosed)  msg += ' Project closed.';
@@ -3261,64 +3315,72 @@ function renderExpenses() {
 
   _expenseSort = { col: 'expenseDate', dir: 'desc' };
 
+  if (_listCache.expenses !== null) { _doRenderExpenses(_listCache.expenses); return; }
+
+  showLoading('Loading expenses…');
   google.script.run
     .withSuccessHandler(function(expenses) {
       if (expenses.error) { showError(expenses.error); return; }
-      _cachedExpenses = expenses;
-
-      var totalAmt = expenses.reduce(function(sum, e) { return sum + (e.amount || 0); }, 0);
-      var billable = expenses.filter(function(e) { return e.billable; });
-      var billableAmt = billable.reduce(function(sum, e) { return sum + (e.amount || 0); }, 0);
-
-      var html = '<div class="stat-cards">'
-        + '<div class="stat-card"><div class="stat-label">Total Expenses</div><div class="stat-value">' + expenses.length + '</div></div>'
-        + '<div class="stat-card"><div class="stat-label">Total Amount</div><div class="stat-value">' + formatMoney(totalAmt) + '</div></div>'
-        + '<div class="stat-card"><div class="stat-label">Billable</div><div class="stat-value">' + formatMoney(billableAmt) + '</div></div>'
-        + '</div>';
-
-      html += '<div class="card">'
-        + '<div class="card-header"><h2>All Expenses</h2>'
-        + '<div class="search-wrap"><span class="s-icon">&#x1F50D;</span>'
-        + '<input class="search-input" id="expense-search" placeholder="Search expenses\u2026" oninput="filterExpenseList()" '
-        + 'onkeydown="if(event.key===\'Escape\'){this.value=\'\';filterExpenseList()}">'
-        + '</div></div>'
-        + '<div class="filter-bar">'
-        + '<div class="filter-group"><span class="filter-label">Category</span>'
-        + '<select class="filter-select" id="expense-filter-category" onchange="filterExpenseList()">'
-        + '<option value="">All</option><option>Contractor Payments</option><option>Equipment</option><option>Software &amp; Subscriptions</option><option>Travel &amp; Meals</option><option>Professional Services</option><option>Marketing &amp; Advertising</option><option>Operations</option></select></div>'
-        + '<div class="filter-group"><span class="filter-label">Type</span>'
-        + '<select class="filter-select" id="expense-filter-type" onchange="filterExpenseList()">'
-        + '<option value="">All</option><option>Project</option><option>Overhead</option></select></div>'
-        + '<div class="filter-group"><span class="filter-label">Status</span>'
-        + '<select class="filter-select" id="expense-filter-status" onchange="filterExpenseList()">'
-        + '<option value="">All</option><option>Logged</option><option>Needs Review</option></select></div>';
-
-      // Build client filter dynamically from the data
-      var expClientNames = [];
-      expenses.forEach(function(e) { if (e.clientName && expClientNames.indexOf(e.clientName) === -1) expClientNames.push(e.clientName); });
-      expClientNames.sort();
-      html += '<div class="filter-group"><span class="filter-label">Client</span>'
-        + '<select class="filter-select" id="expense-filter-client" onchange="filterExpenseList()">'
-        + '<option value="">All</option>';
-      expClientNames.forEach(function(name) { html += '<option>' + esc(name) + '</option>'; });
-      html += '</select></div></div>'
-        + '<div class="table-wrap"><table class="data-table">'
-        + '<thead id="expense-thead"><tr>'
-        + sortableTh('Date','expenseDate',_expenseSort,'toggleExpenseSort','')
-        + sortableTh('Description','description',_expenseSort,'toggleExpenseSort','')
-        + sortableTh('Vendor','vendor',_expenseSort,'toggleExpenseSort','hide-mobile')
-        + sortableTh('Category','category',_expenseSort,'toggleExpenseSort','hide-mobile')
-        + sortableTh('Amount','amount',_expenseSort,'toggleExpenseSort','')
-        + '<th class="hide-mobile">Billable</th>'
-        + '<th class="hide-mobile">Receipt</th>'
-        + '</tr></thead><tbody id="expense-tbody"></tbody>'
-        + '</table></div></div>';
-
-      $('content').innerHTML = html;
-      filterExpenseList();
+      _listCache.expenses = expenses;
+      _doRenderExpenses(expenses);
     })
     .withFailureHandler(function(e) { showError(e.message); })
     .panelGetAllExpenses();
+}
+
+function _doRenderExpenses(expenses) {
+  _cachedExpenses = expenses;
+
+  var totalAmt = expenses.reduce(function(sum, e) { return sum + (e.amount || 0); }, 0);
+  var billable = expenses.filter(function(e) { return e.billable; });
+  var billableAmt = billable.reduce(function(sum, e) { return sum + (e.amount || 0); }, 0);
+
+  var html = '<div class="stat-cards">'
+    + '<div class="stat-card"><div class="stat-label">Total Expenses</div><div class="stat-value">' + expenses.length + '</div></div>'
+    + '<div class="stat-card"><div class="stat-label">Total Amount</div><div class="stat-value">' + formatMoney(totalAmt) + '</div></div>'
+    + '<div class="stat-card"><div class="stat-label">Billable</div><div class="stat-value">' + formatMoney(billableAmt) + '</div></div>'
+    + '</div>';
+
+  html += '<div class="card">'
+    + '<div class="card-header"><h2>All Expenses</h2>'
+    + '<div class="search-wrap"><span class="s-icon">&#x1F50D;</span>'
+    + '<input class="search-input" id="expense-search" placeholder="Search expenses\u2026" oninput="filterExpenseList()" '
+    + 'onkeydown="if(event.key===\'Escape\'){this.value=\'\';filterExpenseList()}">'
+    + '</div></div>'
+    + '<div class="filter-bar">'
+    + '<div class="filter-group"><span class="filter-label">Category</span>'
+    + '<select class="filter-select" id="expense-filter-category" onchange="filterExpenseList()">'
+    + '<option value="">All</option><option>Contractor Payments</option><option>Equipment</option><option>Software &amp; Subscriptions</option><option>Travel &amp; Meals</option><option>Professional Services</option><option>Marketing &amp; Advertising</option><option>Operations</option></select></div>'
+    + '<div class="filter-group"><span class="filter-label">Type</span>'
+    + '<select class="filter-select" id="expense-filter-type" onchange="filterExpenseList()">'
+    + '<option value="">All</option><option>Project</option><option>Overhead</option></select></div>'
+    + '<div class="filter-group"><span class="filter-label">Status</span>'
+    + '<select class="filter-select" id="expense-filter-status" onchange="filterExpenseList()">'
+    + '<option value="">All</option><option>Logged</option><option>Needs Review</option></select></div>';
+
+  // Build client filter dynamically from the data
+  var expClientNames = [];
+  expenses.forEach(function(e) { if (e.clientName && expClientNames.indexOf(e.clientName) === -1) expClientNames.push(e.clientName); });
+  expClientNames.sort();
+  html += '<div class="filter-group"><span class="filter-label">Client</span>'
+    + '<select class="filter-select" id="expense-filter-client" onchange="filterExpenseList()">'
+    + '<option value="">All</option>';
+  expClientNames.forEach(function(name) { html += '<option>' + esc(name) + '</option>'; });
+  html += '</select></div></div>'
+    + '<div class="table-wrap"><table class="data-table">'
+    + '<thead id="expense-thead"><tr>'
+    + sortableTh('Date','expenseDate',_expenseSort,'toggleExpenseSort','')
+    + sortableTh('Description','description',_expenseSort,'toggleExpenseSort','')
+    + sortableTh('Vendor','vendor',_expenseSort,'toggleExpenseSort','hide-mobile')
+    + sortableTh('Category','category',_expenseSort,'toggleExpenseSort','hide-mobile')
+    + sortableTh('Amount','amount',_expenseSort,'toggleExpenseSort','')
+    + '<th class="hide-mobile">Billable</th>'
+    + '<th class="hide-mobile">Receipt</th>'
+    + '</tr></thead><tbody id="expense-tbody"></tbody>'
+    + '</table></div></div>';
+
+  $('content').innerHTML = html;
+  filterExpenseList();
 }
 
 function filterExpenseList() {
@@ -3449,7 +3511,7 @@ function confirmArchiveExpense(expensePageId, label) {
   if (!confirm('Delete expense "' + label + '"? This moves it to Notion trash (recoverable for 30 days).')) return;
   google.script.run
     .withSuccessHandler(function(result) {
-      if (result.success) { _ssClear(); navigateToRoot('expenses', 'Expenses'); }
+      if (result.success) { _ssClear(); _invalidate('expenses'); navigateToRoot('expenses', 'Expenses'); }
       else { $('expense-action-status').innerHTML = '<div class="status-banner error">' + esc(result.error) + '</div>'; }
     })
     .withFailureHandler(function(err) { $('expense-action-status').innerHTML = '<div class="status-banner error">' + esc(err.message) + '</div>'; })
@@ -3647,7 +3709,7 @@ function submitEditExpense(expensePageId) {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('expenses');
         $('ee-banner').innerHTML = '<div class="status-banner success">Expense updated.</div>';
         $('ee-submit').textContent = 'Saved';
         setTimeout(function() { goBack(); }, 600);
@@ -4149,7 +4211,7 @@ function submitNewExpense() {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('expenses');
         $('exp-status').innerHTML = '<div class="status-banner success">Expense logged: ' + esc(result.expense.expenseId) + '</div>';
         $('exp-submit').textContent = 'Logged';
         setTimeout(function() { navigateToRoot('expenses', 'Expenses'); }, 800);
@@ -4197,71 +4259,79 @@ function renderPayments() {
 
   _paymentSort = { col: 'paymentDate', dir: 'desc' };
 
+  if (_listCache.payments !== null) { _doRenderPayments(_listCache.payments); return; }
+
+  showLoading('Loading payments…');
   google.script.run
     .withSuccessHandler(function(payments) {
       if (payments.error) { showError(payments.error); return; }
-      _cachedPayments = payments;
-
-      // Build year list from data
-      var years = [];
-      payments.forEach(function(p) {
-        if (p.paymentDate) {
-          var yr = p.paymentDate.substring(0, 4);
-          if (years.indexOf(yr) === -1) years.push(yr);
-        }
-      });
-      years.sort().reverse();
-
-      // Build client list from data
-      var payClientNames = [];
-      payments.forEach(function(p) {
-        if (p.clientName && payClientNames.indexOf(p.clientName) === -1) payClientNames.push(p.clientName);
-      });
-      payClientNames.sort();
-
-      var html = '<div id="payment-stat-cards" class="stat-cards"></div>';
-
-      html += '<div class="card">'
-        + '<div class="card-header"><h2>All Payments</h2>'
-        + '<div class="search-wrap"><span class="s-icon">&#x1F50D;</span>'
-        + '<input class="search-input" id="payment-search" placeholder="Search payments\u2026" oninput="filterPaymentList()" '
-        + 'onkeydown="if(event.key===\'Escape\'){this.value=\'\';filterPaymentList()}">'
-        + '</div></div>'
-        + '<div class="filter-bar">'
-        + '<div class="filter-group"><span class="filter-label">Year</span>'
-        + '<select class="filter-select" id="payment-filter-year" onchange="filterPaymentList()">'
-        + '<option value="">All Years</option>';
-      years.forEach(function(yr) { html += '<option>' + yr + '</option>'; });
-      html += '</select></div>'
-        + '<div class="filter-group"><span class="filter-label">Method</span>'
-        + '<select class="filter-select" id="payment-filter-method" onchange="filterPaymentList()">'
-        + '<option value="">All</option><option>Check</option><option>ACH</option><option>Wire</option><option>Card</option><option>Zelle</option><option>Other</option></select></div>'
-        + '<div class="filter-group"><span class="filter-label">Client</span>'
-        + '<select class="filter-select" id="payment-filter-client" onchange="filterPaymentList()">'
-        + '<option value="">All</option>';
-      payClientNames.forEach(function(name) { html += '<option>' + esc(name) + '</option>'; });
-      html += '</select></div>'
-        + '<div class="filter-group" style="display:flex;align-items:center;gap:6px">'
-        + '<input type="checkbox" id="payment-filter-withheld" onchange="filterPaymentList()">'
-        + '<label for="payment-filter-withheld" class="filter-label" style="cursor:pointer;margin:0">Withholding only</label>'
-        + '</div>'
-        + '</div>'
-        + '<div class="table-wrap"><table class="data-table">'
-        + '<thead id="payment-thead"><tr>'
-        + sortableTh('Date','paymentDate',_paymentSort,'togglePaymentSort','')
-        + sortableTh('Client','clientName',_paymentSort,'togglePaymentSort','')
-        + sortableTh('Invoice','invoiceNumber',_paymentSort,'togglePaymentSort','hide-mobile')
-        + sortableTh('Method','method',_paymentSort,'togglePaymentSort','hide-mobile')
-        + sortableTh('Amount','amount',_paymentSort,'togglePaymentSort','')
-        + '<th class="hide-mobile">Receipt</th>'
-        + '</tr></thead><tbody id="payment-tbody"></tbody>'
-        + '</table></div></div>';
-
-      $('content').innerHTML = html;
-      filterPaymentList();
+      _listCache.payments = payments;
+      _doRenderPayments(payments);
     })
     .withFailureHandler(function(e) { showError(e.message); })
     .panelGetAllPayments();
+}
+
+function _doRenderPayments(payments) {
+  _cachedPayments = payments;
+
+  // Build year list from data
+  var years = [];
+  payments.forEach(function(p) {
+    if (p.paymentDate) {
+      var yr = p.paymentDate.substring(0, 4);
+      if (years.indexOf(yr) === -1) years.push(yr);
+    }
+  });
+  years.sort().reverse();
+
+  // Build client list from data
+  var payClientNames = [];
+  payments.forEach(function(p) {
+    if (p.clientName && payClientNames.indexOf(p.clientName) === -1) payClientNames.push(p.clientName);
+  });
+  payClientNames.sort();
+
+  var html = '<div id="payment-stat-cards" class="stat-cards"></div>';
+
+  html += '<div class="card">'
+    + '<div class="card-header"><h2>All Payments</h2>'
+    + '<div class="search-wrap"><span class="s-icon">&#x1F50D;</span>'
+    + '<input class="search-input" id="payment-search" placeholder="Search payments\u2026" oninput="filterPaymentList()" '
+    + 'onkeydown="if(event.key===\'Escape\'){this.value=\'\';filterPaymentList()}">'
+    + '</div></div>'
+    + '<div class="filter-bar">'
+    + '<div class="filter-group"><span class="filter-label">Year</span>'
+    + '<select class="filter-select" id="payment-filter-year" onchange="filterPaymentList()">'
+    + '<option value="">All Years</option>';
+  years.forEach(function(yr) { html += '<option>' + yr + '</option>'; });
+  html += '</select></div>'
+    + '<div class="filter-group"><span class="filter-label">Method</span>'
+    + '<select class="filter-select" id="payment-filter-method" onchange="filterPaymentList()">'
+    + '<option value="">All</option><option>Check</option><option>ACH</option><option>Wire</option><option>Card</option><option>Zelle</option><option>Other</option></select></div>'
+    + '<div class="filter-group"><span class="filter-label">Client</span>'
+    + '<select class="filter-select" id="payment-filter-client" onchange="filterPaymentList()">'
+    + '<option value="">All</option>';
+  payClientNames.forEach(function(name) { html += '<option>' + esc(name) + '</option>'; });
+  html += '</select></div>'
+    + '<div class="filter-group" style="display:flex;align-items:center;gap:6px">'
+    + '<input type="checkbox" id="payment-filter-withheld" onchange="filterPaymentList()">'
+    + '<label for="payment-filter-withheld" class="filter-label" style="cursor:pointer;margin:0">Withholding only</label>'
+    + '</div>'
+    + '</div>'
+    + '<div class="table-wrap"><table class="data-table">'
+    + '<thead id="payment-thead"><tr>'
+    + sortableTh('Date','paymentDate',_paymentSort,'togglePaymentSort','')
+    + sortableTh('Client','clientName',_paymentSort,'togglePaymentSort','')
+    + sortableTh('Invoice','invoiceNumber',_paymentSort,'togglePaymentSort','hide-mobile')
+    + sortableTh('Method','method',_paymentSort,'togglePaymentSort','hide-mobile')
+    + sortableTh('Amount','amount',_paymentSort,'togglePaymentSort','')
+    + '<th class="hide-mobile">Receipt</th>'
+    + '</tr></thead><tbody id="payment-tbody"></tbody>'
+    + '</table></div></div>';
+
+  $('content').innerHTML = html;
+  filterPaymentList();
 }
 
 function filterPaymentList() {
@@ -4385,7 +4455,7 @@ function confirmArchivePayment(paymentPageId, label) {
   if (!confirm('Delete payment "' + label + '"? This moves it to Notion trash and deletes the receipt file (both recoverable for 30 days).')) return;
   google.script.run
     .withSuccessHandler(function(result) {
-      if (result.success) { _ssClear(); navigateToRoot('payments', 'Payments'); }
+      if (result.success) { _ssClear(); _invalidate('payments'); navigateToRoot('payments', 'Payments'); }
       else { $('payment-action-status').innerHTML = '<div class="status-banner error">' + esc(result.error) + '</div>'; }
     })
     .withFailureHandler(function(err) { $('payment-action-status').innerHTML = '<div class="status-banner error">' + esc(err.message) + '</div>'; })
@@ -4595,7 +4665,7 @@ function submitEditPayment(paymentPageId) {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('payments', 'invoices');
         $('ep-status').innerHTML = '<div class="status-banner success">Payment updated.</div>';
         $('ep-submit').textContent = 'Saved';
         setTimeout(function() { goBack(); }, 600);
@@ -5028,7 +5098,7 @@ function submitNewPayment() {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('payments', 'invoices');
         var msg = 'Payment logged: ' + esc(result.payment.paymentId);
         if (result.invoiceUpdated) msg += '. Invoice marked as Paid.';
         if (result.projectClosed)  msg += ' Project closed.';
@@ -5085,44 +5155,52 @@ function renderContractors() {
 
   _contractorSort = { col: 'name', dir: 'asc' };
 
+  if (_listCache.contractors !== null) { _doRenderContractors(_listCache.contractors); return; }
+
+  showLoading('Loading contractors\u2026');
   cachedGetContractors(function(contractors) {
       if (contractors.error) { showError(contractors.error); return; }
-      _cachedContractors = contractors;
-
-      var partners = contractors.filter(function(c) { return c.isPartner; }).length;
-      var html = '<div class="stat-cards">'
-        + '<div class="stat-card"><div class="stat-label">Total Contractors</div><div class="stat-value">' + contractors.length + '</div></div>'
-        + '<div class="stat-card"><div class="stat-label">Partners</div><div class="stat-value">' + partners + '</div></div>'
-        + '</div>';
-
-      html += '<div class="card">'
-        + '<div class="card-header"><h2>All Contractors</h2>'
-        + '<div class="search-wrap"><span class="s-icon">&#x1F50D;</span>'
-        + '<input class="search-input" id="contractor-search" placeholder="Search contractors\u2026" oninput="filterContractorList()" '
-        + 'onkeydown="if(event.key===\'Escape\'){this.value=\'\';filterContractorList()}">'
-        + '</div></div>'
-        + '<div class="filter-bar">'
-        + '<div class="filter-group"><span class="filter-label">Role</span>'
-        + '<select class="filter-select" id="contractor-role-filter" onchange="filterContractorList()">'
-        + '<option value="">All</option><option>Photographer</option><option>Videographer</option><option>Editor</option><option>Sound</option><option>Other</option></select></div>'
-        + '<div class="filter-group"><span class="filter-label">Type</span>'
-        + '<select class="filter-select" id="contractor-type-filter" onchange="filterContractorList()">'
-        + '<option value="">All</option><option>Individual</option><option>Company</option></select></div></div>'
-        + '<div class="table-wrap"><table class="data-table">'
-        + '<thead id="contractor-thead"><tr>'
-        + sortableTh('Name','name',_contractorSort,'toggleContractorSort','')
-        + sortableTh('Roles','roles',_contractorSort,'toggleContractorSort','hide-mobile')
-        + sortableTh('Type','type',_contractorSort,'toggleContractorSort','hide-mobile')
-        + '<th class="hide-mobile">Email</th>'
-        + '<th class="hide-mobile">Phone</th>'
-        + sortableTh('Payment','paymentMethod',_contractorSort,'toggleContractorSort','hide-mobile')
-        + '<th>Partner</th>'
-        + '</tr></thead><tbody id="contractor-tbody"></tbody>'
-        + '</table></div></div>';
-
-      $('content').innerHTML = html;
-      filterContractorList();
+      _listCache.contractors = contractors;
+      _doRenderContractors(contractors);
     }, function(e) { showError(e.message); });
+}
+
+function _doRenderContractors(contractors) {
+  _cachedContractors = contractors;
+
+  var partners = contractors.filter(function(c) { return c.isPartner; }).length;
+  var html = '<div class="stat-cards">'
+    + '<div class="stat-card"><div class="stat-label">Total Contractors</div><div class="stat-value">' + contractors.length + '</div></div>'
+    + '<div class="stat-card"><div class="stat-label">Partners</div><div class="stat-value">' + partners + '</div></div>'
+    + '</div>';
+
+  html += '<div class="card">'
+    + '<div class="card-header"><h2>All Contractors</h2>'
+    + '<div class="search-wrap"><span class="s-icon">&#x1F50D;</span>'
+    + '<input class="search-input" id="contractor-search" placeholder="Search contractors\u2026" oninput="filterContractorList()" '
+    + 'onkeydown="if(event.key===\'Escape\'){this.value=\'\';filterContractorList()}">'
+    + '</div></div>'
+    + '<div class="filter-bar">'
+    + '<div class="filter-group"><span class="filter-label">Role</span>'
+    + '<select class="filter-select" id="contractor-role-filter" onchange="filterContractorList()">'
+    + '<option value="">All</option><option>Photographer</option><option>Videographer</option><option>Editor</option><option>Sound</option><option>Other</option></select></div>'
+    + '<div class="filter-group"><span class="filter-label">Type</span>'
+    + '<select class="filter-select" id="contractor-type-filter" onchange="filterContractorList()">'
+    + '<option value="">All</option><option>Individual</option><option>Company</option></select></div></div>'
+    + '<div class="table-wrap"><table class="data-table">'
+    + '<thead id="contractor-thead"><tr>'
+    + sortableTh('Name','name',_contractorSort,'toggleContractorSort','')
+    + sortableTh('Roles','roles',_contractorSort,'toggleContractorSort','hide-mobile')
+    + sortableTh('Type','type',_contractorSort,'toggleContractorSort','hide-mobile')
+    + '<th class="hide-mobile">Email</th>'
+    + '<th class="hide-mobile">Phone</th>'
+    + sortableTh('Payment','paymentMethod',_contractorSort,'toggleContractorSort','hide-mobile')
+    + '<th>Partner</th>'
+    + '</tr></thead><tbody id="contractor-tbody"></tbody>'
+    + '</table></div></div>';
+
+  $('content').innerHTML = html;
+  filterContractorList();
 }
 
 function filterContractorList() {
@@ -5253,7 +5331,7 @@ function confirmArchiveContractor(contractorId, name) {
   if (!confirm('Archive contractor "' + name + '"? This moves it to Notion trash (recoverable for 30 days).')) return;
   google.script.run
     .withSuccessHandler(function(result) {
-      if (result.success) { _ssClear(); navigateToRoot('contractors', 'Contractors'); }
+      if (result.success) { _ssClear(); _invalidate('contractors'); navigateToRoot('contractors', 'Contractors'); }
       else { $('contractor-status').innerHTML = '<div class="status-banner error">' + esc(result.error) + '</div>'; }
     })
     .withFailureHandler(function(e) { $('contractor-status').innerHTML = '<div class="status-banner error">' + esc(e.message) + '</div>'; })
@@ -5305,7 +5383,7 @@ function submitNewContractor() {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('contractors');
         $('nco-status').innerHTML = '<div class="status-banner success">Contractor created. <a href="#" onclick="navigate(\'contractor\',\'' + jsEsc(result.contractor.name) + '\',{contractorId:\'' + result.contractor.id + '\'});return false;">View Contractor</a></div>';
         $('nco-submit').textContent = 'Created';
       } else {
@@ -5380,7 +5458,7 @@ function submitEditContractor(contractorId) {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('contractors');
         $('eco-status').innerHTML = '<div class="status-banner success">Contractor updated.</div>';
         $('eco-submit').textContent = 'Saved';
         setTimeout(function() { goBack(); }, 600);
@@ -5411,17 +5489,25 @@ function renderQuotes() {
   $('topbar-actions').innerHTML =
     (_isPartner() ? '<button class="btn btn-primary" onclick="navigate(\'newQuote\',\'New Quote\',{})">+ New Quote</button>' : '');
 
+  _quoteSort = { col: 'issuedDate', dir: 'desc' };
+  _quoteFilterStatus = '';
+
+  if (_listCache.quotes !== null) { _doRenderQuotes(_listCache.quotes); return; }
+
   showLoading('Loading quotes\u2026');
   google.script.run
     .withSuccessHandler(function(quotes) {
       if (!quotes || quotes.error) { showError((quotes && quotes.error) || 'Failed to load quotes.'); return; }
-      _cachedQuotes = quotes;
-      _quoteSort = { col: 'issuedDate', dir: 'desc' };
-      _quoteFilterStatus = '';
-      _renderQuoteList();
+      _listCache.quotes = quotes;
+      _doRenderQuotes(quotes);
     })
     .withFailureHandler(function(e) { showError(e.message); })
     .panelGetAllQuotes();
+}
+
+function _doRenderQuotes(quotes) {
+  _cachedQuotes = quotes;
+  _renderQuoteList();
 }
 
 function _renderQuoteList() {
@@ -5599,7 +5685,7 @@ function submitConvertToInvoice(quotePageId) {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('quotes', 'invoices');
         var msg = '<div class="status-banner success">&#10003; Invoice <strong>' + esc(result.invoiceId) + '</strong> created!';
         if (result.invoiceUrl) msg += ' <a href="' + esc(result.invoiceUrl) + '" target="_blank">View PDF &rarr;</a>';
         msg += '</div>';
@@ -5630,7 +5716,7 @@ function confirmDeleteQuote(quotePageId, quoteId, driveLink) {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('quotes');
         goBack();
       } else {
         alert('Error: ' + result.error);
@@ -5741,7 +5827,7 @@ function submitEditQuote(quotePageId) {
     .withSuccessHandler(function(r) {
       $('nq-submit').disabled = false; $('nq-submit').textContent = 'Save Changes';
       if (r.success) {
-        _ssClear();
+        _ssClear(); _invalidate('quotes');
         var msg = '&#10003; Quote <strong>' + esc(r.quoteId) + '</strong> updated.';
         if (r.url) msg += ' <a href="' + esc(r.url) + '" target="_blank">View PDF &rarr;</a>';
         $('nq-status').innerHTML = '<div class="status-banner success">' + msg + '</div>';
@@ -5851,7 +5937,7 @@ function submitCloneQuote(originalQuoteId, clientId, projectId, mode) {
       btn.disabled = false;
       btn.textContent = mode === 'revise' ? 'Create Revised Quote' : 'Create Quote';
       if (r.success) {
-        _ssClear();
+        _ssClear(); _invalidate('quotes');
         var msg = '&#10003; Quote <strong>' + esc(r.quoteId) + '</strong> created!';
         if (mode === 'revise') msg += ' ' + esc(r.expiredId) + ' marked as Expired.';
         if (r.url) msg += ' <a href="' + esc(r.url) + '" target="_blank">View PDF &rarr;</a>';
@@ -6013,7 +6099,7 @@ function submitNewQuote() {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('quotes');
         var msg = '<div class="status-banner success">&#10003; Quote <strong>' + esc(result.quoteId) + '</strong> created!';
         if (result.url) msg += ' <a href="' + esc(result.url) + '" target="_blank">View PDF &rarr;</a>';
         msg += '</div>';
@@ -6532,7 +6618,7 @@ function confirmArchiveClient(clientId, clientName) {
   statusEl.innerHTML = '<div class="loading"><span class="spinner"></span> Archiving&hellip;</div>';
   google.script.run
     .withSuccessHandler(function(r) {
-      if (r.success) { navigateToRoot('clients', 'Clients'); }
+      if (r.success) { _invalidate('clients', 'projects'); navigateToRoot('clients', 'Clients'); }
       else { statusEl.innerHTML = '<div class="status-banner error">' + esc(r.error) + '</div>'; }
     })
     .withFailureHandler(function(e) { statusEl.innerHTML = '<div class="status-banner error">' + esc(e.message) + '</div>'; })
@@ -6601,7 +6687,7 @@ function submitQuickExpense(clientId, projectId) {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear();
+        _ssClear(); _invalidate('expenses');
         $('qe-status').innerHTML = '<div class="status-banner success">Expense logged.</div>';
         $('qe-submit').textContent = 'Logged';
         // Reset form
@@ -6744,6 +6830,7 @@ function submitQuickInvoice(clientId, projectId) {
     .withSuccessHandler(function(r) {
       btn.disabled = false; btn.textContent = 'Create Invoice';
       if (r.success) {
+        _invalidate('invoices');
         var msg = 'Invoice <strong>' + esc(r.invoiceId) + '</strong> created!';
         if (r.url) msg += ' <a href="' + esc(r.url) + '" target="_blank" style="color:inherit;text-decoration:underline">Open in Drive \u2197</a>';
         var bannerHtml = '<div class="status-banner success">' + msg + '</div>';
@@ -6772,7 +6859,7 @@ function confirmArchiveProject(projectId, projectName) {
   statusEl.innerHTML = '<div class="loading"><span class="spinner"></span> Archiving&hellip;</div>';
   google.script.run
     .withSuccessHandler(function(r) {
-      if (r.success) { navigateToRoot('projects', 'Projects'); }
+      if (r.success) { _invalidate('projects'); navigateToRoot('projects', 'Projects'); }
       else { statusEl.innerHTML = '<div class="status-banner error">' + esc(r.error) + '</div>'; }
     })
     .withFailureHandler(function(e) { statusEl.innerHTML = '<div class="status-banner error">' + esc(e.message) + '</div>'; })
@@ -6792,7 +6879,7 @@ function confirmDeleteProject(projectId, projectName) {
   statusEl.innerHTML = '<div class="loading"><span class="spinner"></span> Deleting&hellip;</div>';
   google.script.run
     .withSuccessHandler(function(r) {
-      if (r.success) { navigateToRoot('projects', 'Projects'); }
+      if (r.success) { _invalidate('projects'); navigateToRoot('projects', 'Projects'); }
       else { statusEl.innerHTML = '<div class="status-banner error">' + esc(r.error) + '</div>'; }
     })
     .withFailureHandler(function(e) { statusEl.innerHTML = '<div class="status-banner error">' + esc(e.message) + '</div>'; })
@@ -6814,7 +6901,7 @@ function confirmDeleteInvoice(invoiceId, invoiceNum, driveLink) {
   statusEl.innerHTML = '<div class="loading"><span class="spinner"></span> Deleting&hellip;</div>';
   google.script.run
     .withSuccessHandler(function(r) {
-      if (r.success) { navigateToRoot('dashboard', 'Dashboard'); }
+      if (r.success) { _invalidate('invoices'); navigateToRoot('dashboard', 'Dashboard'); }
       else { statusEl.innerHTML = '<div class="status-banner error">' + esc(r.error) + '</div>'; }
     })
     .withFailureHandler(function(e) { statusEl.innerHTML = '<div class="status-banner error">' + esc(e.message) + '</div>'; })
@@ -6982,7 +7069,7 @@ function submitCloneInvoice(originalInvoiceId, mode, paymentIds) {
       .withSuccessHandler(function(r) {
         btn.disabled = false; btn.textContent = 'Create Revised Invoice';
         if (r.success) {
-          _ssClear();
+          _ssClear(); _invalidate('invoices', 'payments');
           var msg = 'Invoice <strong>' + esc(r.invoiceId) + '</strong> created. '
             + esc(r.voidedId) + ' has been voided.';
           if (r.paymentsMoved) msg += ' ' + r.paymentsMoved + ' payment(s) transferred.';
@@ -7004,7 +7091,7 @@ function submitCloneInvoice(originalInvoiceId, mode, paymentIds) {
       .withSuccessHandler(function(r) {
         btn.disabled = false; btn.textContent = 'Create Invoice';
         if (r.success) {
-          _ssClear();
+          _ssClear(); _invalidate('invoices');
           var msg = 'Invoice <strong>' + esc(r.invoiceId) + '</strong> created!';
           if (r.url) msg += ' <a href="' + esc(r.url) + '" target="_blank" style="color:inherit;text-decoration:underline">Open in Drive \u2197</a>';
           $('cli-status').innerHTML = '<div class="status-banner success">' + msg + '</div>';
@@ -7927,6 +8014,7 @@ function runSeedTestData() {
     .withSuccessHandler(function(r) {
       if (btn) { btn.disabled = false; btn.textContent = 'Seed Test Data'; }
       if (r.success) {
+        _invalidate('clients','projects','agreements','invoices','quotes','expenses','payments','contractors');
         var msg = 'Test data seeded successfully.';
         if (r.msaError) msg += ' Note: MSA generation failed — ' + r.msaError;
         $('test-data-result').innerHTML = '<div class="status-banner ' + (r.msaError ? 'warning' : 'success') + '">' + esc(msg) + '</div>';
@@ -7963,6 +8051,7 @@ function _confirmTeardown() {
   google.script.run
     .withSuccessHandler(function(r) {
       if (btn) { btn.disabled = false; btn.textContent = 'Teardown'; }
+      _invalidate('clients','projects','agreements','invoices','quotes','expenses','payments','contractors');
       if (r.success) {
         $('test-data-result').innerHTML = '<div class="status-banner success">Teardown complete. All test records archived.</div>';
       } else {
