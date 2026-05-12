@@ -2077,6 +2077,7 @@ function panelCreateContractor(data) {
   try {
     if (!data.name || !data.name.trim()) return { success: false, error: 'Contractor name is required.' };
     var page = createNotionContractor(data);
+    _cacheInvalidate(_CACHE_KEYS);
     return { success: true, contractor: { id: page.id, name: data.name, notionUrl: page.url || '' } };
   } catch (e) {
     return { success: false, error: e.message };
@@ -2087,6 +2088,7 @@ function panelUpdateContractorInfo(contractorId, data) {
   _requireRole(['admin', 'partner']);
   try {
     updateContractorInfo(contractorId, data);
+    _cacheInvalidate(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -2127,6 +2129,7 @@ function panelArchiveContractor(contractorId) {
   _requireRole(['admin']);
   try {
     archiveNotionPage(contractorId);
+    _cacheInvalidate(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
