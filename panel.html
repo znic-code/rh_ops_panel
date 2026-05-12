@@ -1907,18 +1907,23 @@ function draftAgreementEmail(agreementPageId, title, clientId, fileUrl) {
  * If _cachedClients is not yet loaded, fetches clients first.
  */
 function renderGenerateAgreementForm(projectId, clientId, prefill) {
-  if (_cachedClients.length === 0) {
-    $('content').innerHTML = '<div style="padding:24px;text-align:center;color:#666">Loading…</div>';
-    google.script.run
-      .withSuccessHandler(function(data) {
-        _cachedClients = data || [];
-        _doRenderGenerateAgreementForm(projectId, clientId, prefill);
-      })
-      .withFailureHandler(function(e) { showError(e.message); })
-      .panelGetAllClientsData();
-  } else {
+  // Use whatever client list is already in memory
+  if (_cachedClients.length > 0) {
     _doRenderGenerateAgreementForm(projectId, clientId, prefill);
+    return;
   }
+  // Check the list cache before hitting the server
+  if (_listCache.clients !== null) {
+    _cachedClients = _listCache.clients;
+    _doRenderGenerateAgreementForm(projectId, clientId, prefill);
+    return;
+  }
+  $('content').innerHTML = '<div style="padding:24px;text-align:center;color:#666">Loading…</div>';
+  cachedGetClients(function(data) {
+    if (data.error) { showError(data.error); return; }
+    _cachedClients = data || [];
+    _doRenderGenerateAgreementForm(projectId, clientId, prefill);
+  }, function(e) { showError(e.message); });
 }
 
 function _doRenderGenerateAgreementForm(projectId, clientId, prefill) {
