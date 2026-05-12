@@ -712,8 +712,8 @@ function render() {
     case 'project':      renderProjectView(currentView.data.projectId, currentView.data.clientId); break;
     case 'editProject':  renderEditProjectForm(currentView.data.projectId); break;
     case 'newProject':   renderNewProjectForm(currentView.data.clientId); break;
-    case 'newAgreement':      renderGenerateAgreementForm(currentView.data.projectId, currentView.data.clientId); break;
-    case 'generateAgreement': renderGenerateAgreementForm(currentView.data.projectId, currentView.data.clientId); break;
+    case 'newAgreement':      renderGenerateAgreementForm(currentView.data.projectId, currentView.data.clientId, currentView.data.prefill); break;
+    case 'generateAgreement': renderGenerateAgreementForm(currentView.data.projectId, currentView.data.clientId, currentView.data.prefill); break;
     case 'addContact':   renderAddContactForm(currentView.data.clientId); break;
     case 'editContact':  renderEditContactForm(currentView.data.contactId, currentView.data.clientId); break;
     case 'invoices':     renderInvoices(); break;
@@ -874,6 +874,12 @@ function updateEntityStatus(selectEl, entityType, entityId) {
     google.script.run.withSuccessHandler(successFn).withFailureHandler(failFn).panelUpdateQuoteStatus(entityId, newStatus);
   }
 }
+
+// ── AGREEMENT FORM PRE-FILL ────────────────────────────────
+// When launching a Companion SOW from an MSA detail view, the MSA's Notion
+// page ID is stored here so gaLoadParentMSAs() can pre-select it after
+// the async options load. Cleared immediately after use.
+var _pendingMsaPreselect = null;
 
 // ── LEVEL 1: CLIENTS LIST ──────────────────────────────────
 // Client list state — cached data + sort/filter settings for the All Clients view.
@@ -1858,22 +1864,22 @@ function draftAgreementEmail(agreementPageId, title, clientId, fileUrl) {
  * Render the Generate Agreement form.
  * If _cachedClients is not yet loaded, fetches clients first.
  */
-function renderGenerateAgreementForm(projectId, clientId) {
+function renderGenerateAgreementForm(projectId, clientId, prefill) {
   if (_cachedClients.length === 0) {
     $('content').innerHTML = '<div style="padding:24px;text-align:center;color:#666">Loading…</div>';
     google.script.run
       .withSuccessHandler(function(data) {
         _cachedClients = data || [];
-        _doRenderGenerateAgreementForm(projectId, clientId);
+        _doRenderGenerateAgreementForm(projectId, clientId, prefill);
       })
       .withFailureHandler(function(e) { showError(e.message); })
       .panelGetAllClientsData();
   } else {
-    _doRenderGenerateAgreementForm(projectId, clientId);
+    _doRenderGenerateAgreementForm(projectId, clientId, prefill);
   }
 }
 
-function _doRenderGenerateAgreementForm(projectId, clientId) {
+function _doRenderGenerateAgreementForm(projectId, clientId, prefill) {
   var today = new Date().toISOString().split('T')[0];
 
   var clientOpts = '<option value="">-- Select Client --</option>';
@@ -2002,7 +2008,15 @@ function _doRenderGenerateAgreementForm(projectId, clientId) {
     + '</div></div></div></div>';
 
   $('content').innerHTML = html;
-  if (clientId) gaLoadParentMSAs(clientId);
+
+  // Apply prefill when launching a Companion SOW from an MSA detail view
+  if (prefill && prefill.type) {
+    $('ga-type').value = prefill.type;
+    if (prefill.msaPageId) _pendingMsaPreselect = prefill.msaPageId;
+    gaOnTypeChange(); // shows SOW section + triggers gaLoadParentMSAs (which will apply _pendingMsaPreselect)
+  } else {
+    if (clientId) gaLoadParentMSAs(clientId);
+  }
 }
 
 // ── GA helper functions ───────────────────────────────────────
@@ -2054,10 +2068,13 @@ function gaLoadParentMSAs(clientId) {
         return;
       }
       msas.forEach(function(ag) {
-        var bare  = (ag.title || '').replace(/^RH-\S+ — /, '');
-        var label = ag.agreementId ? ag.agreementId + ' — ' + bare : (ag.title || '');
+        var bare   = (ag.title || '').replace(/^RH-\S+ — /, '');
+        var status = ag.status ? ' (' + ag.status + ')' : '';
+        var label  = ag.agreementId ? ag.agreementId + ' — ' + bare + status : ((ag.title || '') + status);
         sel.innerHTML += '<option value="' + jsEsc(ag.id) + '">' + esc(label) + '</option>';
       });
+      // Apply pending pre-selection (set by launchCompanionSOW pre-fill flow)
+      if (_pendingMsaPreselect) { sel.value = _pendingMsaPreselect; _pendingMsaPreselect = null; }
       if (hEl) hEl.textContent = '';
     })
     .withFailureHandler(function() { var h = $('ga-msa-hint'); if (h) h.textContent = ''; })
@@ -2528,6 +2545,9 @@ function renderAgreementView(agreementId, clientId) {
         html += '<button class="btn btn-primary btn-sm" onclick="submitMarkAgreementSent(\'' + jsEsc(ag.id) + '\')">Mark as Sent</button>';
       }
       html += '<button class="btn btn-secondary btn-sm" onclick="openComposeEmail(\'agreement\',\'' + jsEsc(ag.id) + '\',\'' + jsEsc(ag.title) + '\',\'' + jsEsc(ag.clientId||'') + '\',{fileUrl:\'' + jsEsc(ag.fileUrl||'') + '\'})">Send Email</button>';
+      if (ag.docType === 'MSA') {
+        html += '<button class="btn btn-secondary btn-sm" onclick="launchCompanionSOW(\'' + jsEsc(ag.id) + '\',\'' + jsEsc(ag.clientId||'') + '\')" title="Generate a new SOW pre-linked to this MSA">+ Companion SOW</button>';
+      }
       html += '</div></div><div class="card-body">';
 
       // Agreement ID badge
@@ -2584,6 +2604,17 @@ function renderAgreementView(agreementId, clientId) {
     })
     .withFailureHandler(function(e) { showError(e.message); })
     .panelGetAgreementDetails(agreementId);
+}
+
+/**
+ * Navigate to the Generate Agreement form pre-filled as a SOW linked to this MSA.
+ * Sets _pendingMsaPreselect so gaLoadParentMSAs() auto-selects the MSA after loading.
+ */
+function launchCompanionSOW(msaPageId, clientId) {
+  navigate('generateAgreement', 'New Agreement', {
+    clientId: clientId,
+    prefill: { type: 'SOW (Retainer)', msaPageId: msaPageId }
+  });
 }
 
 /** Mark an agreement as Sent. */
