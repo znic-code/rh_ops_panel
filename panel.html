@@ -7715,7 +7715,7 @@ function faqItem(q, a) {
  * Agreements, Data & Reports, Administration, and Troubleshooting.
  */
 function renderHelp() {
-  $('topbar-actions').innerHTML = '<span style="font-size:11px;color:#bba08b">Last Updated: April 10, 2026</span>';
+  $('topbar-actions').innerHTML = '<span style="font-size:11px;color:#bba08b">Last Updated: May 11, 2026</span>';
   var html = '';
 
   // ── Operations Workflow ────────────────────────────────────
@@ -7727,8 +7727,8 @@ function renderHelp() {
     + '<li>Set client <strong>Status</strong> (Active, Prospect, or Inactive) and check <strong>Withholding Agent</strong> if the client withholds 10% on your payments.</li>'
     + '<li>Add a primary contact (auto-linked to the client). Notes can be added per contact too.</li>'
     + '<li>Optionally create the first project right on the form.</li>'
-    + '<li>The system auto-creates a Drive folder structure with subfolders for Proposals, Assets, Invoices, Contracts, Projects, Meeting Notes, Expenses, and Payments.</li>'
-    + '<li>Upload an agreement from the client page &mdash; saved to the Contracts subfolder and logged in Notion.</li></ol>'
+    + '<li>The system auto-creates a Drive folder structure with subfolders for Proposals, Assets, Invoices, Quotes, Contracts, Projects, Meeting Notes, Expenses, and Payments.</li>'
+    + '<li>Generate the first agreement (usually an MSA) from <strong>Agreements &rarr; + New Agreement</strong> &mdash; the system copies the template, fills placeholders, and logs it in Notion.</li></ol>'
   );
 
   html += faqItem('2. Project Execution',
@@ -7793,7 +7793,8 @@ function renderHelp() {
     + '<li>Export to Spreadsheet to hand off to your accountant.</li></ul>'
     + '<p><strong>As needed:</strong></p>'
     + '<ul><li>Compose emails from templates with variable substitution.</li>'
-    + '<li>Upload and track agreements (Draft &rarr; Signed).</li>'
+    + '<li>Generate agreements (MSA or SOW) &mdash; fill placeholders, mark as Sent, log the signed copy.</li>'
+    + '<li>Create and send quotes; convert approved quotes to invoices in one click.</li>'
     + '<li>Edit or delete any record &mdash; associated Drive files are cleaned up automatically.</li></ul>'
   );
 
@@ -7810,7 +7811,7 @@ function renderHelp() {
     + '<li>Add one or more contacts &mdash; each contact can also have notes.</li>'
     + '<li>Optionally add an initial project name, type, and start date.</li>'
     + '<li>Click <strong>Create Client</strong>.</li></ol>'
-    + '<p>This creates the client record in Notion, any contacts, the project (if provided), and a Drive folder structure.</p>'
+    + '<p>This creates the client record in Notion, any contacts, the project (if provided), and a Drive folder structure with subfolders for Proposals, Assets, Invoices, Quotes, Contracts, Projects, Meeting Notes, Expenses, and Payments.</p>'
   );
 
   html += faqItem('How do I create a project?',
@@ -7897,10 +7898,69 @@ function renderHelp() {
   // ── Agreements ────────────────────────────────────────────
   html += '<div class="faq-section"><div class="card"><div class="card-header"><h2>Agreements</h2></div><div class="card-body">';
 
-  html += faqItem('How do agreements work?',
-    '<p><strong>Creating:</strong> Open a project and click <strong>+ Create</strong> in the Agreements section. Select the document type (MSA, SOW, PSA, or Change Order), set the effective date, and click <strong>Create Agreement</strong>. The system copies the corresponding template from Drive and saves it to the client\'s Contracts folder.</p>'
-    + '<p><strong>Viewing:</strong> Click any agreement row to open its detail page, where you can see all details, change the status, and use the action buttons: <strong>View Document</strong>, <strong>Send</strong> (email to client), or <strong>Edit</strong>.</p>'
-    + '<p><strong>Emailing:</strong> Click <strong>Send</strong> from either the project page or the agreement detail page to open the Compose Email view with the agreement template pre-selected.</p>'
+  html += faqItem('What types of agreements does the system support?',
+    '<p>The system generates two types of agreements from Google Docs templates:</p>'
+    + '<ul><li><strong>MSA (Master Service Agreement)</strong> &mdash; Client-level. Establishes the general terms between RH Media and a client. One active MSA per client at a time. Language: English or Spanish.</li>'
+    + '<li><strong>SOW &mdash; Retainer</strong> &mdash; Project-level. Covers ongoing monthly work. Requires a parent MSA, a project, start/end dates, and a monthly retainer fee.</li>'
+    + '<li><strong>SOW &mdash; Project</strong> &mdash; Project-level. Covers a fixed-scope engagement. Requires a parent MSA, a project, a deadline, and a project fee.</li></ul>'
+    + '<p>All agreements are saved as Google Docs to the client\'s <code>Contracts/YYYY/</code> Drive folder and logged in Notion.</p>'
+  );
+
+  html += faqItem('How do I generate an agreement?',
+    '<p>Go to <strong>Agreements &rarr; + New Agreement</strong> (or from a client page).</p>'
+    + '<ol><li>Select <strong>Contract Type</strong> (MSA, SOW &mdash; Retainer, or SOW &mdash; Project) and <strong>Language</strong> (English or Spanish).</li>'
+    + '<li>Select the <strong>Client</strong> and optionally a <strong>Project</strong>.</li>'
+    + '<li>Enter a <strong>Title</strong> (e.g. "Master Service Agreement", "SOW Retainer &mdash; Trailhead").</li>'
+    + '<li>For <strong>MSAs</strong>: Effective Date is optional &mdash; you can set it later after the client signs.</li>'
+    + '<li>For <strong>SOWs</strong>: Select the Parent MSA, fill in scope details, dates, and fee amounts. The payment split auto-calculates (60/40 for retainers, 50/50 for projects).</li>'
+    + '<li>Click <strong>Generate Agreement</strong>.</li></ol>'
+    + '<p>The system copies the correct template, fills all placeholders (client name, dates, fees, company info), saves the Google Doc to Drive, and creates a Notion record with a sequential ID (<code>RH-MSA-YY-MMDD-##</code> or <code>RH-SOW-YY-MMDD-##</code>).</p>'
+  );
+
+  html += faqItem('What is the agreement lifecycle?',
+    '<p>Each agreement moves through three stages:</p>'
+    + '<ol><li><strong>Draft</strong> &mdash; Just generated. Review the document, make any edits directly in Drive.</li>'
+    + '<li><strong>Sent</strong> &mdash; Click <strong>Mark as Sent</strong> on the agreement detail page after sending it to the client (via email or BoldSign).</li>'
+    + '<li><strong>Signed</strong> &mdash; When the client returns a signed copy, use the <strong>Log Signed Copy</strong> panel: pick the signed PDF from Drive (e.g. the BoldSign completed folder), enter the signed date, and click <strong>Log Signed Copy</strong>. Status updates to Signed automatically.</li></ol>'
+    + '<p>You can also update the <strong>Effective Date</strong> and <strong>Notes</strong> from the agreement detail page at any time using the <strong>Edit Details</strong> section.</p>'
+  );
+
+  html += faqItem('How does MSA vs. SOW work together?',
+    '<p>An <strong>MSA</strong> covers the entire client relationship &mdash; it is not tied to any single project. One active MSA per client.</p>'
+    + '<p>Each <strong>SOW</strong> references a parent MSA and governs a specific project or engagement. If an MSA is renegotiated, create a new MSA record &mdash; new SOWs will reference the updated version while existing SOWs remain linked to the original. The parent MSA is shown on each SOW\'s detail page.</p>'
+  );
+
+  html += '</div></div></div>';
+
+  // ── Quotes ────────────────────────────────────────────────
+  html += '<div class="faq-section"><div class="card"><div class="card-header"><h2>Quotes</h2></div><div class="card-body">';
+
+  html += faqItem('How do I create a quote?',
+    '<p>Go to <strong>Quotes &rarr; + New Quote</strong> (or from a client or project page).</p>'
+    + '<ol><li>Select the <strong>Client</strong> and optionally a <strong>Project</strong>.</li>'
+    + '<li>Set the <strong>Issue Date</strong> and <strong>Valid Until</strong> date (default: 30 days).</li>'
+    + '<li>Add line items with name, description, quantity, and price.</li>'
+    + '<li>Add optional tax and notes.</li>'
+    + '<li>Click <strong>Generate Quote</strong>.</li></ol>'
+    + '<p>The system creates a PDF from the quote template, saves it to the client\'s <code>Quotes/YYYY/</code> Drive folder, and logs the quote in Notion with a sequential ID (<code>RH-QTE-YY-MMDD-##</code>).</p>'
+  );
+
+  html += faqItem('How do quote statuses work?',
+    '<ul><li><strong>Draft</strong> &mdash; Generated, not yet sent.</li>'
+    + '<li><strong>Sent</strong> &mdash; Delivered to the client.</li>'
+    + '<li><strong>Accepted</strong> &mdash; Client has approved it.</li>'
+    + '<li><strong>Expired</strong> &mdash; Valid Until date has passed, or superseded by a revision.</li>'
+    + '<li><strong>Converted</strong> &mdash; Turned into an invoice. A converted quote cannot be revised.</li></ul>'
+  );
+
+  html += faqItem('How do I revise a quote?',
+    '<p>Open the quote detail page and click <strong>Revise</strong>. This opens a pre-filled form with the existing line items, dates, and totals. Make your changes and click <strong>Generate Revised Quote</strong>.</p>'
+    + '<p>The original quote is automatically set to <strong>Expired</strong> and a new quote is created with a fresh ID and PDF.</p>'
+  );
+
+  html += faqItem('How do I convert a quote to an invoice?',
+    '<p>Open an <strong>Accepted</strong> or <strong>Sent</strong> quote and click <strong>Convert to Invoice</strong>. The line items, totals, client, and project carry over automatically. You can adjust the invoice type (default: Deposit), dates, and line items before confirming.</p>'
+    + '<p>The quote status updates to <strong>Converted</strong> and a link to the new invoice appears on the quote detail page.</p>'
   );
 
   html += '</div></div></div>';
@@ -8011,13 +8071,12 @@ function renderHelp() {
 
   html += faqItem('Where are my files stored in Google Drive?',
     '<p>The system uses this folder structure:</p>'
-    + '<ul><li><strong>03_Clients/</strong> &mdash; Root folder for all client folders.</li>'
-    + '<li>Each client gets subfolders: Proposals, Assets, Invoices, Contracts, Projects, Meeting Notes, Expenses, Payments.</li>'
-    + '<li><strong>01_Admin/Financials/</strong> &mdash; Non-client expenses, payments, and W-9s. Contains subfolders: <code>Expenses/</code>, <code>Payments/</code>, <code>W-9s/</code>.</li>'
-    + '<li><strong>02_Assets/Legal/Invoices/</strong> &mdash; Central folder for all invoice PDFs.</li>'
-    + '<li><strong>02_Assets/Legal/Contracts/</strong> &mdash; Central folder for all agreement documents.</li></ul>'
-    + '<p>Expense and payment folders use year subfolders (e.g., <code>Expenses/2026/</code>) that are created automatically.</p>'
-    + '<p>You can access a client\'s Drive folder from their detail page via the "Open Folder" link.</p>'
+    + '<ul><li><strong>03_Clients/{Client}/</strong> &mdash; One folder per client, with subfolders: Proposals, Assets, Invoices, Quotes, Contracts, Projects, Meeting Notes, Expenses, Payments.</li>'
+    + '<li><strong>03_Clients/{Client}/Contracts/YYYY/</strong> &mdash; Generated agreement docs and signed PDFs, organized by year. A <code>Signed/</code> subfolder is created when you log a signed copy.</li>'
+    + '<li><strong>03_Clients/{Client}/Quotes/YYYY/</strong> &mdash; Quote PDFs, organized by year.</li>'
+    + '<li><strong>01_Admin/Financials/</strong> &mdash; Non-client expenses, payments, and W-9s. Subfolders: <code>Expenses/YYYY/</code>, <code>Payments/YYYY/</code>, <code>W-9s/</code>.</li>'
+    + '<li><strong>02_Assets/Legal/Invoices/</strong> &mdash; Central folder for all invoice PDFs.</li></ul>'
+    + '<p>Expense, payment, and invoice folders use year subfolders (e.g., <code>Expenses/2026/</code>) created automatically. You can access a client\'s Drive folder from their detail page via the <strong>Open Folder</strong> link.</p>'
   );
 
   html += faqItem('How do I back up my data?',
