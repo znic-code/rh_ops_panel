@@ -3519,8 +3519,13 @@ function confirmArchiveExpense(expensePageId, label) {
   if (!confirm('Delete expense "' + label + '"? This moves it to Notion trash (recoverable for 30 days).')) return;
   google.script.run
     .withSuccessHandler(function(result) {
-      if (result.success) { _ssClear(); _invalidate('expenses'); navigateToRoot('expenses', 'Expenses'); }
-      else { $('expense-action-status').innerHTML = '<div class="status-banner error">' + esc(result.error) + '</div>'; }
+      if (result.success) {
+        _ssClear();
+        if (_listCache.expenses !== null) {
+          _listCache.expenses = _listCache.expenses.filter(function(e) { return e.id !== expensePageId; });
+        } else { _invalidate('expenses'); }
+        navigateToRoot('expenses', 'Expenses');
+      } else { $('expense-action-status').innerHTML = '<div class="status-banner error">' + esc(result.error) + '</div>'; }
     })
     .withFailureHandler(function(err) { $('expense-action-status').innerHTML = '<div class="status-banner error">' + esc(err.message) + '</div>'; })
     .panelArchiveExpense(expensePageId);
@@ -4463,8 +4468,13 @@ function confirmArchivePayment(paymentPageId, label) {
   if (!confirm('Delete payment "' + label + '"? This moves it to Notion trash and deletes the receipt file (both recoverable for 30 days).')) return;
   google.script.run
     .withSuccessHandler(function(result) {
-      if (result.success) { _ssClear(); _invalidate('payments'); navigateToRoot('payments', 'Payments'); }
-      else { $('payment-action-status').innerHTML = '<div class="status-banner error">' + esc(result.error) + '</div>'; }
+      if (result.success) {
+        _ssClear();
+        if (_listCache.payments !== null) {
+          _listCache.payments = _listCache.payments.filter(function(p) { return p.id !== paymentPageId; });
+        } else { _invalidate('payments'); }
+        navigateToRoot('payments', 'Payments');
+      } else { $('payment-action-status').innerHTML = '<div class="status-banner error">' + esc(result.error) + '</div>'; }
     })
     .withFailureHandler(function(err) { $('payment-action-status').innerHTML = '<div class="status-banner error">' + esc(err.message) + '</div>'; })
     .panelArchivePayment(paymentPageId);
@@ -5339,8 +5349,13 @@ function confirmArchiveContractor(contractorId, name) {
   if (!confirm('Archive contractor "' + name + '"? This moves it to Notion trash (recoverable for 30 days).')) return;
   google.script.run
     .withSuccessHandler(function(result) {
-      if (result.success) { _ssClear(); _invalidate('contractors'); navigateToRoot('contractors', 'Contractors'); }
-      else { $('contractor-status').innerHTML = '<div class="status-banner error">' + esc(result.error) + '</div>'; }
+      if (result.success) {
+        _ssClear();
+        if (_listCache.contractors !== null) {
+          _listCache.contractors = _listCache.contractors.filter(function(c) { return c.id !== contractorId; });
+        } else { _invalidate('contractors'); }
+        navigateToRoot('contractors', 'Contractors');
+      } else { $('contractor-status').innerHTML = '<div class="status-banner error">' + esc(result.error) + '</div>'; }
     })
     .withFailureHandler(function(e) { $('contractor-status').innerHTML = '<div class="status-banner error">' + esc(e.message) + '</div>'; })
     .panelArchiveContractor(contractorId);
@@ -5724,7 +5739,10 @@ function confirmDeleteQuote(quotePageId, quoteId, driveLink) {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        _ssClear(); _invalidate('quotes');
+        _ssClear();
+        if (_listCache.quotes !== null) {
+          _listCache.quotes = _listCache.quotes.filter(function(q) { return q.id !== quotePageId; });
+        } else { _invalidate('quotes'); }
         goBack();
       } else {
         alert('Error: ' + result.error);
@@ -6626,8 +6644,14 @@ function confirmArchiveClient(clientId, clientName) {
   statusEl.innerHTML = '<div class="loading"><span class="spinner"></span> Archiving&hellip;</div>';
   google.script.run
     .withSuccessHandler(function(r) {
-      if (r.success) { _invalidate('clients', 'projects'); navigateToRoot('clients', 'Clients'); }
-      else { statusEl.innerHTML = '<div class="status-banner error">' + esc(r.error) + '</div>'; }
+      if (r.success) {
+        if (_listCache.clients !== null) {
+          _listCache.clients = _listCache.clients.map(function(c) {
+            return c.id === clientId ? Object.assign({}, c, { status: 'Inactive' }) : c;
+          });
+        } else { _invalidate('clients', 'projects'); }
+        navigateToRoot('clients', 'Clients');
+      } else { statusEl.innerHTML = '<div class="status-banner error">' + esc(r.error) + '</div>'; }
     })
     .withFailureHandler(function(e) { statusEl.innerHTML = '<div class="status-banner error">' + esc(e.message) + '</div>'; })
     .panelArchiveClient(clientId);
@@ -6867,8 +6891,14 @@ function confirmArchiveProject(projectId, projectName) {
   statusEl.innerHTML = '<div class="loading"><span class="spinner"></span> Archiving&hellip;</div>';
   google.script.run
     .withSuccessHandler(function(r) {
-      if (r.success) { _invalidate('projects'); navigateToRoot('projects', 'Projects'); }
-      else { statusEl.innerHTML = '<div class="status-banner error">' + esc(r.error) + '</div>'; }
+      if (r.success) {
+        if (_listCache.projects !== null) {
+          _listCache.projects = _listCache.projects.map(function(p) {
+            return p.id === projectId ? Object.assign({}, p, { status: 'Closed' }) : p;
+          });
+        } else { _invalidate('projects'); }
+        navigateToRoot('projects', 'Projects');
+      } else { statusEl.innerHTML = '<div class="status-banner error">' + esc(r.error) + '</div>'; }
     })
     .withFailureHandler(function(e) { statusEl.innerHTML = '<div class="status-banner error">' + esc(e.message) + '</div>'; })
     .panelArchiveProject(projectId);
@@ -6887,8 +6917,12 @@ function confirmDeleteProject(projectId, projectName) {
   statusEl.innerHTML = '<div class="loading"><span class="spinner"></span> Deleting&hellip;</div>';
   google.script.run
     .withSuccessHandler(function(r) {
-      if (r.success) { _invalidate('projects'); navigateToRoot('projects', 'Projects'); }
-      else { statusEl.innerHTML = '<div class="status-banner error">' + esc(r.error) + '</div>'; }
+      if (r.success) {
+        if (_listCache.projects !== null) {
+          _listCache.projects = _listCache.projects.filter(function(p) { return p.id !== projectId; });
+        } else { _invalidate('projects'); }
+        navigateToRoot('projects', 'Projects');
+      } else { statusEl.innerHTML = '<div class="status-banner error">' + esc(r.error) + '</div>'; }
     })
     .withFailureHandler(function(e) { statusEl.innerHTML = '<div class="status-banner error">' + esc(e.message) + '</div>'; })
     .panelDeleteProject(projectId);
