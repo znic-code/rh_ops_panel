@@ -164,12 +164,13 @@ function _fillBulletItems(body, placeholder, raw) {
   // Replace the placeholder text in the template list item with the first item
   textEl.asText().replaceText(escaped, items[0]);
 
-  // For each additional item, insert a structural COPY of the template list item.
-  // insertListItem(index, existingListItem) clones the element including its list
-  // membership, nesting level, glyph type, and indentation — no manual attribute
-  // juggling needed, and nothing can accidentally override the indent values.
+  // For each additional item, insert a detached deep copy of the template list item.
+  // listItem.copy() creates a detached clone with identical list membership, nesting
+  // level, glyph type, and indentation. insertListItem requires a detached element —
+  // passing the attached listItem directly throws "Element must be detached".
   for (var i = 1; i < items.length; i++) {
-    var newItem = body.insertListItem(idx + i, listItem);
+    var copy    = listItem.copy();                    // detached deep clone
+    var newItem = body.insertListItem(idx + i, copy); // insert; returns the live element
     newItem.editAsText().setText(items[i]);
   }
 }
