@@ -3680,3 +3680,171 @@ function backupNotionData(forceRun) {
     return { success: false, error: e.message };
   }
 }
+
+// ── TEST DATA PANEL FUNCTIONS ─────────────────────────────────
+
+/**
+ * Return current test seed state (admin only).
+ * Does not modify anything.
+ * @returns {{ seeded: boolean, clientId?, contactIds?, projectId?, msaId?, driveFolderId?, seededAt? }}
+ */
+function panelInspectTestData() {
+  _requireRole(['admin']);
+  var sp = PropertiesService.getScriptProperties();
+  var clientId = sp.getProperty('TEST_CLIENT_ID');
+  if (!clientId) return { seeded: false };
+  return {
+    seeded:        true,
+    clientId:      clientId,
+    contactIds:    sp.getProperty('TEST_CONTACT_IDS')  || '',
+    projectId:     sp.getProperty('TEST_PROJECT_ID')   || '',
+    msaId:         sp.getProperty('TEST_AGREEMENT_ID') || '',
+    driveFolderId: sp.getProperty('TEST_DRIVE_FOLDER') || '',
+    seededAt:      sp.getProperty('TEST_SEEDED_AT')    || '',
+  };
+}
+
+/**
+ * Create test records from the panel UI (admin only).
+ * Creates: 1 client, 1 contact, 1 retainer project, 1 MSA.
+ * IDs are stored in Script Properties under TEST_* keys so teardown
+ * always knows exactly what to clean up.
+ * @returns {{ success, clientId?, projectId?, msaId?, driveFolderId?, seededAt?, msaError?, error? }}
+ */
+function panelSeedTestData() {
+  _requireRole(['admin']);
+  var sp = PropertiesService.getScriptProperties();
+
+  // Guard: don't double-seed
+  if (sp.getProperty('TEST_CLIENT_ID')) {
+    return {
+      success:  false,
+      error:    'Test data already exists. Run Teardown first.',
+      seededAt: sp.getProperty('TEST_SEEDED_AT'),
+    };
+  }
+
+  try {
+    // ── 1. Client + Contact + Project ────────────────────────
+    var clientResult = createFullClient({
+      name:           '[TEST] Road Hazards — Sample Co',
+      type:           'Business',
+      billingEmail:   'test@example.com',
+      billingStreet:  '123 Test Street',
+      billingCity:    'San Juan',
+      billingState:   'PR',
+      billingZip:     '00901',
+      billingCountry: 'US',
+      phone:          '+1 (787) 000-0000',
+      notes:          'Test record — safe to delete.',
+      contacts: [
+        { name: '[TEST] Sample Contact', email: 'contact@example.com', role: 'Marketing Manager', phone: '+1 (787) 000-0001' },
+      ],
+      projectName: '[TEST] Sample Project',
+      projectType: 'Retainer',
+      startDate:   new Date().toISOString().split('T')[0],
+    });
+
+    if (!clientResult.success) {
+      return { success: false, error: 'Client creation failed: ' + clientResult.error };
+    }
+
+    var clientId      = clientResult.client.id;
+    var contactIds    = (clientResult.contacts || []).map(function(c) { return c.id; });
+    var projectId     = clientResult.project ? clientResult.project.id : '';
+    var driveFolderId = clientResult.driveFolderId;
+
+    // ── 2. Generate MSA ───────────────────────────────────────
+    var msaResult = generateAgreement({
+      contractType:  'MSA',
+      language:      'English',
+      clientId:      clientId,
+      driveFolderId: driveFolderId,
+      title:         'Master Service Agreement',
+      effectiveDate: '',
+      notes:         'Test MSA — safe to delete.',
+    });
+
+    var msaId    = '';
+    var msaError = null;
+    if (!msaResult.success) {
+      msaError = msaResult.error;
+    } else {
+      msaId = msaResult.notionId || '';
+    }
+
+    // ── 3. Persist IDs ────────────────────────────────────────
+    var seededAt = new Date().toISOString();
+    sp.setProperties({
+      TEST_CLIENT_ID:    clientId,
+      TEST_CONTACT_IDS:  contactIds.join(','),
+      TEST_PROJECT_ID:   projectId,
+      TEST_AGREEMENT_ID: msaId,
+      TEST_DRIVE_FOLDER: driveFolderId,
+      TEST_SEEDED_AT:    seededAt,
+    });
+
+    var result = {
+      success:       true,
+      clientId:      clientId,
+      projectId:     projectId,
+      msaId:         msaId,
+      driveFolderId: driveFolderId,
+      seededAt:      seededAt,
+    };
+    if (msaError) result.msaError = msaError;
+    return result;
+
+  } catch (e) {
+    Logger.log('panelSeedTestData error: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Archive all test Notion records and trash the Drive folder (admin only).
+ * Reads IDs from Script Properties. Safe to call even if some records
+ * were already deleted — errors are collected and returned, not thrown.
+ * Script Properties are cleared regardless of errors.
+ * @returns {{ success: boolean, errors?: string[] }}
+ */
+function panelTeardownTestData() {
+  _requireRole(['admin']);
+  var sp = PropertiesService.getScriptProperties();
+
+  var clientId    = sp.getProperty('TEST_CLIENT_ID');
+  if (!clientId) {
+    return { success: false, error: 'No test data found. Nothing to tear down.' };
+  }
+
+  var contactIds  = sp.getProperty('TEST_CONTACT_IDS')  || '';
+  var projectId   = sp.getProperty('TEST_PROJECT_ID')   || '';
+  var agreementId = sp.getProperty('TEST_AGREEMENT_ID') || '';
+  var folderId    = sp.getProperty('TEST_DRIVE_FOLDER') || '';
+  var errors      = [];
+
+  function archiveSafely(id, label) {
+    if (!id) return;
+    try { archiveNotionPage(id); }
+    catch (e) { errors.push('Archive ' + label + ': ' + e.message); }
+  }
+
+  // Archive children first, then parent
+  if (agreementId) archiveSafely(agreementId, 'MSA');
+  if (projectId)   archiveSafely(projectId,   'Project');
+  contactIds.split(',').forEach(function(cid) { if (cid.trim()) archiveSafely(cid.trim(), 'Contact'); });
+  archiveSafely(clientId, 'Client');
+
+  // Trash Drive folder (recoverable from Drive Trash)
+  if (folderId) {
+    try { DriveApp.getFolderById(folderId).setTrashed(true); }
+    catch (e) { errors.push('Trash Drive folder: ' + e.message); }
+  }
+
+  // Always clear Script Properties
+  ['TEST_CLIENT_ID','TEST_CONTACT_IDS','TEST_PROJECT_ID','TEST_AGREEMENT_ID','TEST_DRIVE_FOLDER','TEST_SEEDED_AT'].forEach(function(k) {
+    sp.deleteProperty(k);
+  });
+
+  return errors.length ? { success: false, errors: errors } : { success: true };
+}

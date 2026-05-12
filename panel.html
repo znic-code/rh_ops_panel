@@ -7183,6 +7183,17 @@ function renderSettings() {
         + '</p>'
         + '</div></div>';
 
+      // Test Data section (admin only — Settings is already gated)
+      html += '<div class="card" style="margin-top:20px"><div class="card-header" style="display:flex;align-items:center;gap:8px">'
+        + '<h2 style="flex:1">Test Data</h2>'
+        + '<span style="font-size:11px;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:10px;font-weight:600">DEV</span>'
+        + '</div><div class="card-body">'
+        + '<p style="font-size:13px;color:#8c7b6b;margin-bottom:16px">Seed a complete set of test records (client, contact, project, MSA) to safely exercise all workflows without touching real data. Always tear down when done.</p>'
+        + '<div id="test-data-status" style="margin-bottom:12px"><span style="color:#8c7b6b;font-size:13px">Loading&hellip;</span></div>'
+        + '<div id="test-data-actions" style="display:flex;gap:8px;flex-wrap:wrap"></div>'
+        + '<div id="test-data-result" style="margin-top:12px"></div>'
+        + '</div></div>';
+
       html += '</div>';
       $('content').innerHTML = html;
 
@@ -7194,6 +7205,9 @@ function renderSettings() {
 
       // Load user role table after render
       loadRoleTable();
+
+      // Load test data state after render
+      loadTestDataStatus();
     })
     .withFailureHandler(function(e) { showError(e.message); })
     .panelGetSettings();
@@ -7857,6 +7871,112 @@ function runBackupNow() {
       $('backup-status').innerHTML = '<div class="status-banner error">Backup failed: ' + esc(e.message) + '</div>';
     })
     .panelRunBackup();
+}
+
+// ── TEST DATA ─────────────────────────────────────────────────
+
+/**
+ * Load and display current test seed state in the Settings card.
+ * Called after renderSettings() completes.
+ */
+function loadTestDataStatus() {
+  google.script.run
+    .withSuccessHandler(function(s) {
+      var statusEl  = $('test-data-status');
+      var actionsEl = $('test-data-actions');
+      if (!statusEl || !actionsEl) return;
+
+      if (!s.seeded) {
+        statusEl.innerHTML = '<span style="font-size:13px;color:#8c7b6b">No test data seeded.</span>';
+        actionsEl.innerHTML = '<button class="btn btn-primary" id="td-seed-btn" onclick="runSeedTestData()">Seed Test Data</button>';
+      } else {
+        var d = new Date(s.seededAt);
+        var dateStr = d.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' })
+          + ' at ' + d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+        var rows = [
+          ['Client', s.clientId],
+          ['Project', s.projectId || '—'],
+          ['MSA', s.msaId || '—'],
+        ];
+        var tableHtml = '<table style="font-size:12px;border-collapse:collapse;margin-bottom:4px">'
+          + rows.map(function(r) {
+              return '<tr><td style="color:#8c7b6b;padding:2px 12px 2px 0;white-space:nowrap">' + r[0] + '</td>'
+                + '<td style="font-family:monospace;color:#1c1c1c">' + esc(r[1]) + '</td></tr>';
+            }).join('')
+          + '</table>';
+        statusEl.innerHTML = '<div style="font-size:13px;color:#1c1c1c;margin-bottom:6px">'
+          + '<strong style="color:#16a34a">✔ Seeded</strong> &mdash; ' + dateStr + '</div>'
+          + tableHtml;
+        actionsEl.innerHTML = '<button class="btn btn-danger btn-sm" id="td-teardown-btn" onclick="runTeardownTestData()">Teardown</button>'
+          + '<button class="btn btn-secondary btn-sm" id="td-refresh-btn" onclick="loadTestDataStatus()">Refresh</button>';
+      }
+    })
+    .withFailureHandler(function(e) {
+      var statusEl = $('test-data-status');
+      if (statusEl) statusEl.innerHTML = '<span style="font-size:13px;color:#ef4444">Error loading state: ' + esc(e.message) + '</span>';
+    })
+    .panelInspectTestData();
+}
+
+/** Seed test records. Confirms before running. */
+function runSeedTestData() {
+  var btn = $('td-seed-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Seeding…'; }
+  $('test-data-result').innerHTML = '<div class="loading"><span class="spinner"></span> Creating test client, project, and MSA… this may take 10&ndash;20 seconds.</div>';
+
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Seed Test Data'; }
+      if (r.success) {
+        var msg = 'Test data seeded successfully.';
+        if (r.msaError) msg += ' Note: MSA generation failed — ' + r.msaError;
+        $('test-data-result').innerHTML = '<div class="status-banner ' + (r.msaError ? 'warning' : 'success') + '">' + esc(msg) + '</div>';
+        loadTestDataStatus();
+      } else {
+        $('test-data-result').innerHTML = '<div class="status-banner error">Seed failed: ' + esc(r.error) + '</div>';
+        loadTestDataStatus();
+      }
+    })
+    .withFailureHandler(function(e) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Seed Test Data'; }
+      $('test-data-result').innerHTML = '<div class="status-banner error">Seed failed: ' + esc(e.message) + '</div>';
+    })
+    .panelSeedTestData();
+}
+
+/** Tear down all test records. Shows inline confirmation before proceeding. */
+function runTeardownTestData() {
+  var resultEl = $('test-data-result');
+  // Inline confirmation
+  resultEl.innerHTML = '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px;font-size:13px">'
+    + '<strong style="color:#991b1b">Archive all test records and trash the Drive folder?</strong>'
+    + '<div style="margin-top:8px;display:flex;gap:8px">'
+    + '<button class="btn btn-danger btn-sm" onclick="_confirmTeardown()">Yes, Tear Down</button>'
+    + '<button class="btn btn-secondary btn-sm" onclick="$(&quot;test-data-result&quot;).innerHTML=\'\'">Cancel</button>'
+    + '</div></div>';
+}
+
+function _confirmTeardown() {
+  var btn = $('td-teardown-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Tearing down…'; }
+  $('test-data-result').innerHTML = '<div class="loading"><span class="spinner"></span> Archiving Notion records and trashing Drive folder…</div>';
+
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Teardown'; }
+      if (r.success) {
+        $('test-data-result').innerHTML = '<div class="status-banner success">Teardown complete. All test records archived.</div>';
+      } else {
+        var msgs = r.errors ? r.errors.join('; ') : (r.error || 'Unknown error');
+        $('test-data-result').innerHTML = '<div class="status-banner warning">Teardown finished with errors: ' + esc(msgs) + '</div>';
+      }
+      loadTestDataStatus();
+    })
+    .withFailureHandler(function(e) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Teardown'; }
+      $('test-data-result').innerHTML = '<div class="status-banner error">Teardown failed: ' + esc(e.message) + '</div>';
+    })
+    .panelTeardownTestData();
 }
 
 // ── DATA EXPORT ─────────────────────────────────────────────
