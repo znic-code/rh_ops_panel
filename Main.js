@@ -3599,9 +3599,9 @@ function backupNotionData(forceRun) {
       },
       {
         name: 'Agreements',
-        headers: ['Page ID', 'Title', 'Doc Type', 'Status', 'Client ID', 'Client Name', 'Project ID', 'Project Name', 'Effective Date', 'Signed Date', 'File URL', 'Notes', 'Notion URL'],
+        headers: ['Page ID', 'Agreement ID', 'Title', 'Doc Type', 'Language', 'Status', 'Client ID', 'Client Name', 'Project ID', 'Project Name', 'Parent MSA ID', 'Effective Date', 'Signed Date', 'File URL', 'Notes', 'Notion URL'],
         fetchFn: function() { return getAllAgreements(); },
-        mapFn: function(a) { return [a.id, a.title, a.docType, a.status, a.clientId, clientMap[a.clientId] || '', a.projectId, projectMap[a.projectId] || '', a.effectiveDate, a.signedDate, a.fileUrl, a.notes, a.notionUrl]; },
+        mapFn: function(a) { return [a.id, a.agreementId, a.title, a.docType, a.language, a.status, a.clientId, clientMap[a.clientId] || '', a.projectId, projectMap[a.projectId] || '', a.parentMsaId, a.effectiveDate, a.signedDate, a.fileUrl, a.notes, a.notionUrl]; },
         currencyCols: []
       },
       {
@@ -3613,10 +3613,17 @@ function backupNotionData(forceRun) {
       },
       {
         name: 'Payments',
-        headers: ['Page ID', 'Payment ID', 'Description', 'Invoice ID', 'Client ID', 'Client Name', 'Amount', 'Method', 'Date', 'Status', 'Receipt URL', 'Notes', 'Notion URL'],
+        headers: ['Page ID', 'Payment ID', 'Description', 'Invoice ID', 'Client ID', 'Client Name', 'Amount', 'Amount Withheld', 'Method', 'Date', 'Status', 'Receipt URL', 'Notes', 'Notion URL'],
         fetchFn: function() { return getAllPayments(); },
-        mapFn: function(pm) { return [pm.id, pm.paymentId, pm.description, pm.invoiceId, pm.clientId, clientMap[pm.clientId] || '', pm.amount, pm.method, pm.paymentDate, pm.status, pm.receiptUrl, pm.notes, pm.notionUrl]; },
-        currencyCols: [7]
+        mapFn: function(pm) { return [pm.id, pm.paymentId, pm.description, pm.invoiceId, pm.clientId, clientMap[pm.clientId] || '', pm.amount, pm.amountWithheld, pm.method, pm.paymentDate, pm.status, pm.receiptUrl, pm.notes, pm.notionUrl]; },
+        currencyCols: [7, 8]
+      },
+      {
+        name: 'Quotes',
+        headers: ['Page ID', 'Quote ID', 'Status', 'Client ID', 'Client Name', 'Project ID', 'Project Name', 'Converted Invoice ID', 'Issued Date', 'Valid Until', 'Subtotal', 'Tax', 'Total', 'Line Items', 'Drive Link', 'Notes', 'Notion URL'],
+        fetchFn: function() { return getAllQuotes(); },
+        mapFn: function(q) { return [q.id, q.quoteId, q.status, q.clientId, clientMap[q.clientId] || '', q.projectId, projectMap[q.projectId] || '', q.convertedInvoiceId, q.issuedDate, q.validUntil, q.subtotal, q.tax, q.total, q.lineItems, q.driveLink, q.notes, q.notionUrl]; },
+        currencyCols: [11, 12, 13]
       },
       {
         name: 'Contractors',
