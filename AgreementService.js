@@ -131,17 +131,16 @@ function _resolveTemplateId(contractType, language) {
  */
 function _buildAgreementFileName(contractId, client, title, language, ext) {
   var clientName = (typeof client === 'string' ? client : (client.name || client.legalName || 'Client')).trim();
-  var lang       = (language === 'Spanish') ? 'ES' : 'EN';
   var isMSA      = contractId.indexOf('-MSA-') !== -1;
 
   var name;
   if (isMSA) {
-    // MSA: ID — ClientName LANG
-    name = contractId + ' — ' + clientName + ' ' + lang;
+    // MSA: ID — ClientName
+    name = contractId + ' — ' + clientName;
   } else {
-    // SOW: ID — ClientName — Title LANG
+    // SOW: ID — ClientName — Title
     var safeTitle = (title || '').trim();
-    name = contractId + ' — ' + clientName + (safeTitle ? ' — ' + safeTitle : '') + ' ' + lang;
+    name = contractId + ' — ' + clientName + (safeTitle ? ' — ' + safeTitle : '');
   }
 
   return ext ? name + '.' + ext.toLowerCase() : name;
