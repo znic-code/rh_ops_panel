@@ -475,6 +475,9 @@ body {
       <a class="nav-item" id="nav-projects" onclick="navigateToRoot('projects','Projects')">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Projects
       </a>
+      <a class="nav-item" id="nav-agreements" onclick="navigateToRoot('agreements','Agreements')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg> Agreements
+      </a>
       <a class="nav-item" id="nav-invoices" onclick="navigateToRoot('invoices','Invoices')">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg> Invoices
       </a>
@@ -692,7 +695,7 @@ function render() {
   content.innerHTML = '<div class="loading"><span class="spinner"></span> Loading&hellip;</div>';
 
   // Financial/operational pages require at least partner role
-  var _financialViews = ['expenses','newExpense','expense','editExpense','payments','newPayment','payment','editPayment','reports','contractors','contractor','newContractor','editContractor','quotes','quote','newQuote','cloneInvoice','invoices','editQuote','cloneQuote'];
+  var _financialViews = ['agreements','expenses','newExpense','expense','editExpense','payments','newPayment','payment','editPayment','reports','contractors','contractor','newContractor','editContractor','quotes','quote','newQuote','cloneInvoice','invoices','editQuote','cloneQuote'];
   // Settings requires admin
   var _adminViews = ['settings'];
 
@@ -703,6 +706,7 @@ function render() {
     case 'dashboard':    renderDashboard(); break;
     case 'clients':      renderClients(); break;
     case 'projects':     renderProjects(); break;
+    case 'agreements':   renderAgreements(); break;
     case 'reports':      renderReports(); break;
     case 'settings':     renderSettings(); break;
     case 'help':         renderHelp(); break;
@@ -2752,6 +2756,149 @@ function _showSignedCopyPicker() {
     .setSelectableMimeTypes('application/pdf')
     .build();
   picker.setVisible(true);
+}
+
+
+// ── AGREEMENTS LIST VIEW ───────────────────────────────────
+
+var _cachedAgreements = [];
+var _agreementSort = { col: 'effectiveDate', dir: 'desc' };
+
+function renderAgreements() {
+  $('topbar-actions').innerHTML = _isPartner()
+    ? '<button class="btn btn-primary" onclick="navigate(\'newAgreement\',\'New Agreement\',{})">+ New Agreement</button>'
+    : '';
+
+  showLoading('Loading agreements…');
+  _agreementSort = { col: 'effectiveDate', dir: 'desc' };
+
+  google.script.run
+    .withSuccessHandler(function(agreements) {
+      if (!agreements || agreements.error) { showError((agreements && agreements.error) || 'Failed to load agreements.'); return; }
+      _cachedAgreements = agreements;
+
+      // Build dynamic client list
+      var clientNames = [];
+      agreements.forEach(function(a) {
+        if (a.clientName && clientNames.indexOf(a.clientName) === -1) clientNames.push(a.clientName);
+      });
+      clientNames.sort();
+
+      var html = '<div class="stat-cards" id="agr-stats">'
+        + '<div class="stat-card"><div class="stat-label">Drafts</div><div class="stat-value" id="agr-stat-drafts" style="color:#d97706">—</div></div>'
+        + '<div class="stat-card"><div class="stat-label">Awaiting Signature</div><div class="stat-value" id="agr-stat-sent">—</div></div>'
+        + '<div class="stat-card"><div class="stat-label">Active</div><div class="stat-value" id="agr-stat-signed" style="color:#16a34a">—</div></div>'
+        + '</div>';
+
+      html += '<div class="card">'
+        + '<div class="card-header"><h2>All Agreements</h2>'
+        + '<div class="search-wrap"><span class="s-icon">&#x1F50D;</span>'
+        + '<input class="search-input" id="agr-search" placeholder="Search agreements…" oninput="filterAgreementList()"'
+        + ' onkeydown="if(event.key===\'Escape\'){this.value=\'\';filterAgreementList()}"></div></div>'
+        + '<div class="filter-bar">'
+        + '<div class="filter-group"><span class="filter-label">Status</span>'
+        + '<select class="filter-select" id="agr-filter-status" onchange="filterAgreementList()">'
+        + '<option value="">All</option><option>Draft</option><option>Sent</option><option>Signed</option><option>Void</option>'
+        + '</select></div>'
+        + '<div class="filter-group"><span class="filter-label">Type</span>'
+        + '<select class="filter-select" id="agr-filter-type" onchange="filterAgreementList()">'
+        + '<option value="">All</option><option value="MSA">MSA</option>'
+        + '<option value="SOW (Retainer)">SOW — Retainer</option>'
+        + '<option value="SOW (Project)">SOW — Project</option>'
+        + '</select></div>'
+        + '<div class="filter-group"><span class="filter-label">Client</span>'
+        + '<select class="filter-select" id="agr-filter-client" onchange="filterAgreementList()">'
+        + '<option value="">All</option>';
+      clientNames.forEach(function(n) { html += '<option>' + esc(n) + '</option>'; });
+      html += '</select></div>'
+        + '</div>'
+        + '<div class="table-wrap"><table class="data-table">'
+        + '<thead id="agr-thead"><tr>'
+        + sortableTh('Agreement ID', 'agreementId',  _agreementSort, 'toggleAgreementSort', '')
+        + sortableTh('Type',         'docType',       _agreementSort, 'toggleAgreementSort', 'hide-mobile')
+        + sortableTh('Client',       'clientName',    _agreementSort, 'toggleAgreementSort', 'hide-mobile')
+        + sortableTh('Title',        'title',         _agreementSort, 'toggleAgreementSort', 'hide-mobile')
+        + '<th>Status</th>'
+        + sortableTh('Date',         'effectiveDate', _agreementSort, 'toggleAgreementSort', '')
+        + '</tr></thead><tbody id="agr-tbody"></tbody>'
+        + '</table></div></div>';
+
+      $('content').innerHTML = html;
+      filterAgreementList();
+    })
+    .withFailureHandler(function(e) { showError(e.message); })
+    .panelGetAllAgreements();
+}
+
+function filterAgreementList() {
+  var search  = ($('agr-search')        ? $('agr-search').value        : '').toLowerCase();
+  var statusF = ($('agr-filter-status') ? $('agr-filter-status').value : '');
+  var typeF   = ($('agr-filter-type')   ? $('agr-filter-type').value   : '');
+  var clientF = ($('agr-filter-client') ? $('agr-filter-client').value : '');
+
+  var filtered = _cachedAgreements.filter(function(a) {
+    if (statusF && a.status    !== statusF) return false;
+    if (typeF   && a.docType   !== typeF)   return false;
+    if (clientF && a.clientName !== clientF) return false;
+    if (search) {
+      var hay = ((a.agreementId||'') + ' ' + (a.clientName||'') + ' ' + (a.title||'') + ' ' + (a.docType||'') + ' ' + (a.status||'')).toLowerCase();
+      if (hay.indexOf(search) === -1) return false;
+    }
+    return true;
+  });
+
+  var col = _agreementSort.col, dir = _agreementSort.dir;
+  filtered.sort(function(a, b) {
+    var va = a[col] || '', vb = b[col] || '';
+    if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb || '').toLowerCase(); }
+    if (va < vb) return dir === 'asc' ? -1 : 1;
+    if (va > vb) return dir === 'asc' ?  1 : -1;
+    return 0;
+  });
+
+  // Stat cards always reflect full unfiltered dataset
+  var drafts = _cachedAgreements.filter(function(a) { return a.status === 'Draft'; }).length;
+  var sent   = _cachedAgreements.filter(function(a) { return a.status === 'Sent';  }).length;
+  var signed = _cachedAgreements.filter(function(a) { return a.status === 'Signed'; }).length;
+  if ($('agr-stat-drafts')) $('agr-stat-drafts').textContent = drafts;
+  if ($('agr-stat-sent'))   $('agr-stat-sent').textContent   = sent;
+  if ($('agr-stat-signed')) $('agr-stat-signed').textContent = signed;
+
+  var tbody = $('agr-tbody');
+  if (!tbody) return;
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#888">No agreements found.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(function(a) {
+    return '<tr style="cursor:pointer" onclick="navigate(\'agreement\',\'' + jsEsc(a.agreementId || a.title) + '\',{agreementId:\'' + jsEsc(a.id) + '\',clientId:\'' + jsEsc(a.clientId||'') + '\'})">'
+      + '<td><strong>' + esc(a.agreementId || '—') + '</strong></td>'
+      + '<td class="hide-mobile">' + esc(a.docType    || '—') + '</td>'
+      + '<td class="hide-mobile">' + esc(a.clientName || '—') + '</td>'
+      + '<td class="hide-mobile">' + esc(a.title      || '—') + '</td>'
+      + '<td><span class="badge ' + badgeClass(a.status) + '">' + esc(a.status || '—') + '</span></td>'
+      + '<td>' + formatDate(a.effectiveDate || '') + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+function toggleAgreementSort(col) {
+  if (_agreementSort.col === col) { _agreementSort.dir = _agreementSort.dir === 'asc' ? 'desc' : 'asc'; }
+  else { _agreementSort = { col: col, dir: 'asc' }; }
+  var thead = $('agr-thead');
+  if (thead) {
+    thead.innerHTML = '<tr>'
+      + sortableTh('Agreement ID', 'agreementId',  _agreementSort, 'toggleAgreementSort', '')
+      + sortableTh('Type',         'docType',       _agreementSort, 'toggleAgreementSort', 'hide-mobile')
+      + sortableTh('Client',       'clientName',    _agreementSort, 'toggleAgreementSort', 'hide-mobile')
+      + sortableTh('Title',        'title',         _agreementSort, 'toggleAgreementSort', 'hide-mobile')
+      + '<th>Status</th>'
+      + sortableTh('Date',         'effectiveDate', _agreementSort, 'toggleAgreementSort', '')
+      + '</tr>';
+  }
+  filterAgreementList();
 }
 
 
@@ -8228,7 +8375,7 @@ window.onload = function() {
 
       // Hide nav items the role can't reach
       if (!_isPartner()) {
-        ['nav-invoices','nav-quotes','nav-expenses','nav-payments','nav-reports','nav-contractors'].forEach(function(id) {
+        ['nav-agreements','nav-invoices','nav-quotes','nav-expenses','nav-payments','nav-reports','nav-contractors'].forEach(function(id) {
           var el = document.getElementById(id);
           if (el) el.style.display = 'none';
         });

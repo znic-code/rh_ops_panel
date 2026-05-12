@@ -669,6 +669,32 @@ function panelGetClientMSAs(clientId) {
 }
 
 /**
+ * Return all agreements across all clients, enriched with client names.
+ * Used to power the top-level Agreements list page.
+ */
+function panelGetAllAgreements() {
+  _requireRole(['admin', 'partner']);
+  try {
+    var agreements = getAllAgreements();
+    if (agreements.error) return agreements;
+
+    var clientMap = {};
+    var clients = getClients();
+    if (!clients.error) {
+      clients.forEach(function(c) { clientMap[c.id] = c.name; });
+    }
+
+    agreements.forEach(function(ag) {
+      ag.clientName = clientMap[ag.clientId] || '';
+    });
+    return agreements;
+  } catch (e) {
+    Logger.log('panelGetAllAgreements error: ' + e.message);
+    return { error: e.message };
+  }
+}
+
+/**
  * Log a signed copy for an agreement.
  * Moves the file from BoldSign folder → Contracts/{year}/Signed/,
  * then updates Notion: status → Signed, signedDate, fileUrl.
