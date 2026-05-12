@@ -1,0 +1,14 @@
+It's a custom internal business management tool built on top of free/low-cost infrastructure instead of off-the-shelf software like HubSpot, QuickBooks, or FreshBooks.
+
+The core idea: rather than paying for and adapting to a generic SaaS product, the business owns its own purpose-built panel that does exactly what it needs — no more, no less — with its data living in tools it already uses (Notion, Google Drive, Gmail).
+
+More broadly, it's an example of a pattern that makes a lot of sense for small service businesses:
+
+- Notion as the database — flexible, human-readable, easy to edit manually when needed
+- Google Apps Script as the backend — runs on Google's infrastructure, no servers to manage, deeply integrated with Drive and Gmail out of the box
+- A single HTML page as the frontend — served directly from the script, no hosting needed
+- AI (Claude Vision) for the tedious parts — receipt extraction so logging an expense is a photo, not a data entry session
+
+The result is something that behaves like a professional ops panel — clients, invoices, payments, contracts, reporting — but costs almost nothing to run, has no vendor lock-in on the core data, and can be changed by whoever built it whenever the business needs something different.
+
+The tradeoff is that it requires technical effort to build and maintain, which makes it a good fit when either the business has that capacity in-house or works closely with someone who does.

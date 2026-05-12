@@ -169,13 +169,26 @@ function _callClaudeVision(base64Data, mimeType, context) {
     muteHttpExceptions: true,
   };
 
-  var response = UrlFetchApp.fetch(url, options);
-  var code = response.getResponseCode();
+  // Retry on 429 (rate limit) and 5xx (transient server errors) — same
+  // backoff pattern used by _notionRequest in NotionService.js.
+  var MAX_RETRIES = 3;
+  var RETRYABLE   = [429, 500, 502, 503, 504];
+  var response, code;
+
+  for (var attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    response = UrlFetchApp.fetch(url, options);
+    code     = response.getResponseCode();
+    if (RETRYABLE.indexOf(code) !== -1 && attempt < MAX_RETRIES) {
+      Logger.log('Claude API: status ' + code + ' on attempt ' + (attempt + 1) + ' — retrying...');
+      Utilities.sleep(Math.pow(2, attempt) * 500); // 500ms, 1s, 2s
+      continue;
+    }
+    break;
+  }
 
   if (code !== 200) {
     var errBody = response.getContentText();
     Logger.log('Claude API error ' + code + ': ' + errBody);
-    // Parse error message if possible
     try {
       var errJson = JSON.parse(errBody);
       return { error: 'Claude API error: ' + (errJson.error.message || errBody) };

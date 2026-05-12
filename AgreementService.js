@@ -1,53 +1,428 @@
-// ── AGREEMENT SERVICE ────────────────────────────────────────
-// Agreement creation and listing.
+// ── AGREEMENT GENERATION SERVICE ─────────────────────────────
+// Generates Google Doc contracts from templates using {{PLACEHOLDER}} syntax.
+// Manages agreement IDs, Drive folder resolution, and Notion lifecycle.
+
+// ── Agency constants (always fixed) ─────────────────────────
+var _AGR_AGENCY_REP_NAME     = 'Julián Cuevas Paniagua';
+var _AGR_AGENCY_REP_TITLE    = 'Co-Founder & Creative Director';
+var _AGR_AGENCY_REP_EMAIL    = 'hello@roadhazardsmedia.com';
+var _AGR_AGENCY_CONTACT_PHONE = '(787) 607-4678';
+var _AGR_AGENCY_NOTICE_ADDRESS = '763 Calle Vesta, San Juan, PR 00923';
+
+var _MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+var _MONTHS_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+// ── Date helpers ─────────────────────────────────────────────
+
+/** Format ISO date → "Month DD, YYYY" (English). e.g. "May 5, 2026" */
+function _formatDateEN(isoDate) {
+  if (!isoDate) return '';
+  var p = isoDate.split('-');
+  return _MONTHS_EN[parseInt(p[1], 10) - 1] + ' ' + parseInt(p[2], 10) + ', ' + p[0];
+}
+
+/** Format ISO date → "D de mes de YYYY" (Spanish). e.g. "5 de mayo de 2026" */
+function _formatDateES(isoDate) {
+  if (!isoDate) return '';
+  var p = isoDate.split('-');
+  return parseInt(p[2], 10) + ' de ' + _MONTHS_ES[parseInt(p[1], 10) - 1] + ' de ' + p[0];
+}
+
+/** Format a number as "$X,XXX.XX USD". Safe for GAS environment. */
+function _formatMoney(amount) {
+  var num = parseFloat(amount || 0);
+  var parts = num.toFixed(2).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return '$' + parts.join('.') + ' USD';
+}
+
+// ── ID generation ────────────────────────────────────────────
 
 /**
- * Create a new agreement linked to a client and project.
- *
- * @param {Object} data
- * @param {string} data.title
- * @param {string} data.docType       MSA / SOW / PSA / Change Order
- * @param {string} data.clientId      Notion page ID
- * @param {string} data.projectId     Notion page ID
- * @param {string} data.effectiveDate ISO date
- * @param {string} [data.fileUrl]     Google Drive link
- * @param {string} [data.notes]
- * @returns {Object} { success, agreement, error? }
+ * Get the next sequential agreement ID.
+ * Format: RH-{TYPE}-{YY}-{MMDD}-{NN}
+ * Uses LockService + ScriptProperties to prevent duplicate IDs.
+ * @param {string} type  'MSA' | 'SOW'
+ * @returns {string}
  */
-function createAgreement(data) {
+function getNextAgreementId(type) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(15000);
   try {
-    // Validate required fields
-    if (!data.title || !data.title.trim()) {
-      return { success: false, error: 'Agreement title is required.' };
-    }
-    if (!data.docType) {
-      return { success: false, error: 'Document type is required.' };
-    }
-    var validDocTypes = ['MSA', 'SOW', 'PSA', 'Change Order'];
-    if (validDocTypes.indexOf(data.docType) === -1) {
-      return { success: false, error: 'Invalid doc type. Must be one of: ' + validDocTypes.join(', ') };
+    var now    = new Date();
+    var yy     = String(now.getFullYear()).slice(-2);
+    var mm     = String(now.getMonth() + 1).padStart(2, '0');
+    var dd     = String(now.getDate()).padStart(2, '0');
+    var prefix = 'RH-' + type + '-' + yy + '-' + mm + dd;
+
+    var props   = PropertiesService.getScriptProperties();
+    var lastKey = '_lastAgreementId_' + type;
+    var last    = props.getProperty(lastKey) || '';
+    var seq     = 1;
+
+    if (last.indexOf(prefix) === 0) {
+      var lastSeq = parseInt(last.split('-').pop(), 10);
+      if (!isNaN(lastSeq)) seq = lastSeq + 1;
     }
 
-    const page = createNotionAgreement({
-      title:         data.title,
-      docType:       data.docType,
-      status:        'Draft',
-      clientId:      data.clientId,
-      projectId:     data.projectId,
-      effectiveDate: data.effectiveDate || '',
-      fileUrl:       data.fileUrl || '',
-      notes:         data.notes || '',
-    });
-    return {
-      success: true,
-      agreement: {
-        id:        page.id,
-        title:     data.title,
-        notionUrl: page.url || '',
-      },
-    };
-  } catch (e) {
-    return { success: false, error: e.message };
+    var newId = prefix + '-' + String(seq).padStart(2, '0');
+    props.setProperty(lastKey, newId);
+    return newId;
+  } finally {
+    lock.releaseLock();
   }
 }
 
+// ── Drive folder helpers ─────────────────────────────────────
+
+/**
+ * Resolve (or create) 03_Clients/{Client}/Contracts/{year}/ folder.
+ * @param {string} clientDriveFolderId  Client root folder ID
+ * @param {string} [year]               Defaults to current year
+ * @returns {string|null}
+ */
+function resolveContractFolder(clientDriveFolderId, year) {
+  if (!clientDriveFolderId) return null;
+  var yr          = year || new Date().getFullYear().toString();
+  var contractsId = resolveOrCreateSubfolder(clientDriveFolderId, 'Contracts');
+  if (!contractsId) return null;
+  return resolveOrCreateSubfolder(contractsId, yr);
+}
+
+/**
+ * Resolve (or create) the Signed/ subfolder inside a Contracts/{year}/ folder.
+ * @param {string} contractFolderId
+ * @returns {string|null}
+ */
+function resolveSignedFolder(contractFolderId) {
+  if (!contractFolderId) return null;
+  return resolveOrCreateSubfolder(contractFolderId, 'Signed');
+}
+
+// ── Template resolution ──────────────────────────────────────
+
+/**
+ * Return the correct template doc ID for the given type + language.
+ * @param {string} contractType  'MSA' | 'SOW (Retainer)' | 'SOW (Project)'
+ * @param {string} language      'English' | 'Spanish'
+ * @returns {string|null}
+ */
+function _resolveTemplateId(contractType, language) {
+  var es = (language === 'Spanish');
+  if (contractType === 'MSA')            return es ? CONFIG.CONTRACT_TEMPLATE_MSA_ES    : CONFIG.CONTRACT_TEMPLATE_MSA_EN;
+  if (contractType === 'SOW (Retainer)') return es ? CONFIG.CONTRACT_TEMPLATE_SOW_RET_ES : CONFIG.CONTRACT_TEMPLATE_SOW_RET_EN;
+  if (contractType === 'SOW (Project)')  return es ? CONFIG.CONTRACT_TEMPLATE_SOW_PROJ_ES: CONFIG.CONTRACT_TEMPLATE_SOW_PROJ_EN;
+  return null;
+}
+
+/**
+ * Build the Drive/Notion document file name.
+ * Format: {contractId} - {clientShortName} - {title}
+ */
+function _buildAgreementFileName(contractId, client, title) {
+  var shortName = client.name || (client.legalName ? client.legalName.split(' ')[0] : 'Client');
+  return contractId + ' - ' + shortName + ' - ' + title;
+}
+
+// ── Placeholder map ──────────────────────────────────────────
+
+/**
+ * Format scope line items for replaceText.
+ * First item has no prefix (template's existing bullet marker is reused).
+ * Subsequent items are separated by newline + "- ".
+ */
+function _formatLineItems(raw) {
+  if (!raw || !raw.trim()) return 'N/A';
+  var lines = raw.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+  if (lines.length === 0) return 'N/A';
+  return lines[0] + (lines.length > 1 ? '\n- ' + lines.slice(1).join('\n- ') : '');
+}
+
+/**
+ * Build the complete {{PLACEHOLDER}} → value map for a contract.
+ *
+ * @param {Object}      data     Form submission data
+ * @param {Object}      client   Mapped client record (from getClientById)
+ * @param {Object|null} contact  Mapped primary contact (or null)
+ * @param {string}      idMSA    MSA agreement ID string (new MSA's own ID, or parent MSA ID for SOWs)
+ * @param {string}      idSOW    SOW agreement ID string (empty for MSA)
+ * @returns {Object}  map of placeholder string → replacement value
+ */
+function _buildPlaceholderMap(data, client, contact, idMSA, idSOW) {
+  var lang       = data.language === 'Spanish' ? 'es' : 'en';
+  var formatDate = lang === 'es' ? _formatDateES : _formatDateEN;
+
+  // Client identity
+  var legalName   = client.legalName || client.name;
+  var addrParts   = [client.billingStreet, client.billingCity, client.billingState, client.billingZip, client.billingCountry].filter(Boolean);
+  var billingAddr = addrParts.join(', ');
+
+  // Primary contact info
+  var contactName  = contact ? contact.name  : '';
+  var contactEmail = contact ? contact.email : (client.billingEmail || '');
+  var contactPhone = contact ? contact.phone : (client.phone || '');
+
+  return {
+    '{{MSA_ID}}':    idMSA,
+    '{{SOW_ID}}':    idSOW,
+    '{{SOW_TITLE}}': data.title || '',
+
+    // Agency rep (MSA parties table left column)
+    '{{AGENCY_REP_NAME}}':    _AGR_AGENCY_REP_NAME,
+    '{{AGENCY_REP_TITLE}}':   _AGR_AGENCY_REP_TITLE,
+    '{{AGENCY_REP_EMAIL}}':   _AGR_AGENCY_REP_EMAIL,
+
+    // Agency §2.1 contact
+    '{{AGENCY_CONTACT_NAME}}':  _AGR_AGENCY_REP_NAME,
+    '{{AGENCY_CONTACT_EMAIL}}': _AGR_AGENCY_REP_EMAIL,
+    '{{AGENCY_CONTACT_PHONE}}': _AGR_AGENCY_CONTACT_PHONE,
+
+    // Agency §2.2 notice
+    '{{AGENCY_NOTICE_ATTN}}':    _AGR_AGENCY_REP_NAME,
+    '{{AGENCY_NOTICE_ADDRESS}}': _AGR_AGENCY_NOTICE_ADDRESS,
+    '{{AGENCY_NOTICE_EMAIL}}':   _AGR_AGENCY_REP_EMAIL,
+
+    // Client identity
+    '{{CLIENT_LEGAL_NAME}}':    legalName,
+
+    // Client §2.1 contact
+    '{{CLIENT_CONTACT_NAME}}':  contactName,
+    '{{CLIENT_CONTACT_EMAIL}}': contactEmail,
+    '{{CLIENT_CONTACT_PHONE}}': contactPhone,
+
+    // Client §2.2 notice
+    '{{CLIENT_NOTICE_ATTN}}':    contactName || legalName,
+    '{{CLIENT_NOTICE_ADDRESS}}': billingAddr,
+    '{{CLIENT_NOTICE_EMAIL}}':   contactEmail,
+
+    // Dates
+    '{{START_DATE}}': formatDate(data.effectiveDate || ''),
+    '{{END_DATE}}':   formatDate(data.endDate   || ''),
+    '{{DEADLINE}}':   formatDate(data.deadline  || ''),
+
+    // §4 Scope (SOW)
+    '{{STRATEGY_LINE_ITEMS}}':             _formatLineItems(data.strategyItems),
+    '{{PRODUCTION_LINE_ITEMS}}':           _formatLineItems(data.productionItems),
+    '{{CONTENT_DELIVERABLES_LINE_ITEMS}}': _formatLineItems(data.contentItems),
+
+    // §7 Fees — SOW Retainer
+    '{{MONTHLY_RETAINER}}':    data.monthlyRetainer    ? _formatMoney(data.monthlyRetainer)    : '',
+    '{{INITIAL_INSTALLMENT}}': data.initialInstallment ? _formatMoney(data.initialInstallment) : '',
+    '{{FINAL_INSTALLMENT}}':   data.finalInstallment   ? _formatMoney(data.finalInstallment)   : '',
+
+    // §10 Term — SOW Retainer
+    '{{INITIAL_TERM_MONTHS}}': data.initialTermMonths ? String(data.initialTermMonths) : '3',
+    '{{RENEWAL_TERM_MONTHS}}': data.renewalTermMonths ? String(data.renewalTermMonths) : '9',
+
+    // §7 Fees — SOW Project
+    '{{PROJECT_FEE}}':             data.projectFee         ? _formatMoney(data.projectFee)         : '',
+    '{{BOOKING_FEE_AMOUNT}}':      data.bookingFee         ? _formatMoney(data.bookingFee)          : '',
+    '{{FINAL_PAYMENT_AMOUNT}}':    data.finalPayment       ? _formatMoney(data.finalPayment)        : '',
+    '{{MILESTONE_THRESHOLD}}':     data.milestoneThreshold ? '$' + parseFloat(data.milestoneThreshold).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '$10,000',
+
+    // §6 Operational overrides (SOW — blank = use MSA default)
+    '{{APPROVAL_WINDOW}}':     data.approvalWindow     || '',
+    '{{PROD_LEAD_TIME}}':      data.prodLeadTime       || '',
+    '{{SCHED_CHANGE_WINDOW}}': data.schedChangeWindow  || '',
+    '{{REVISION_ROUNDS}}':     data.revisionRounds     || '',
+    '{{ACCEPT_WINDOW}}':       data.acceptWindow       || '',
+    '{{FILE_RETENTION}}':      data.fileRetention      || '',
+    '{{LATE_PAY_FEE}}':        data.latePayFee         || '',
+    '{{CLAIM_PERIOD}}':        data.claimPeriod        || '',
+
+    // MSA numeric defaults
+    '{{APPROVAL_WINDOW_BUSINESS_DAYS}}':         String(data.approvalWindowDays    || 5),
+    '{{LEAD_WINDOW_BUSINESS_DAYS}}':             String(data.leadWindowDays        || 10),
+    '{{SCHEDULE_CHANGE_WINDOW_BUSINESS_DAYS}}':  String(data.schedChangeWindowDays || 7),
+    '{{REVISIONS}}':                             String(data.revisions             || 2),
+    '{{ACCEPTANCE_WINDOW_BUSINESS_DAYS}}':       String(data.acceptanceWindowDays  || 7),
+    '{{FILE_RETENTION_DAYS}}':                   String(data.fileRetentionDays     || 90),
+    '{{MONTHLY_LATE_FEE_PERCENT}}':              String(data.monthlyLateFeePercent || '2.5'),
+    '{{WARRANTY_PERIOD_DAYS}}':                  String(data.warrantyPeriodDays    || 60),
+  };
+}
+
+// ── Main generation function ─────────────────────────────────
+
+/**
+ * Generate a contract document from a template.
+ *
+ * Copies the template, fills all {{PLACEHOLDER}} values, creates a Notion entry.
+ *
+ * @param {Object} data
+ *   contractType   {string}  'MSA' | 'SOW (Retainer)' | 'SOW (Project)'
+ *   language       {string}  'English' | 'Spanish'
+ *   clientId       {string}  Notion client page ID
+ *   title          {string}  Short doc title (used in filename + SOW_TITLE)
+ *   effectiveDate  {string}  ISO date (= Start Date for SOWs)
+ *
+ *   SOW only:
+ *     parentMsaId  {string}  Notion agreement ID of parent MSA (optional)
+ *     endDate      {string}  ISO date (SOW Retainer service end date)
+ *     deadline     {string}  ISO date (SOW Project deadline)
+ *     strategyItems     {string}  Scope §4.1, one item per line
+ *     productionItems   {string}  Scope §4.2
+ *     contentItems      {string}  Scope §4.3
+ *     monthlyRetainer, initialInstallment, finalInstallment  (Retainer fees)
+ *     projectFee, bookingFee, finalPayment                   (Project fees)
+ *     initialTermMonths, renewalTermMonths                   (Retainer term)
+ *
+ *   Optional overrides (all default to blank/standard):
+ *     approvalWindow, prodLeadTime, schedChangeWindow, revisionRounds,
+ *     acceptWindow, fileRetention, latePayFee, claimPeriod             (SOW)
+ *     approvalWindowDays, leadWindowDays, schedChangeWindowDays,
+ *     revisions, acceptanceWindowDays, fileRetentionDays,
+ *     monthlyLateFeePercent, warrantyPeriodDays                        (MSA)
+ *
+ *   Optional:
+ *     projectId   {string}  Notion project page ID
+ *     notes       {string}
+ *
+ * @returns {{ success, contractId?, notionId?, driveUrl?, notionUrl?, error? }}
+ */
+function generateAgreement(data) {
+
+  // ── 1. Validate ───────────────────────────────────────────
+  if (!data.contractType)               return { success: false, error: 'Contract type is required.' };
+  if (!data.language)                   return { success: false, error: 'Language is required.' };
+  if (!data.clientId)                   return { success: false, error: 'Client is required.' };
+  if (!data.title || !data.title.trim()) return { success: false, error: 'Title is required.' };
+  // Effective date is optional for MSAs (value isn't known until client signs)
+  var isMSACheck = data.contractType === 'MSA';
+  if (!data.effectiveDate && !isMSACheck) return { success: false, error: 'Effective date is required.' };
+
+  var validTypes = ['MSA', 'SOW (Retainer)', 'SOW (Project)'];
+  if (validTypes.indexOf(data.contractType) === -1)
+    return { success: false, error: 'Invalid contract type.' };
+
+  var validLangs = ['English', 'Spanish'];
+  if (validLangs.indexOf(data.language) === -1)
+    return { success: false, error: 'Language must be English or Spanish.' };
+
+  var isMSA      = data.contractType === 'MSA';
+  var isRetainer = data.contractType === 'SOW (Retainer)';
+  var isProject  = data.contractType === 'SOW (Project)';
+
+  if (isRetainer) {
+    if (!data.endDate) return { success: false, error: 'End Date is required for a Retainer SOW.' };
+    if (!data.monthlyRetainer || parseFloat(data.monthlyRetainer) <= 0)
+      return { success: false, error: 'Monthly Retainer must be greater than zero.' };
+  }
+  if (isProject) {
+    if (!data.deadline) return { success: false, error: 'Deadline is required for a Project SOW.' };
+    if (!data.projectFee || parseFloat(data.projectFee) <= 0)
+      return { success: false, error: 'Project Fee must be greater than zero.' };
+  }
+
+  // ── 2. Fetch client + contact ─────────────────────────────
+  var client = getClientById(data.clientId);
+  if (!client || client.error) return { success: false, error: 'Client not found.' };
+
+  var contact = null;
+  if (client.primaryContactId) {
+    try { contact = getContactById(client.primaryContactId); } catch (e) { /* leave null */ }
+  }
+
+  // ── 3. Resolve parent MSA ID string (for SOWs) ───────────
+  var idMSA          = '';
+  var parentMsaPageId = '';
+  if (!isMSA && data.parentMsaId) {
+    parentMsaPageId = data.parentMsaId;
+    try {
+      var parentRaw = _notionGet('pages/' + data.parentMsaId);
+      var parentAg  = _mapAgreementProperties(parentRaw);
+      idMSA = parentAg.agreementId || parentAg.title || '';
+    } catch (e) {
+      Logger.log('generateAgreement: could not fetch parent MSA — ' + e.message);
+    }
+  }
+
+  // ── 4. Generate contract ID ───────────────────────────────
+  var idType    = isMSA ? 'MSA' : 'SOW';
+  var contractId = getNextAgreementId(idType);
+  if (isMSA)  idMSA = contractId;
+  var idSOW     = isMSA ? '' : contractId;
+
+  // ── 5. Resolve Drive folder ───────────────────────────────
+  // Fall back to current year when no effective date is set (e.g. MSA pre-signing)
+  var year = (data.effectiveDate || '').substring(0, 4) || new Date().getFullYear().toString();
+  var contractFolderId = resolveContractFolder(client.driveFolderId, year);
+  if (!contractFolderId) {
+    // Fallback: use the central contracts directory
+    contractFolderId = CONFIG.LEGAL_CONTRACTS_DIR;
+    Logger.log('generateAgreement: no client Drive folder; using LEGAL_CONTRACTS_DIR');
+  }
+
+  // ── 6. Determine template ─────────────────────────────────
+  var templateId = _resolveTemplateId(data.contractType, data.language);
+  if (!templateId) return { success: false, error: 'Template not found for: ' + data.contractType };
+
+  var fileName = _buildAgreementFileName(contractId, client, data.title.trim());
+
+  // ── 7. Copy template → Drive ──────────────────────────────
+  var docId, docUrl;
+  try {
+    var templateFile   = DriveApp.getFileById(templateId);
+    var targetFolder   = DriveApp.getFolderById(contractFolderId);
+    var newDoc         = templateFile.makeCopy(fileName, targetFolder);
+    docId  = newDoc.getId();
+    docUrl = newDoc.getUrl();
+  } catch (e) {
+    return { success: false, error: 'Drive copy failed: ' + e.message };
+  }
+
+  // ── 8. Fill placeholders ──────────────────────────────────
+  try {
+    var placeholders = _buildPlaceholderMap(data, client, contact, idMSA, idSOW);
+    var doc  = DocumentApp.openById(docId);
+    var body = doc.getBody();
+
+    for (var key in placeholders) {
+      body.replaceText(escapeRegex(key), placeholders[key]);
+    }
+    doc.saveAndClose();
+  } catch (e) {
+    // Placeholder fill failed — trash the unfilled doc so it can't be mistaken
+    // for a valid contract, then surface the error to the caller.
+    Logger.log('generateAgreement: placeholder fill error — ' + e.message + ' — trashing ' + docId);
+    try { DriveApp.getFileById(docId).setTrashed(true); } catch (_) {}
+    return { success: false, error: 'Failed to fill contract placeholders: ' + e.message };
+  }
+
+  // ── 9. Create Notion entry ────────────────────────────────
+  var notionTitle = contractId + ' — ' + data.title.trim();
+  var notionPage;
+  try {
+    notionPage = createNotionAgreement({
+      title:         notionTitle,
+      docType:       data.contractType,
+      status:        'Draft',
+      clientId:      data.clientId,
+      projectId:     data.projectId || '',
+      effectiveDate: data.effectiveDate,
+      fileUrl:       docUrl,
+      notes:         data.notes || '',
+      agreementId:   contractId,
+      language:      data.language,
+      parentMsaId:   parentMsaPageId,
+    });
+  } catch (e) {
+    // Notion creation failed — return drive URL anyway so doc isn't orphaned
+    return {
+      success:  true,
+      contractId: contractId,
+      driveUrl:   docUrl,
+      notionId:   '',
+      notionUrl:  '',
+      warning:    'Document created in Drive but Notion entry failed: ' + e.message,
+    };
+  }
+
+  return {
+    success:    true,
+    contractId: contractId,
+    notionId:   notionPage.id,
+    driveUrl:   docUrl,
+    notionUrl:  notionPage.url || '',
+  };
+}

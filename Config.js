@@ -31,6 +31,17 @@ const CONFIG = {
   LEGAL_CONTRACTS_DIR:  '153tDQQJMSNSHQuFDLucF2295sriMapgn',  // 02_Assets/Legal/Contracts/
   LEGAL_INVOICES_DIR:   '1FXDPwkmVgUUclNrfCpenvXLCpGQTQ6tP',  // 02_Assets/Legal/Invoices/
 
+  // ── Contract Templates (read-only source docs) ────────────
+  CONTRACT_TEMPLATE_MSA_EN:       '1msKZ8m1tVGzhAxcZp5FXp1cN_TEWBanwEUNw-9i4MB4',
+  CONTRACT_TEMPLATE_MSA_ES:       '1XAepE4pdDr-l6hD8XhLtJQxELYAytRUyZ22w0e0PxoA',
+  CONTRACT_TEMPLATE_SOW_RET_EN:   '1qhmrU1rBaH93XC5-KyisUTmE9MWR03G2885p5Lfn1uQ',
+  CONTRACT_TEMPLATE_SOW_RET_ES:   '1kvxVZrZ4uKathOCQA4iBdk8IVE2G7LT2tPFsct5pUdY',
+  CONTRACT_TEMPLATE_SOW_PROJ_EN:  '1Div92tB1525Th1qAPW3IDwVjnsrG3Gt6JD-EoyRo1Dw',
+  CONTRACT_TEMPLATE_SOW_PROJ_ES:  '1ri7wy_smABUTfVwpfRW-iV6WqSWc6Gn39CPSch2Dqzs',
+
+  // ── BoldSign signed-copy pickup folder ────────────────────
+  BOLDSIGN_FOLDER_ID:             '19-iQXk4YROZloqQE_Bh_xqpu2cU_s5tY',
+
   // ── Client Folder Subfolders ───────────────────────────────
   CLIENT_SUBFOLDERS: ['Proposals', 'Assets', 'Invoices', 'Quotes', 'Contracts', 'Projects', 'Meeting Notes', 'Expenses', 'Payments'],
 
@@ -70,6 +81,7 @@ function getCompanyInfo() {
 const NP = {
   CLIENTS: {
     NAME:              'Name',
+    LEGAL_NAME:        'Legal Name',
     TYPE:              'Type',
     STATUS:            'Status',
     PRIMARY_CONTACT:   'Primary Contact',
@@ -113,6 +125,9 @@ const NP = {
     SIGNED_DATE:    'Signed Date',
     FILE_URL:       'File URL',
     NOTES:          'Notes',
+    AGREEMENT_ID:   'Agreement ID',
+    LANGUAGE:       'Language',
+    PARENT_MSA:     'Parent MSA',
   },
   INVOICES: {
     INVOICE_ID:   'Invoice ID',

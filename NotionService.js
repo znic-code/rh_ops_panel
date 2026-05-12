@@ -260,6 +260,7 @@ function _mapClientProperties(page, fallbackName) {
     id:               page.id,
     notionUrl:        page.url || '',
     name:             p[C.NAME]?.title[0]?.plain_text                 || fallbackName || '(unnamed)',
+    legalName:        p[C.LEGAL_NAME]?.rich_text[0]?.plain_text       || '',
     type:             p[C.TYPE]?.select?.name                         || '',
     status:           p[C.STATUS]?.select?.name                       || '',
     primaryContactId: primaryContactRel.length > 0 ? primaryContactRel[0].id : '',
@@ -315,20 +316,24 @@ function _mapProjectProperties(page) {
 function _mapAgreementProperties(page) {
   const p = page.properties;
   const C = NP.AGREEMENTS;
-  const clientRel  = p[C.CLIENT]?.relation  || [];
-  const projectRel = p[C.PROJECT]?.relation || [];
+  const clientRel    = p[C.CLIENT]?.relation    || [];
+  const projectRel   = p[C.PROJECT]?.relation   || [];
+  const parentMsaRel = p[C.PARENT_MSA]?.relation || [];
   return {
     id:            page.id,
     notionUrl:     page.url || '',
     title:         p[C.TITLE]?.title[0]?.plain_text           || '(untitled)',
     docType:       p[C.DOC_TYPE]?.select?.name                || '',
     status:        p[C.STATUS]?.select?.name                  || '',
-    clientId:      clientRel.length > 0  ? clientRel[0].id   : '',
-    projectId:     projectRel.length > 0 ? projectRel[0].id  : '',
-    effectiveDate: p[C.EFFECTIVE_DATE]?.date?.start           || '',
-    signedDate:    p[C.SIGNED_DATE]?.date?.start              || '',
-    fileUrl:       p[C.FILE_URL]?.url                         || '',
-    notes:         p[C.NOTES]?.rich_text[0]?.plain_text       || '',
+    clientId:      clientRel.length > 0    ? clientRel[0].id    : '',
+    projectId:     projectRel.length > 0   ? projectRel[0].id   : '',
+    effectiveDate: p[C.EFFECTIVE_DATE]?.date?.start            || '',
+    signedDate:    p[C.SIGNED_DATE]?.date?.start               || '',
+    fileUrl:       p[C.FILE_URL]?.url                          || '',
+    notes:         p[C.NOTES]?.rich_text[0]?.plain_text        || '',
+    agreementId:   p[C.AGREEMENT_ID]?.rich_text[0]?.plain_text || '',
+    language:      p[C.LANGUAGE]?.select?.name                 || '',
+    parentMsaId:   parentMsaRel.length > 0 ? parentMsaRel[0].id : '',
   };
 }
 
@@ -709,16 +714,57 @@ function getAllAgreements() {
 function createNotionAgreement(props) {
   const C = NP.AGREEMENTS;
   const properties = {};
-  properties[C.TITLE]   = { title: [{ text: { content: props.title } }] };
+  properties[C.TITLE]    = { title: [{ text: { content: props.title } }] };
   properties[C.DOC_TYPE] = { select: { name: props.docType } };
-  properties[C.STATUS]  = { select: { name: props.status || 'Draft' } };
+  properties[C.STATUS]   = { select: { name: props.status || 'Draft' } };
   if (props.clientId)      properties[C.CLIENT]         = { relation: [{ id: props.clientId }] };
   if (props.projectId)     properties[C.PROJECT]        = { relation: [{ id: props.projectId }] };
   if (props.effectiveDate) properties[C.EFFECTIVE_DATE] = { date: { start: props.effectiveDate } };
   if (props.signedDate)    properties[C.SIGNED_DATE]    = { date: { start: props.signedDate } };
   if (props.fileUrl)       properties[C.FILE_URL]       = { url: props.fileUrl };
   if (props.notes)         properties[C.NOTES]          = { rich_text: [{ text: { content: props.notes } }] };
+  if (props.agreementId)   properties[C.AGREEMENT_ID]  = { rich_text: [{ text: { content: props.agreementId } }] };
+  if (props.language)      properties[C.LANGUAGE]       = { select: { name: props.language } };
+  if (props.parentMsaId)   properties[C.PARENT_MSA]    = { relation: [{ id: props.parentMsaId }] };
   return _notionCreatePage(CONFIG.NOTION_AGREEMENTS_DB, properties);
+}
+
+/**
+ * Log a signed copy: update status → Signed, set signedDate, update fileUrl.
+ * @param {string} agreementId  Notion page ID
+ * @param {string} signedDate   ISO date
+ * @param {string} fileUrl      New Drive URL of the signed PDF
+ */
+function logSignedCopyToAgreement(agreementId, signedDate, fileUrl) {
+  const C = NP.AGREEMENTS;
+  const properties = {};
+  properties[C.STATUS]      = { select: { name: 'Signed' } };
+  properties[C.SIGNED_DATE] = { date: { start: signedDate } };
+  if (fileUrl) properties[C.FILE_URL] = { url: fileUrl };
+  return _notionUpdatePage(agreementId, properties);
+}
+
+/**
+ * Query agreements for a given client, optionally filtered by doc type.
+ * @param {string}      clientId  Notion client page ID
+ * @param {string|null} docType   e.g. 'MSA'; null = all doc types
+ * @returns {Array}
+ */
+function getAgreementsByClient(clientId, docType) {
+  var filter;
+  if (docType) {
+    filter = { and: [
+      { property: NP.AGREEMENTS.CLIENT,   relation: { contains: clientId } },
+      { property: NP.AGREEMENTS.DOC_TYPE, select:   { equals:   docType  } },
+    ]};
+  } else {
+    filter = { property: NP.AGREEMENTS.CLIENT, relation: { contains: clientId } };
+  }
+  const raw = _queryAll(CONFIG.NOTION_AGREEMENTS_DB, filter,
+    [{ property: NP.AGREEMENTS.EFFECTIVE_DATE, direction: 'descending' }]
+  );
+  if (raw.error) return raw;
+  return raw.map(r => _mapAgreementProperties(r));
 }
 
 function updateAgreementStatus(agreementId, status) {

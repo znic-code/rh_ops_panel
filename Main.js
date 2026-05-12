@@ -93,12 +93,46 @@ function _cacheInvalidate(keys) {
     keys.forEach(function(key) {
       allKeys.push(key);
       allKeys.push(key + '_chunks');
-      for (var i = 0; i < 10; i++) allKeys.push(key + '_' + i);
+      // Read the stored chunk count so we clear exactly the right keys.
+      // Fall back to 50 as a safe ceiling when metadata is missing.
+      var metaRaw = cache.get(key + '_chunks');
+      var chunkCount = 50;
+      if (metaRaw) {
+        try { chunkCount = JSON.parse(metaRaw).count || 50; } catch (_) {}
+      }
+      for (var i = 0; i < chunkCount; i++) allKeys.push(key + '_' + i);
     });
     cache.removeAll(allKeys);
   } catch (e) {
     Logger.log('Cache invalidate error: ' + e.message);
   }
+}
+
+// ── SHARED PAYLOAD HELPERS ───────────────────────────────────
+
+/**
+ * Extract the 11 client billing fields used by every invoice and quote
+ * payload builder. Eliminates copy-paste across panelQuickCreateInvoice,
+ * panelReviseInvoice, panelConvertQuoteToInvoice, panelCreateQuote,
+ * panelReviseQuote, and _handleGenerateInvoice.
+ *
+ * @param {Object} client  A mapped client object from getClientById()
+ * @returns {Object}
+ */
+function _clientBillingFields(client) {
+  return {
+    clientId:      client.id,
+    clientName:    client.name,
+    driveFolderId: client.driveFolderId || '',
+    clientStreet:  client.billingStreet  || '',
+    clientCity:    client.billingCity    || '',
+    clientState:   client.billingState   || '',
+    clientZip:     client.billingZip     || '',
+    clientCountry: client.billingCountry || '',
+    clientPhone:   client.phone          || '',
+    clientEmail:   client.billingEmail   || '',
+    clientWebsite: client.website        || '',
+  };
 }
 
 // ── MENU (for Invoice v2 template) ──────────────────────────
@@ -183,8 +217,8 @@ function doPost(e) {
         return _jsonResponse(createFullClient(body));
       case 'createProject':
         return _jsonResponse(createProject(body));
-      case 'createAgreement':
-        return _jsonResponse(createAgreement(body));
+      case 'generateAgreement':
+        return _jsonResponse(generateAgreement(body));
       case 'logExpense':
         return _jsonResponse(logExpense(body));
       case 'logPayment':
@@ -224,33 +258,22 @@ function _handleGenerateInvoice(body) {
   const subtotal = body.lineItems.reduce(function(s, i) { return s + (i.qty || 1) * (i.price || 0); }, 0);
   const taxes    = parseFloat(body.tax || 0);
 
-  const data = {
-    clientId:      client ? client.id : '',
-    clientName:    body.clientName,
-    driveFolderId: client ? client.driveFolderId  : '',
-    clientStreet:  client ? client.billingStreet   : '',
-    clientCity:    client ? client.billingCity      : '',
-    clientState:   client ? client.billingState     : '',
-    clientZip:     client ? client.billingZip       : '',
-    clientCountry: client ? client.billingCountry   : '',
-    clientPhone:   client ? client.phone            : '',
-    clientEmail:   client ? client.billingEmail     : '',
-    clientWebsite: client ? client.website          : '',
-    projectId:     project ? project.id : '',
-    issueDate:     issueDateForDoc,
-    dueDate:       dueDateForDoc,
-    issueDateISO:  issueISO,
-    dueDateISO:    dueISO,
-    invoiceType:   body.invoiceType || 'Final',
-    lineItems:     body.lineItems.map(function(i) {
+  const data = Object.assign(_clientBillingFields(client || { id: '', name: body.clientName }), {
+    projectId:    project ? project.id : '',
+    issueDate:    issueDateForDoc,
+    dueDate:      dueDateForDoc,
+    issueDateISO: issueISO,
+    dueDateISO:   dueISO,
+    invoiceType:  body.invoiceType || 'Final',
+    lineItems:    body.lineItems.map(function(i) {
       return { name: i.name, description: i.description || '', qty: i.qty || 1, price: i.price || 0 };
     }),
-    subtotal:      subtotal,
-    taxes:         taxes,
-    total:         subtotal + taxes,
-    exportPdf:     body.exportPdf !== undefined ? body.exportPdf : true,
-    logToNotion:   body.logToNotion !== undefined ? body.logToNotion : true,
-  };
+    subtotal:    subtotal,
+    taxes:       taxes,
+    total:       subtotal + taxes,
+    exportPdf:   body.exportPdf !== undefined ? body.exportPdf : true,
+    logToNotion: body.logToNotion !== undefined ? body.logToNotion : true,
+  });
 
   const result = generateInvoice(data);
   if (result.success) _cacheInvalidate(_CACHE_KEYS);
@@ -534,6 +557,7 @@ function panelGetProjectDetails(projectId) {
 
 /** Create a new client (full flow). */
 function panelCreateClient(data) {
+  _requireRole(['admin', 'partner']);
   var result = createFullClient(data);
   if (result.success) _cacheInvalidate(_CACHE_KEYS);
   return result;
@@ -566,6 +590,7 @@ function panelGetContactById(contactId) {
 
 /** Update contact info fields. */
 function panelUpdateContactInfo(contactId, data) {
+  _requireRole(['admin', 'partner']);
   try {
     if (data.name !== undefined && !data.name.trim()) {
       return { success: false, error: 'Contact name cannot be empty.' };
@@ -579,6 +604,7 @@ function panelUpdateContactInfo(contactId, data) {
 
 /** Set a contact as the primary contact for a client. */
 function panelSetPrimaryContact(clientId, contactId) {
+  _requireRole(['admin', 'partner']);
   try {
     _notionUpdatePage(clientId, {
       'Primary Contact': { relation: [{ id: contactId }] }
@@ -614,22 +640,77 @@ function panelCreateProject(data) {
   return result;
 }
 
-/** Create a new agreement. */
-function panelCreateAgreement(data) {
+/**
+ * Generate a new contract document from a template.
+ * Copies the template, fills placeholders, creates a Notion entry.
+ * See AgreementService.js → generateAgreement() for full data shape.
+ */
+function panelGenerateAgreement(data) {
   _requireRole(['admin', 'partner']);
-  var result = createAgreement(data);
+  var result = generateAgreement(data);
   if (result.success) _cacheInvalidate(_CACHE_KEYS);
   return result;
 }
 
-/** Get a single agreement by ID (for edit form). */
-function panelGetAgreementById(agreementId) {
+/**
+ * Return all MSA agreements for a given client.
+ * Used to populate the "Parent MSA" dropdown in the Generate Agreement form.
+ */
+function panelGetClientMSAs(clientId) {
+  _requireRole(['admin', 'partner']);
   try {
-    var data = _notionGet('pages/' + agreementId);
-    return _mapAgreementProperties(data);
+    var msas = getAgreementsByClient(clientId, 'MSA');
+    if (msas.error) return [];
+    return msas;
   } catch (e) {
-    Logger.log('panelGetAgreementById error: ' + e.message);
-    return null;
+    Logger.log('panelGetClientMSAs error: ' + e.message);
+    return [];
+  }
+}
+
+/**
+ * Log a signed copy for an agreement.
+ * Moves the file from BoldSign folder → Contracts/{year}/Signed/,
+ * then updates Notion: status → Signed, signedDate, fileUrl.
+ *
+ * @param {string} agreementId  Notion agreement page ID
+ * @param {Object} data         { fileId, signedDate }
+ */
+function panelLogSignedCopy(agreementId, data) {
+  _requireRole(['admin', 'partner']);
+  if (!data.fileId)     return { success: false, error: 'No file selected.' };
+  if (!data.signedDate) return { success: false, error: 'Signed date is required.' };
+
+  try {
+    // Fetch agreement to get clientId
+    var raw = _notionGet('pages/' + agreementId);
+    if (!raw || raw.error) return { success: false, error: 'Agreement not found.' };
+    var ag = _mapAgreementProperties(raw);
+
+    // Fetch client to get their Drive folder
+    var newFileUrl = 'https://drive.google.com/file/d/' + data.fileId + '/view';
+    if (ag.clientId) {
+      var client = getClientById(ag.clientId);
+      if (client && !client.error && client.driveFolderId) {
+        var year = data.signedDate.substring(0, 4);
+        var contractFolderId = resolveContractFolder(client.driveFolderId, year);
+        if (contractFolderId) {
+          var signedFolderId = resolveSignedFolder(contractFolderId);
+          if (signedFolderId) {
+            var moveResult = moveDriveFile(data.fileId, signedFolderId);
+            if (moveResult.success) newFileUrl = moveResult.newUrl;
+          }
+        }
+      }
+    }
+
+    // Update Notion
+    logSignedCopyToAgreement(agreementId, data.signedDate, newFileUrl);
+    _cacheInvalidate(_CACHE_KEYS);
+
+    return { success: true, newUrl: newFileUrl };
+  } catch (e) {
+    return { success: false, error: e.message };
   }
 }
 
@@ -1368,6 +1449,7 @@ function panelResetEmailTemplate(templateId) {
 
 /** Update project status. */
 function panelUpdateProjectStatus(projectId, status) {
+  _requireRole(['admin', 'partner']);
   var result = setProjectStatus(projectId, status);
   if (result.success) _cacheInvalidate(_CACHE_KEYS);
   return result;
@@ -1375,6 +1457,7 @@ function panelUpdateProjectStatus(projectId, status) {
 
 /** Update invoice status. */
 function panelUpdateInvoiceStatus(invoiceId, status) {
+  _requireRole(['admin', 'partner']);
   try {
     var validStatuses = ['Draft', 'Sent', 'Paid', 'Overdue', 'Void'];
     if (validStatuses.indexOf(status) === -1) {
@@ -1390,6 +1473,7 @@ function panelUpdateInvoiceStatus(invoiceId, status) {
 
 /** Update agreement status. */
 function panelUpdateAgreementStatus(agreementId, status) {
+  _requireRole(['admin', 'partner']);
   try {
     var validStatuses = ['Draft', 'Sent', 'Signed', 'Void'];
     if (validStatuses.indexOf(status) === -1) {
@@ -1406,29 +1490,12 @@ function panelUpdateAgreementStatus(agreementId, status) {
 // ── DASHBOARD ─────────────────────────────────────────────────
 
 /** Get aggregated KPIs for the dashboard. */
-function panelGetDashboardData() {
-  var cached = _cacheGet('dashboard');
-  if (cached) return cached;
-
-  var clients  = getClients();
-  var projects = getProjects();
-
-  // Dual-fetch strategy:
-  //   Time-bounded  — current fiscal year invoices/expenses (for revenue, charts)
-  //   Status-bounded — all outstanding invoices regardless of age (for overdue alerts)
-  var now = new Date();
-  var yearStart = now.getFullYear() + '-01-01';
-  var todayISO  = now.toISOString().split('T')[0];
-  var yearInvoices        = getInvoicesByDateRange(yearStart, todayISO);
-  var outstandingInvoices = getInvoicesByStatus(['Sent', 'Overdue']);
-  var expenses            = getExpensesByDateRange(yearStart, todayISO);
-
-  if (clients.error)              clients  = [];
-  if (projects.error)             projects = [];
-  if (yearInvoices.error)         yearInvoices = [];
-  if (outstandingInvoices.error)  outstandingInvoices = [];
-  if (expenses.error)             expenses = [];
-
+/**
+ * Pure aggregation: compute dashboard KPIs and lists from pre-fetched data.
+ * Extracted from panelGetDashboardData so the logic can be tested and reused
+ * without going through the panel RPC layer.
+ */
+function _computeDashboardResult(clients, projects, yearInvoices, outstandingInvoices, expenses, todayISO) {
   // Merge and dedup: year invoices + outstanding (some may overlap)
   var seen = {};
   var invoices = [];
@@ -1441,14 +1508,11 @@ function panelGetDashboardData() {
     return (b.issuedDate || '').localeCompare(a.issuedDate || '');
   });
 
-  var totalRevenue = 0, outstanding = 0, overdueCount = 0, paidCount = 0;
-  var recentInvoices = [];
-  var overdueInvoices = [];
-  var monthlyRevenue = {};
-
-  // Build client map for name lookups
   var clientMap = {};
   clients.forEach(function(c) { clientMap[c.id] = c.name; });
+
+  var totalRevenue = 0, outstanding = 0, overdueCount = 0, paidCount = 0;
+  var recentInvoices = [], overdueInvoices = [], monthlyRevenue = {};
 
   invoices.forEach(function(inv) {
     if (inv.status === 'Paid') { totalRevenue += inv.total; paidCount++; }
@@ -1456,60 +1520,64 @@ function panelGetDashboardData() {
     if (inv.status === 'Overdue' || (inv.status === 'Sent' && inv.dueDate && inv.dueDate < todayISO)) {
       overdueCount++;
       overdueInvoices.push({
-        id: inv.id,
-        invoiceId: inv.invoiceId,
-        clientId: inv.clientId,
+        id: inv.id, invoiceId: inv.invoiceId, clientId: inv.clientId,
         clientName: clientMap[inv.clientId] || 'Unknown',
-        total: inv.total,
-        dueDate: inv.dueDate,
-        status: inv.status
+        total: inv.total, dueDate: inv.dueDate, status: inv.status,
       });
     }
-
-    // Monthly revenue (paid invoices by paid date or issued date)
     var monthKey = (inv.paidDate || inv.issuedDate || '').substring(0, 7);
     if (inv.status === 'Paid' && monthKey) {
       monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] || 0) + inv.total;
     }
-
-    // Recent invoices (last 5, already sorted)
     if (recentInvoices.length < 5) recentInvoices.push(inv);
   });
 
   var totalExpenses = 0;
   expenses.forEach(function(exp) { totalExpenses += exp.amount; });
 
-  // Build recent projects list with client names for dashboard
   var activeProjectList = projects.filter(function(p) { return p.status === 'Active'; });
   var draftProjectList  = projects.filter(function(p) { return p.status === 'Draft'; });
   var recentProjects = activeProjectList.concat(draftProjectList).slice(0, 5).map(function(p) {
-    return {
-      id: p.id,
-      name: p.name,
-      clientName: clientMap[p.clientId] || '',
-      clientId: p.clientId || '',
-      type: p.type || '',
-      status: p.status || '',
-    };
+    return { id: p.id, name: p.name, clientName: clientMap[p.clientId] || '',
+             clientId: p.clientId || '', type: p.type || '', status: p.status || '' };
   });
 
-  var result = {
-    clientCount: clients.length,
-    projectCount: projects.length,
-    activeProjects: activeProjectList.length,
-    draftProjects: draftProjectList.length,
-    totalRevenue: totalRevenue,
-    outstanding: outstanding,
-    overdueCount: overdueCount,
-    paidCount: paidCount,
-    invoiceCount: invoices.length,
-    totalExpenses: totalExpenses,
+  return {
+    clientCount: clients.length, projectCount: projects.length,
+    activeProjects: activeProjectList.length, draftProjects: draftProjectList.length,
+    totalRevenue: totalRevenue, outstanding: outstanding,
+    overdueCount: overdueCount, paidCount: paidCount,
+    invoiceCount: invoices.length, totalExpenses: totalExpenses,
     profit: totalRevenue - totalExpenses,
-    recentInvoices: recentInvoices,
-    overdueInvoices: overdueInvoices,
-    monthlyRevenue: monthlyRevenue,
-    recentProjects: recentProjects,
+    recentInvoices: recentInvoices, overdueInvoices: overdueInvoices,
+    monthlyRevenue: monthlyRevenue, recentProjects: recentProjects,
   };
+}
+
+function panelGetDashboardData() {
+  var cached = _cacheGet('dashboard');
+  if (cached) return cached;
+
+  // Dual-fetch strategy:
+  //   Time-bounded  — current fiscal year invoices/expenses (for revenue, charts)
+  //   Status-bounded — all outstanding invoices regardless of age (for overdue alerts)
+  var now = new Date();
+  var yearStart = now.getFullYear() + '-01-01';
+  var todayISO  = now.toISOString().split('T')[0];
+
+  var clients             = getClients();
+  var projects            = getProjects();
+  var yearInvoices        = getInvoicesByDateRange(yearStart, todayISO);
+  var outstandingInvoices = getInvoicesByStatus(['Sent', 'Overdue']);
+  var expenses            = getExpensesByDateRange(yearStart, todayISO);
+
+  if (clients.error)             clients             = [];
+  if (projects.error)            projects            = [];
+  if (yearInvoices.error)        yearInvoices        = [];
+  if (outstandingInvoices.error) outstandingInvoices = [];
+  if (expenses.error)            expenses            = [];
+
+  var result = _computeDashboardResult(clients, projects, yearInvoices, outstandingInvoices, expenses, todayISO);
   _cacheSet('dashboard', result);
   return result;
 }
@@ -1518,6 +1586,7 @@ function panelGetDashboardData() {
 
 /** Update client info fields. */
 function panelUpdateClientInfo(clientId, data) {
+  _requireRole(['admin', 'partner']);
   try {
     if (data.name !== undefined && !data.name.trim()) {
       return { success: false, error: 'Client name cannot be empty.' };
@@ -1532,6 +1601,7 @@ function panelUpdateClientInfo(clientId, data) {
 
 /** Update project info fields. */
 function panelUpdateProjectInfo(projectId, data) {
+  _requireRole(['admin', 'partner']);
   try {
     if (data.name !== undefined && !data.name.trim()) {
       return { success: false, error: 'Project name cannot be empty.' };
@@ -1546,6 +1616,7 @@ function panelUpdateProjectInfo(projectId, data) {
 
 /** Update agreement info fields. */
 function panelUpdateAgreementInfo(agreementId, data) {
+  _requireRole(['admin', 'partner']);
   try {
     if (data.title !== undefined && !data.title.trim()) {
       return { success: false, error: 'Agreement title cannot be empty.' };
@@ -1607,18 +1678,31 @@ function panelGetInvoiceDetails(invoiceId) {
 
 // ── AGREEMENT DETAIL ─────────────────────────────────────────
 
-/** Get agreement details for agreement view. */
+/** Get agreement details for agreement view (includes new lifecycle fields). */
 function panelGetAgreementDetails(agreementId) {
   try {
     var raw = _notionGet('pages/' + agreementId);
     if (!raw || raw.error) return { error: 'Agreement not found' };
     var agreement = _mapAgreementProperties(raw);
+
     var clientName = '';
     if (agreement.clientId) {
       var client = getClientById(agreement.clientId);
       if (client && !client.error) clientName = client.name;
     }
-    return { agreement: agreement, clientName: clientName };
+
+    var parentMsaTitle = '';
+    if (agreement.parentMsaId) {
+      try {
+        var parentRaw = _notionGet('pages/' + agreement.parentMsaId);
+        var parentAg  = _mapAgreementProperties(parentRaw);
+        parentMsaTitle = parentAg.agreementId
+          ? parentAg.agreementId + ' — ' + (parentAg.title || '').replace(/^RH-\S+ — /, '')
+          : parentAg.title || '';
+      } catch (e) { /* leave empty */ }
+    }
+
+    return { agreement: agreement, clientName: clientName, parentMsaTitle: parentMsaTitle };
   } catch (e) {
     return { error: e.message };
   }
@@ -1661,28 +1745,12 @@ function checkOverdueInvoices() {
 // ── FINANCIAL REPORT ──────────────────────────────────────────
 
 /** Get full financial data for reporting. */
-function panelGetFinancialReport() {
-  _requireRole(['admin', 'partner']);
-  var cached = _cacheGet('financialReport');
-  if (cached) return cached;
-
-  var clients  = getClients();
-  var projects = getProjects();
-
-  // Dual-fetch: date-scoped for revenue/expenses, status-scoped for AR aging
-  var now = new Date();
-  var yearStart = now.getFullYear() + '-01-01';
-  var todayISO  = now.toISOString().split('T')[0];
-  var yearInvoices        = getInvoicesByDateRange(yearStart, todayISO);
-  var outstandingInvoices = getInvoicesByStatus(['Sent', 'Overdue']);
-  var expenses            = getExpensesByDateRange(yearStart, todayISO);
-
-  if (clients.error)              clients  = [];
-  if (projects.error)             projects = [];
-  if (yearInvoices.error)         yearInvoices = [];
-  if (outstandingInvoices.error)  outstandingInvoices = [];
-  if (expenses.error)             expenses = [];
-
+/**
+ * Pure aggregation: compute financial report from pre-fetched data.
+ * Extracted from panelGetFinancialReport so the logic can be tested and
+ * reused without going through the panel RPC layer.
+ */
+function _computeFinancialResult(clients, projects, yearInvoices, outstandingInvoices, expenses, allPayments, now) {
   // Merge and dedup
   var seen = {};
   var invoices = [];
@@ -1690,64 +1758,40 @@ function panelGetFinancialReport() {
     if (!seen[inv.id]) { seen[inv.id] = true; invoices.push(inv); }
   });
 
-  // Build lookup maps
   var clientMap = {};
   clients.forEach(function(c) { clientMap[c.id] = c.name; });
   var projectMap = {};
   projects.forEach(function(p) { projectMap[p.id] = { name: p.name, clientId: p.clientId }; });
 
-  // Revenue by client
-  var revenueByClient = {};
+  var revenueByClient = {}, revenueByProject = {}, revenueByMonth = {};
+  var expensesByProject = {}, expensesByCategory = {};
+
   invoices.forEach(function(inv) {
     if (inv.status !== 'Paid') return;
-    var cid = inv.clientId || 'unknown';
-    var cname = clientMap[cid] || 'Unknown';
+    var cname = clientMap[inv.clientId || ''] || 'Unknown';
     revenueByClient[cname] = (revenueByClient[cname] || 0) + inv.total;
-  });
-
-  // Revenue by project
-  var revenueByProject = {};
-  invoices.forEach(function(inv) {
-    if (inv.status !== 'Paid') return;
-    var pid = inv.projectId || 'unknown';
-    var pname = projectMap[pid] ? projectMap[pid].name : 'Unknown';
+    var pname = (projectMap[inv.projectId || ''] || {}).name || 'Unknown';
     revenueByProject[pname] = (revenueByProject[pname] || 0) + inv.total;
-  });
-
-  // Revenue by month
-  var revenueByMonth = {};
-  invoices.forEach(function(inv) {
-    if (inv.status !== 'Paid') return;
     var key = (inv.paidDate || inv.issuedDate || '').substring(0, 7);
     if (key) revenueByMonth[key] = (revenueByMonth[key] || 0) + inv.total;
   });
 
-  // Expenses by project (internal — used for profit calc)
-  var expensesByProject = {};
   expenses.forEach(function(exp) {
-    var pid = exp.projectId || 'unknown';
-    var pname = projectMap[pid] ? projectMap[pid].name : 'Unknown';
+    var pname = (projectMap[exp.projectId || ''] || {}).name || 'Unknown';
     expensesByProject[pname] = (expensesByProject[pname] || 0) + exp.amount;
-  });
-
-  // Expenses by category
-  var expensesByCategory = {};
-  expenses.forEach(function(exp) {
     var cat = exp.category || 'Uncategorized';
     expensesByCategory[cat] = (expensesByCategory[cat] || 0) + (exp.amount || 0);
   });
 
-  // Profit by project
-  var profitByProject = {};
   var allProjNames = {};
   Object.keys(revenueByProject).forEach(function(k) { allProjNames[k] = true; });
   Object.keys(expensesByProject).forEach(function(k) { allProjNames[k] = true; });
+  var profitByProject = {};
   Object.keys(allProjNames).forEach(function(k) {
     profitByProject[k] = (revenueByProject[k] || 0) - (expensesByProject[k] || 0);
   });
 
   // AR Aging — use true remaining balance (accounts for partial payments & withholding)
-  var allPayments = getAllPayments();
   var settledByInvoice = {};
   if (!allPayments.error) {
     allPayments.forEach(function(p) {
@@ -1762,24 +1806,48 @@ function panelGetFinancialReport() {
   invoices.forEach(function(inv) {
     if (inv.status !== 'Sent' && inv.status !== 'Overdue') return;
     if (!inv.dueDate) return;
-    var settled = settledByInvoice[inv.id] || 0;
-    var balance = Math.max(0, inv.total - settled);
-    if (balance <= 1.00) return; // within rounding threshold
-    var due = new Date(inv.dueDate + 'T12:00:00');
-    var daysOld = Math.floor((now - due) / 86400000);
-    if (daysOld <= 0) aging.current += balance;
-    else if (daysOld <= 30) aging.days30 += balance;
-    else if (daysOld <= 60) aging.days60 += balance;
-    else aging.days90 += balance;
+    var balance = Math.max(0, inv.total - (settledByInvoice[inv.id] || 0));
+    if (balance <= 1.00) return;
+    var daysOld = Math.floor((now - new Date(inv.dueDate + 'T12:00:00')) / 86400000);
+    if (daysOld <= 0)       aging.current += balance;
+    else if (daysOld <= 30) aging.days30  += balance;
+    else if (daysOld <= 60) aging.days60  += balance;
+    else                    aging.days90  += balance;
   });
 
-  var result = {
-    revenueByClient:   revenueByClient,
-    revenueByMonth:    revenueByMonth,
+  return {
+    revenueByClient:    revenueByClient,
+    revenueByMonth:     revenueByMonth,
     expensesByCategory: expensesByCategory,
-    profitByProject:   profitByProject,
-    aging:             aging,
+    profitByProject:    profitByProject,
+    aging:              aging,
   };
+}
+
+function panelGetFinancialReport() {
+  _requireRole(['admin', 'partner']);
+  var cached = _cacheGet('financialReport');
+  if (cached) return cached;
+
+  // Dual-fetch: date-scoped for revenue/expenses, status-scoped for AR aging
+  var now = new Date();
+  var yearStart = now.getFullYear() + '-01-01';
+  var todayISO  = now.toISOString().split('T')[0];
+
+  var clients             = getClients();
+  var projects            = getProjects();
+  var yearInvoices        = getInvoicesByDateRange(yearStart, todayISO);
+  var outstandingInvoices = getInvoicesByStatus(['Sent', 'Overdue']);
+  var expenses            = getExpensesByDateRange(yearStart, todayISO);
+  var allPayments         = getAllPayments();
+
+  if (clients.error)             clients             = [];
+  if (projects.error)            projects            = [];
+  if (yearInvoices.error)        yearInvoices        = [];
+  if (outstandingInvoices.error) outstandingInvoices = [];
+  if (expenses.error)            expenses            = [];
+
+  var result = _computeFinancialResult(clients, projects, yearInvoices, outstandingInvoices, expenses, allPayments, now);
   _cacheSet('financialReport', result);
   return result;
 }
@@ -1976,6 +2044,7 @@ function panelGetContractorDetails(contractorId) {
 }
 
 function panelCreateContractor(data) {
+  _requireRole(['admin', 'partner']);
   try {
     if (!data.name || !data.name.trim()) return { success: false, error: 'Contractor name is required.' };
     var page = createNotionContractor(data);
@@ -1986,6 +2055,7 @@ function panelCreateContractor(data) {
 }
 
 function panelUpdateContractorInfo(contractorId, data) {
+  _requireRole(['admin', 'partner']);
   try {
     updateContractorInfo(contractorId, data);
     return { success: true };
@@ -2006,6 +2076,7 @@ function panelUpdateContractorInfo(contractorId, data) {
  * @returns {{ success, fileUrl?, error? }}
  */
 function panelUploadW9(data) {
+  _requireRole(['admin', 'partner']);
   try {
     var folderId = resolveOrCreateSubfolder(CONFIG.FINANCIALS_DRIVE_DIR, 'W-9s');
     if (!folderId) return { success: false, error: 'Could not resolve or create W-9s folder.' };
@@ -2128,37 +2199,37 @@ function panelReviseInvoice(originalInvoicePageId, data, paymentIdsToTransfer) {
     var subtotal = lineItems.reduce(function(s, i) { return s + i.qty * i.price; }, 0);
     var taxes    = parseFloat(data.tax || 0);
 
-    var invoiceData = {
-      clientId:      client.id,
-      clientName:    client.name,
-      driveFolderId: client.driveFolderId || '',
-      clientStreet:  client.billingStreet  || '',
-      clientCity:    client.billingCity    || '',
-      clientState:   client.billingState   || '',
-      clientZip:     client.billingZip     || '',
-      clientCountry: client.billingCountry || '',
-      clientPhone:   client.phone          || '',
-      clientEmail:   client.billingEmail   || '',
-      clientWebsite: client.website        || '',
-      projectId:     data.projectId || '',
-      issueDate:     _formatDateForDoc(issueISO),
-      dueDate:       _formatDateForDoc(dueISO),
-      issueDateISO:  issueISO,
-      dueDateISO:    dueISO,
-      invoiceType:   data.invoiceType || 'Final',
-      lineItems:     lineItems,
-      subtotal:      subtotal,
-      taxes:         taxes,
-      total:         subtotal + taxes,
-      exportPdf:     true,
-      logToNotion:   true,
-    };
+    var invoiceData = Object.assign(_clientBillingFields(client), {
+      projectId:    data.projectId || '',
+      issueDate:    _formatDateForDoc(issueISO),
+      dueDate:      _formatDateForDoc(dueISO),
+      issueDateISO: issueISO,
+      dueDateISO:   dueISO,
+      invoiceType:  data.invoiceType || 'Final',
+      lineItems:    lineItems,
+      subtotal:     subtotal,
+      taxes:        taxes,
+      total:        subtotal + taxes,
+      exportPdf:    true,
+      logToNotion:  true,
+    });
 
     var result = generateInvoice(invoiceData);
     if (!result.success) return result;
 
-    // Void the original
-    updateInvoiceStatus(originalInvoicePageId, 'Void', null);
+    // Void the original — if this fails, roll back the new invoice so we
+    // never have two live invoices simultaneously.
+    try {
+      updateInvoiceStatus(originalInvoicePageId, 'Void', null);
+    } catch (voidErr) {
+      Logger.log('panelReviseInvoice: void failed (' + voidErr.message + ') — rolling back new invoice ' + result.pageId);
+      try { if (result.pageId) archiveNotionPage(result.pageId); } catch (_) {}
+      try {
+        var driveMatch = (result.url || '').match(/\/d\/([^\/]+)/);
+        if (driveMatch) DriveApp.getFileById(driveMatch[1]).setTrashed(true);
+      } catch (_) {}
+      return { success: false, error: 'Could not void original invoice. New invoice was rolled back. Please try again. (' + voidErr.message + ')' };
+    }
 
     // Transfer payments to the new invoice
     var paymentsMoved = 0;
@@ -2230,29 +2301,18 @@ function panelCreateQuote(data) {
     var subtotal = lineItems.reduce(function(s, i) { return s + i.qty * i.price; }, 0);
     var taxes    = parseFloat(data.tax || 0);
 
-    var quoteData = {
-      clientId:      client.id,
-      clientName:    client.name,
-      driveFolderId: client.driveFolderId || '',
-      clientStreet:  client.billingStreet  || '',
-      clientCity:    client.billingCity    || '',
-      clientState:   client.billingState   || '',
-      clientZip:     client.billingZip     || '',
-      clientCountry: client.billingCountry || '',
-      clientPhone:   client.phone          || '',
-      clientEmail:   client.billingEmail   || '',
-      clientWebsite: client.website        || '',
-      projectId:     data.projectId || '',
-      issueDate:     _formatDateForDoc(issueISO),
-      validDate:     _formatDateForDoc(validISO),
-      issueDateISO:  issueISO,
-      validDateISO:  validISO,
-      lineItems:     lineItems,
-      subtotal:      subtotal,
-      taxes:         taxes,
-      total:         subtotal + taxes,
-      logToNotion:   true,
-    };
+    var quoteData = Object.assign(_clientBillingFields(client), {
+      projectId:   data.projectId || '',
+      issueDate:   _formatDateForDoc(issueISO),
+      validDate:   _formatDateForDoc(validISO),
+      issueDateISO: issueISO,
+      validDateISO: validISO,
+      lineItems:   lineItems,
+      subtotal:    subtotal,
+      taxes:       taxes,
+      total:       subtotal + taxes,
+      logToNotion: true,
+    });
 
     var result = generateQuote(quoteData);
     if (result.success) _cacheInvalidate(_CACHE_KEYS);
@@ -2396,29 +2456,18 @@ function panelReviseQuote(quotePageId, data) {
     var subtotal = lineItems.reduce(function(s, i) { return s + i.qty * i.price; }, 0);
     var taxes    = parseFloat(data.tax || 0);
 
-    var quoteData = {
-      clientId:      client.id,
-      clientName:    client.name,
-      driveFolderId: client.driveFolderId || '',
-      clientStreet:  client.billingStreet  || '',
-      clientCity:    client.billingCity    || '',
-      clientState:   client.billingState   || '',
-      clientZip:     client.billingZip     || '',
-      clientCountry: client.billingCountry || '',
-      clientPhone:   client.phone          || '',
-      clientEmail:   client.billingEmail   || '',
-      clientWebsite: client.website        || '',
-      projectId:     data.projectId || '',
-      issueDate:     _formatDateForDoc(issueISO),
-      validDate:     _formatDateForDoc(validISO),
-      issueDateISO:  issueISO,
-      validDateISO:  validISO,
-      lineItems:     lineItems,
-      subtotal:      subtotal,
-      taxes:         taxes,
-      total:         subtotal + taxes,
-      logToNotion:   true,
-    };
+    var quoteData = Object.assign(_clientBillingFields(client), {
+      projectId:   data.projectId || '',
+      issueDate:   _formatDateForDoc(issueISO),
+      validDate:   _formatDateForDoc(validISO),
+      issueDateISO: issueISO,
+      validDateISO: validISO,
+      lineItems:   lineItems,
+      subtotal:    subtotal,
+      taxes:       taxes,
+      total:       subtotal + taxes,
+      logToNotion: true,
+    });
 
     var result = generateQuote(quoteData);
     if (!result.success) return result;
@@ -2468,31 +2517,20 @@ function panelConvertQuoteToInvoice(quotePageId, invoiceData) {
     var subtotal = lineItems.reduce(function(s, i) { return s + (i.qty || 1) * (i.price || 0); }, 0);
     var taxes    = parseFloat((invoiceData && invoiceData.tax) || quote.tax || 0);
 
-    var inv = {
-      clientId:      client.id,
-      clientName:    client.name,
-      driveFolderId: client.driveFolderId || '',
-      clientStreet:  client.billingStreet  || '',
-      clientCity:    client.billingCity    || '',
-      clientState:   client.billingState   || '',
-      clientZip:     client.billingZip     || '',
-      clientCountry: client.billingCountry || '',
-      clientPhone:   client.phone          || '',
-      clientEmail:   client.billingEmail   || '',
-      clientWebsite: client.website        || '',
-      projectId:     (invoiceData && invoiceData.projectId) || quote.projectId || '',
-      issueDate:     _formatDateForDoc(issueISO),
-      dueDate:       _formatDateForDoc(dueISO),
-      issueDateISO:  issueISO,
-      dueDateISO:    dueISO,
-      invoiceType:   (invoiceData && invoiceData.invoiceType) || 'Deposit',
-      lineItems:     lineItems,
-      subtotal:      subtotal,
-      taxes:         taxes,
-      total:         subtotal + taxes,
-      exportPdf:     true,
-      logToNotion:   true,
-    };
+    var inv = Object.assign(_clientBillingFields(client), {
+      projectId:    (invoiceData && invoiceData.projectId) || quote.projectId || '',
+      issueDate:    _formatDateForDoc(issueISO),
+      dueDate:      _formatDateForDoc(dueISO),
+      issueDateISO: issueISO,
+      dueDateISO:   dueISO,
+      invoiceType:  (invoiceData && invoiceData.invoiceType) || 'Deposit',
+      lineItems:    lineItems,
+      subtotal:     subtotal,
+      taxes:        taxes,
+      total:        subtotal + taxes,
+      exportPdf:    true,
+      logToNotion:  true,
+    });
 
     var result = generateInvoice(inv);
     if (!result.success) return result;
@@ -2547,31 +2585,20 @@ function panelQuickCreateInvoice(data) {
     var subtotal = lineItems.reduce(function(s, i) { return s + i.qty * i.price; }, 0);
     var taxes    = parseFloat(data.tax || 0);
 
-    var invoiceData = {
-      clientId:      client.id,
-      clientName:    client.name,
-      driveFolderId: client.driveFolderId || '',
-      clientStreet:  client.billingStreet  || '',
-      clientCity:    client.billingCity    || '',
-      clientState:   client.billingState   || '',
-      clientZip:     client.billingZip     || '',
-      clientCountry: client.billingCountry || '',
-      clientPhone:   client.phone          || '',
-      clientEmail:   client.billingEmail   || '',
-      clientWebsite: client.website        || '',
-      projectId:     data.projectId || '',
-      issueDate:     _formatDateForDoc(issueISO),
-      dueDate:       _formatDateForDoc(dueISO),
-      issueDateISO:  issueISO,
-      dueDateISO:    dueISO,
-      invoiceType:   data.invoiceType || 'Final',
-      lineItems:     lineItems,
-      subtotal:      subtotal,
-      taxes:         taxes,
-      total:         subtotal + taxes,
-      exportPdf:     true,
-      logToNotion:   true,
-    };
+    var invoiceData = Object.assign(_clientBillingFields(client), {
+      projectId:    data.projectId || '',
+      issueDate:    _formatDateForDoc(issueISO),
+      dueDate:      _formatDateForDoc(dueISO),
+      issueDateISO: issueISO,
+      dueDateISO:   dueISO,
+      invoiceType:  data.invoiceType || 'Final',
+      lineItems:    lineItems,
+      subtotal:     subtotal,
+      taxes:        taxes,
+      total:        subtotal + taxes,
+      exportPdf:    true,
+      logToNotion:  true,
+    });
 
     var result = generateInvoice(invoiceData);
     if (result.success) _cacheInvalidate(_CACHE_KEYS);
@@ -2975,6 +3002,7 @@ function panelGetRecurringConfig(projectId) {
 }
 
 function panelSaveRecurringConfig(projectId, config) {
+  _requireRole(['admin']);
   try {
     var raw = PropertiesService.getScriptProperties().getProperty('recurring_configs');
     var all = raw ? JSON.parse(raw) : {};
@@ -3091,6 +3119,7 @@ function generateRecurringInvoices() {
 // ── FINANCIAL DATA EXPORT ────────────────────────────────────
 
 function panelExportFinancialData(startDate, endDate) {
+  _requireRole(['admin', 'partner']);
   try {
     var clients = getClients();
     var projects = getProjects();
@@ -3210,6 +3239,7 @@ function panelExportFinancialData(startDate, endDate) {
  * @returns {Object} { frequency, spreadsheetId, lastBackup }
  */
 function panelGetBackupConfig() {
+  _requireRole(['admin']);
   try {
     var raw = PropertiesService.getScriptProperties().getProperty('backup_config');
     var config = raw ? JSON.parse(raw) : {};
@@ -3334,6 +3364,11 @@ function backupNotionData(forceRun) {
     if (!ss) {
       ss = SpreadsheetApp.create('RH Ops — Notion Backup');
       spreadsheetId = ss.getId();
+      // Persist the new spreadsheet ID immediately so that if the function
+      // throws mid-run, the next invocation reuses this sheet rather than
+      // creating another orphan.
+      config.spreadsheetId = spreadsheetId;
+      PropertiesService.getScriptProperties().setProperty('backup_config', JSON.stringify(config));
       if (folderId) {
         try {
           var targetFolder = DriveApp.getFolderById(folderId);
