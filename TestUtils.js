@@ -17,7 +17,6 @@ var _TEST_PROPS = {
   CLIENT_ID:    'TEST_CLIENT_ID',
   CONTACT_IDS:  'TEST_CONTACT_IDS',   // comma-separated Notion page IDs
   PROJECT_ID:   'TEST_PROJECT_ID',
-  AGREEMENT_ID: 'TEST_AGREEMENT_ID',  // Notion page ID of the MSA
   DRIVE_FOLDER: 'TEST_DRIVE_FOLDER',
   SEEDED_AT:    'TEST_SEEDED_AT',
 };
@@ -25,11 +24,13 @@ var _TEST_PROPS = {
 // ── Seed ─────────────────────────────────────────────────────
 
 /**
- * Create a complete set of test records:
+ * Create a baseline set of test records:
  *   - 1 client  ([TEST] Road Hazards — Sample Co)
- *   - 1 contact (Test Contact)
+ *   - 1 contact ([TEST] Sample Contact)
  *   - 1 project ([TEST] Sample Project)
- *   - 1 MSA     ([TEST] Master Service Agreement)
+ *
+ * Agreements, invoices, quotes etc. are tested manually through the
+ * panel UI — that's the point of the test cycle.
  *
  * IDs are written to Script Properties so teardownTestData()
  * can clean everything up without guessing.
@@ -84,33 +85,11 @@ function seedTestData() {
   if (projectId) Logger.log('[TEST] Project created: ' + projectId);
   Logger.log('[TEST] Drive folder:   ' + driveFolderId);
 
-  // ── 2. Generate MSA ───────────────────────────────────────
-  var msaResult = generateAgreement({
-    contractType: 'MSA',
-    language:     'English',
-    clientId:     clientId,
-    title:        'Master Service Agreement',
-    effectiveDate: '',   // intentionally blank — MSA date set after signing
-    notes:        'Test MSA — safe to delete.',
-  });
-
-  var msaNotionId = '';
-  if (!msaResult.success) {
-    Logger.log('[TEST] WARNING: MSA generation failed: ' + msaResult.error);
-    Logger.log('[TEST] Continuing — client/project records were created.');
-  } else {
-    msaNotionId = msaResult.notionId || '';
-    Logger.log('[TEST] MSA created:     ' + msaResult.contractId + ' / Notion: ' + msaNotionId);
-    Logger.log('[TEST] MSA Drive URL:   ' + msaResult.driveUrl);
-    if (msaResult.warning) Logger.log('[TEST] MSA warning: ' + msaResult.warning);
-  }
-
-  // ── 3. Persist IDs to Script Properties ──────────────────
+  // ── 2. Persist IDs to Script Properties ──────────────────
   sp.setProperties({
     TEST_CLIENT_ID:    clientId,
     TEST_CONTACT_IDS:  contactIds.join(','),
     TEST_PROJECT_ID:   projectId,
-    TEST_AGREEMENT_ID: msaNotionId,
     TEST_DRIVE_FOLDER: driveFolderId,
     TEST_SEEDED_AT:    new Date().toISOString(),
   });
@@ -130,11 +109,10 @@ function seedTestData() {
  */
 function teardownTestData() {
   var sp  = PropertiesService.getScriptProperties();
-  var clientId    = sp.getProperty(_TEST_PROPS.CLIENT_ID);
-  var contactIds  = sp.getProperty(_TEST_PROPS.CONTACT_IDS);
-  var projectId   = sp.getProperty(_TEST_PROPS.PROJECT_ID);
-  var agreementId = sp.getProperty(_TEST_PROPS.AGREEMENT_ID);
-  var folderId    = sp.getProperty(_TEST_PROPS.DRIVE_FOLDER);
+  var clientId   = sp.getProperty(_TEST_PROPS.CLIENT_ID);
+  var contactIds = sp.getProperty(_TEST_PROPS.CONTACT_IDS);
+  var projectId  = sp.getProperty(_TEST_PROPS.PROJECT_ID);
+  var folderId   = sp.getProperty(_TEST_PROPS.DRIVE_FOLDER);
 
   if (!clientId) {
     Logger.log('[TEST] Nothing to tear down — no seed data found in Script Properties.');
@@ -157,8 +135,7 @@ function teardownTestData() {
     }
   }
 
-  if (agreementId) archiveSafely(agreementId, 'MSA');
-  if (projectId)   archiveSafely(projectId,   'Project');
+  if (projectId) archiveSafely(projectId, 'Project');
 
   if (contactIds) {
     contactIds.split(',').forEach(function(cid) {
@@ -184,7 +161,6 @@ function teardownTestData() {
   sp.deleteProperty(_TEST_PROPS.CLIENT_ID);
   sp.deleteProperty(_TEST_PROPS.CONTACT_IDS);
   sp.deleteProperty(_TEST_PROPS.PROJECT_ID);
-  sp.deleteProperty(_TEST_PROPS.AGREEMENT_ID);
   sp.deleteProperty(_TEST_PROPS.DRIVE_FOLDER);
   sp.deleteProperty(_TEST_PROPS.SEEDED_AT);
 
@@ -214,7 +190,6 @@ function inspectTestData() {
   Logger.log('  Client ID:    ' + clientId);
   Logger.log('  Contact IDs:  ' + (sp.getProperty(_TEST_PROPS.CONTACT_IDS) || '(none)'));
   Logger.log('  Project ID:   ' + (sp.getProperty(_TEST_PROPS.PROJECT_ID)  || '(none)'));
-  Logger.log('  Agreement ID: ' + (sp.getProperty(_TEST_PROPS.AGREEMENT_ID)|| '(none)'));
   Logger.log('  Drive Folder: ' + (sp.getProperty(_TEST_PROPS.DRIVE_FOLDER)|| '(none)'));
   Logger.log('  Seeded at:    ' + (sp.getProperty(_TEST_PROPS.SEEDED_AT)   || '(unknown)'));
 }

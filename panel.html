@@ -7274,7 +7274,7 @@ function renderSettings() {
         + '<h2 style="flex:1">Test Data</h2>'
         + '<span style="font-size:11px;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:10px;font-weight:600">DEV</span>'
         + '</div><div class="card-body">'
-        + '<p style="font-size:13px;color:#8c7b6b;margin-bottom:16px">Seed a complete set of test records (client, contact, project, MSA) to safely exercise all workflows without touching real data. Always tear down when done.</p>'
+        + '<p style="font-size:13px;color:#8c7b6b;margin-bottom:16px">Seed a test client, contact, and project to safely exercise all workflows without touching real data. Agreements, invoices, quotes and everything else are tested manually through the UI. Always tear down when done.</p>'
         + '<div id="test-data-status" style="margin-bottom:12px"><span style="color:#8c7b6b;font-size:13px">Loading&hellip;</span></div>'
         + '<div id="test-data-actions" style="display:flex;gap:8px;flex-wrap:wrap"></div>'
         + '<div id="test-data-result" style="margin-top:12px"></div>'
@@ -7982,7 +7982,6 @@ function loadTestDataStatus() {
         var rows = [
           ['Client', s.clientId],
           ['Project', s.projectId || '—'],
-          ['MSA', s.msaId || '—'],
         ];
         var tableHtml = '<table style="font-size:12px;border-collapse:collapse;margin-bottom:4px">'
           + rows.map(function(r) {
@@ -8008,16 +8007,14 @@ function loadTestDataStatus() {
 function runSeedTestData() {
   var btn = $('td-seed-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Seeding…'; }
-  $('test-data-result').innerHTML = '<div class="loading"><span class="spinner"></span> Creating test client, project, and MSA… this may take 10&ndash;20 seconds.</div>';
+  $('test-data-result').innerHTML = '<div class="loading"><span class="spinner"></span> Creating test client, contact, and project…</div>';
 
   google.script.run
     .withSuccessHandler(function(r) {
       if (btn) { btn.disabled = false; btn.textContent = 'Seed Test Data'; }
       if (r.success) {
         _invalidate('clients','projects','agreements','invoices','quotes','expenses','payments','contractors');
-        var msg = 'Test data seeded successfully.';
-        if (r.msaError) msg += ' Note: MSA generation failed — ' + r.msaError;
-        $('test-data-result').innerHTML = '<div class="status-banner ' + (r.msaError ? 'warning' : 'success') + '">' + esc(msg) + '</div>';
+        $('test-data-result').innerHTML = '<div class="status-banner success">Test data seeded. Client and project are ready — go test.</div>';
         loadTestDataStatus();
       } else {
         $('test-data-result').innerHTML = '<div class="status-banner error">Seed failed: ' + esc(r.error) + '</div>';
