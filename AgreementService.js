@@ -157,26 +157,35 @@ function _fillBulletItems(body, placeholder, raw) {
     return;
   }
 
-  var textEl      = found.getElement();       // Text node inside the paragraph
-  var listItem    = textEl.getParent();       // The ListItem element
-  var attrs       = listItem.getAttributes(); // Captures LIST_ID, text formatting, etc.
-  var idx         = body.getChildIndex(listItem);
+  var textEl   = found.getElement();
+  var listItem = textEl.getParent();
+  var attrs    = listItem.getAttributes();
+  var idx      = body.getChildIndex(listItem);
 
-  // Read list-specific properties directly — setAttributes() alone doesn't reliably
-  // override the nesting level that insertListItem() assigns by default.
+  // Read list-specific properties directly from the template item
   var nestingLevel = (typeof listItem.getNestingLevel === 'function') ? listItem.getNestingLevel() : 0;
   var glyphType    = (typeof listItem.getGlyphType    === 'function') ? listItem.getGlyphType()    : null;
+  var listId       = attrs[DocumentApp.Attribute.LIST_ID];
 
   // Replace the placeholder in the existing list item with the first item
   textEl.asText().replaceText(escaped, items[0]);
 
-  // Insert remaining items as new ListItems sharing the same list.
-  // setAttributes copies LIST_ID (joins the existing list) and text formatting.
-  // setNestingLevel + setGlyphType are explicit overrides that guarantee the new
-  // items sit at the same indent level and use the same bullet glyph as item 1.
+  // Insert remaining items as new ListItems.
+  //
+  // Passing the full attrs object (as done before) also copies INDENT_START and
+  // INDENT_FIRST_LINE from the template paragraph. Those paragraph-level values
+  // stack on top of the list's own level-0 indentation, making new items appear
+  // visually indented as level 1 even after setNestingLevel(0).
+  //
+  // Fix: pass only LIST_ID to setAttributes (joins the existing list / inherits
+  // its glyph definition) then set nesting level and glyph type explicitly.
   for (var i = 1; i < items.length; i++) {
     var newItem = body.insertListItem(idx + i, items[i]);
-    newItem.setAttributes(attrs);
+    if (listId) {
+      var joinAttrs = {};
+      joinAttrs[DocumentApp.Attribute.LIST_ID] = listId;
+      newItem.setAttributes(joinAttrs);
+    }
     newItem.setNestingLevel(nestingLevel);
     if (glyphType !== null) newItem.setGlyphType(glyphType);
   }
