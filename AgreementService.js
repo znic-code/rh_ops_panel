@@ -158,36 +158,19 @@ function _fillBulletItems(body, placeholder, raw) {
   }
 
   var textEl   = found.getElement();
-  var listItem = textEl.getParent();
-  var attrs    = listItem.getAttributes();
+  var listItem = textEl.getParent();  // The template ListItem
   var idx      = body.getChildIndex(listItem);
 
-  // Read list-specific properties directly from the template item
-  var nestingLevel = (typeof listItem.getNestingLevel === 'function') ? listItem.getNestingLevel() : 0;
-  var glyphType    = (typeof listItem.getGlyphType    === 'function') ? listItem.getGlyphType()    : null;
-  var listId       = attrs[DocumentApp.Attribute.LIST_ID];
-
-  // Replace the placeholder in the existing list item with the first item
+  // Replace the placeholder text in the template list item with the first item
   textEl.asText().replaceText(escaped, items[0]);
 
-  // Insert remaining items as new ListItems.
-  //
-  // Passing the full attrs object (as done before) also copies INDENT_START and
-  // INDENT_FIRST_LINE from the template paragraph. Those paragraph-level values
-  // stack on top of the list's own level-0 indentation, making new items appear
-  // visually indented as level 1 even after setNestingLevel(0).
-  //
-  // Fix: pass only LIST_ID to setAttributes (joins the existing list / inherits
-  // its glyph definition) then set nesting level and glyph type explicitly.
+  // For each additional item, insert a structural COPY of the template list item.
+  // insertListItem(index, existingListItem) clones the element including its list
+  // membership, nesting level, glyph type, and indentation — no manual attribute
+  // juggling needed, and nothing can accidentally override the indent values.
   for (var i = 1; i < items.length; i++) {
-    var newItem = body.insertListItem(idx + i, items[i]);
-    if (listId) {
-      var joinAttrs = {};
-      joinAttrs[DocumentApp.Attribute.LIST_ID] = listId;
-      newItem.setAttributes(joinAttrs);
-    }
-    newItem.setNestingLevel(nestingLevel);
-    if (glyphType !== null) newItem.setGlyphType(glyphType);
+    var newItem = body.insertListItem(idx + i, listItem);
+    newItem.editAsText().setText(items[i]);
   }
 }
 
