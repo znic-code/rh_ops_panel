@@ -133,7 +133,8 @@ function _buildAgreementFileName(contractId, client, title) {
  *  - 0 items / blank → replaces with "N/A"
  *  - 1 item          → simple replaceText, preserves existing bullet formatting
  *  - 2+ items        → replaces text of first item in-place, then inserts new
- *                      paragraphs with copied list attributes for each remaining item
+ *                      ListItems (via insertListItem) with copied list attributes
+ *                      so each item becomes a proper bullet point in the same list
  *
  * Must be called BEFORE the generic replaceText loop so the placeholder is
  * already gone when the loop runs (loop becomes a silent no-op for these keys).
@@ -161,13 +162,17 @@ function _fillBulletItems(body, placeholder, raw) {
   var attrs    = listItem.getAttributes(); // Captures LIST_ID, GLYPH_TYPE, NESTING_LEVEL, etc.
   var idx      = body.getChildIndex(listItem);
 
-  // Replace the placeholder in the existing paragraph with the first item
+  // Replace the placeholder in the existing list item with the first item
   textEl.asText().replaceText(escaped, items[0]);
 
-  // Insert new paragraphs after it, each inheriting the same list attributes
+  // Insert new LIST ITEMS (not plain paragraphs) for remaining items.
+  // insertParagraph() creates a Paragraph whose element type is fixed — setting
+  // LIST_ID on it via setAttributes() has no effect. insertListItem() creates a
+  // true ListItem, so setAttributes() can join it to the existing list and copy
+  // the glyph type and nesting level, producing proper bullet points.
   for (var i = 1; i < items.length; i++) {
-    var newPara = body.insertParagraph(idx + i, items[i]);
-    newPara.setAttributes(attrs);
+    var newItem = body.insertListItem(idx + i, items[i]);
+    newItem.setAttributes(attrs);
   }
 }
 
