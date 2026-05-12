@@ -157,22 +157,28 @@ function _fillBulletItems(body, placeholder, raw) {
     return;
   }
 
-  var textEl   = found.getElement();       // Text node inside the paragraph
-  var listItem = textEl.getParent();       // The Paragraph / ListItem element
-  var attrs    = listItem.getAttributes(); // Captures LIST_ID, GLYPH_TYPE, NESTING_LEVEL, etc.
-  var idx      = body.getChildIndex(listItem);
+  var textEl      = found.getElement();       // Text node inside the paragraph
+  var listItem    = textEl.getParent();       // The ListItem element
+  var attrs       = listItem.getAttributes(); // Captures LIST_ID, text formatting, etc.
+  var idx         = body.getChildIndex(listItem);
+
+  // Read list-specific properties directly — setAttributes() alone doesn't reliably
+  // override the nesting level that insertListItem() assigns by default.
+  var nestingLevel = (typeof listItem.getNestingLevel === 'function') ? listItem.getNestingLevel() : 0;
+  var glyphType    = (typeof listItem.getGlyphType    === 'function') ? listItem.getGlyphType()    : null;
 
   // Replace the placeholder in the existing list item with the first item
   textEl.asText().replaceText(escaped, items[0]);
 
-  // Insert new LIST ITEMS (not plain paragraphs) for remaining items.
-  // insertParagraph() creates a Paragraph whose element type is fixed — setting
-  // LIST_ID on it via setAttributes() has no effect. insertListItem() creates a
-  // true ListItem, so setAttributes() can join it to the existing list and copy
-  // the glyph type and nesting level, producing proper bullet points.
+  // Insert remaining items as new ListItems sharing the same list.
+  // setAttributes copies LIST_ID (joins the existing list) and text formatting.
+  // setNestingLevel + setGlyphType are explicit overrides that guarantee the new
+  // items sit at the same indent level and use the same bullet glyph as item 1.
   for (var i = 1; i < items.length; i++) {
     var newItem = body.insertListItem(idx + i, items[i]);
     newItem.setAttributes(attrs);
+    newItem.setNestingLevel(nestingLevel);
+    if (glyphType !== null) newItem.setGlyphType(glyphType);
   }
 }
 
