@@ -2595,6 +2595,9 @@ function renderAgreementView(agreementId, clientId) {
       if (ag.docType === 'MSA') {
         html += '<button class="btn btn-secondary btn-sm" onclick="launchCompanionSOW(\'' + jsEsc(ag.id) + '\',\'' + jsEsc(ag.clientId||'') + '\')" title="Generate a new SOW pre-linked to this MSA">+ Companion SOW</button>';
       }
+      if (_isAdmin()) {
+        html += '<button class="btn btn-danger btn-sm" onclick="confirmDeleteAgreement(\'' + jsEsc(ag.id) + '\',\'' + jsEsc(ag.agreementId||ag.title) + '\',\'' + jsEsc(ag.fileUrl||'') + '\')">Delete</button>';
+      }
       html += '</div></div><div class="card-body">';
 
       // Agreement ID badge
@@ -6900,6 +6903,18 @@ function confirmDeleteProject(projectId, projectName) {
  * @param {string} invoiceNum  - Display ID for the confirmation dialog.
  * @param {string} driveLink   - Google Drive URL of the invoice PDF.
  */
+function confirmDeleteAgreement(agreementPageId, label, driveUrl) {
+  if (!confirm('Delete agreement "' + label + '"?\n\nThis will archive it in Notion and trash the Google Doc. Both can be recovered within 30 days.')) return;
+  $('content').innerHTML = '<div class="loading"><span class="spinner"></span> Deleting&hellip;</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) { _ssClear(); _invalidate('agreements'); navigateToRoot('agreements', 'Agreements'); }
+      else { showError(r.error); }
+    })
+    .withFailureHandler(function(e) { showError(e.message); })
+    .panelDeleteAgreement(agreementPageId, driveUrl);
+}
+
 function confirmDeleteInvoice(invoiceId, invoiceNum, driveLink) {
   if (!confirm('Delete invoice "' + invoiceNum + '"?\n\nThis will remove the invoice from Notion and trash the PDF from Google Drive. Both can be recovered within 30 days.')) return;
   var statusEl = $('content');

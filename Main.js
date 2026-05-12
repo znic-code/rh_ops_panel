@@ -2204,6 +2204,35 @@ function panelDeleteInvoice(invoicePageId, driveLink) {
 }
 
 /**
+ * Delete an agreement: archive the Notion page and trash the Google Doc.
+ * Both can be recovered within 30 days (Notion archive / Drive trash).
+ * @param {string} agreementPageId  Notion page ID
+ * @param {string} driveUrl         Google Doc URL (optional)
+ * @returns {{ success, error? }}
+ */
+function panelDeleteAgreement(agreementPageId, driveUrl) {
+  _requireRole(['admin']);
+  try {
+    archiveNotionPage(agreementPageId);
+
+    // Trash the Drive document if a URL was provided
+    if (driveUrl) {
+      try {
+        var match = driveUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (match) DriveApp.getFileById(match[1]).setTrashed(true);
+      } catch (e) {
+        Logger.log('panelDeleteAgreement: could not trash Drive file — ' + e.message);
+      }
+    }
+
+    _cacheInvalidate(_CACHE_KEYS);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
  * Void the original invoice, generate a replacement, and optionally
  * re-link logged payments to the new invoice.
  * @param {string}   originalInvoicePageId  - Notion page ID of invoice to void.
