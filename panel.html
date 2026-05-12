@@ -713,7 +713,7 @@ function render() {
   content.innerHTML = '<div class="loading"><span class="spinner"></span> Loading&hellip;</div>';
 
   // Financial/operational pages require at least partner role
-  var _financialViews = ['agreements','agreement','newAgreement','generateAgreement','expenses','newExpense','expense','editExpense','payments','newPayment','payment','editPayment','reports','contractors','contractor','newContractor','editContractor','quotes','quote','newQuote','cloneInvoice','invoices','editQuote','cloneQuote'];
+  var _financialViews = ['agreements','agreement','newAgreement','generateAgreement','uploadAgreement','expenses','newExpense','expense','editExpense','payments','newPayment','payment','editPayment','reports','contractors','contractor','newContractor','editContractor','quotes','quote','newQuote','cloneInvoice','invoices','editQuote','cloneQuote'];
   // Settings requires admin
   var _adminViews = ['settings'];
 
@@ -736,6 +736,7 @@ function render() {
     case 'newProject':   renderNewProjectForm(currentView.data.clientId); break;
     case 'newAgreement':      renderGenerateAgreementForm(currentView.data.projectId, currentView.data.clientId, currentView.data.prefill); break;
     case 'generateAgreement': renderGenerateAgreementForm(currentView.data.projectId, currentView.data.clientId, currentView.data.prefill); break;
+    case 'uploadAgreement':   renderUploadAgreementForm(currentView.data.projectId, currentView.data.clientId); break;
     case 'addContact':   renderAddContactForm(currentView.data.clientId); break;
     case 'editContact':  renderEditContactForm(currentView.data.contactId, currentView.data.clientId); break;
     case 'invoices':     renderInvoices(); break;
@@ -2260,6 +2261,281 @@ function submitGenerateAgreement(projectId, clientId) {
     .panelGenerateAgreement(payload);
 }
 
+// ── UPLOAD AGREEMENT ────────────────────────────────────────
+
+var _uploadAgreementFileId  = null;
+var _uploadAgreementFileUrl = null;
+
+function renderUploadAgreementForm(projectId, clientId) {
+  $('topbar-actions').innerHTML = '';
+  _uploadAgreementFileId  = null;
+  _uploadAgreementFileUrl = null;
+
+  var clientOpts = '<option value="">-- Select Client --</option>';
+  _cachedClients.forEach(function(c) {
+    clientOpts += '<option value="' + jsEsc(c.id) + '"' + (c.id === clientId ? ' selected' : '') + '>' + esc(c.name) + '</option>';
+  });
+
+  var projectOpts = '<option value="">-- None --</option>';
+
+  var html = '<div class="form-card"><div class="card">'
+    + '<div class="card-header"><h2>Upload Agreement</h2></div>'
+    + '<div class="card-body">';
+
+  // ── File upload area ──
+  html += '<div style="background:#fff;border:2px dashed #d9d2c7;border-radius:8px;padding:20px;text-align:center;margin-bottom:20px" id="ua-drop-zone">'
+    + '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#8c7e6e" stroke-width="1.5" style="margin-bottom:8px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>'
+    + '<div style="font-size:14px;color:#6b5e50;margin-bottom:8px">Upload a PDF or image of the agreement to auto-extract details</div>'
+    + '<input type="file" id="ua-file-input" accept=".pdf,image/*" style="display:none" onchange="onUploadAgreementFileSelected()">'
+    + '<button class="btn btn-secondary" onclick="$(\'ua-file-input\').click()">Choose File</button>'
+    + '<div id="ua-file-name" style="font-size:12px;color:#8c7e6e;margin-top:8px"></div>'
+    + '</div>'
+    + '<div id="ua-extract-status"></div>';
+
+  // ── Contract Type + Language ──
+  html += '<div class="form-row form-row-2">'
+    + '<div class="form-group"><label class="form-label">Contract Type *</label>'
+    + '<select class="form-select" id="ua-type">'
+    + '<option value="">-- Select Type --</option>'
+    + '<option value="MSA">MSA</option>'
+    + '<option value="SOW (Retainer)">SOW (Retainer)</option>'
+    + '<option value="SOW (Project)">SOW (Project)</option>'
+    + '</select></div>'
+    + '<div class="form-group"><label class="form-label">Language *</label>'
+    + '<select class="form-select" id="ua-language">'
+    + '<option value="English">English</option>'
+    + '<option value="Spanish">Spanish</option>'
+    + '</select></div></div>';
+
+  // ── Client + Project ──
+  html += '<div class="form-row form-row-2">'
+    + '<div class="form-group"><label class="form-label">Client *</label>'
+    + '<select class="form-select" id="ua-client" onchange="onUploadAgreementClientChange()">' + clientOpts + '</select></div>'
+    + '<div class="form-group"><label class="form-label">Project</label>'
+    + '<select class="form-select" id="ua-project">' + projectOpts + '</select></div></div>';
+
+  // ── Title + Agreement ID ──
+  html += '<div class="form-row form-row-2">'
+    + '<div class="form-group"><label class="form-label">Title *</label>'
+    + '<input class="form-input" id="ua-title" placeholder="e.g. MSA, SOW Retainer Trailhead"></div>'
+    + '<div class="form-group"><label class="form-label">Agreement ID <span style="font-weight:400;color:#8c7e6e">(auto-generated if blank)</span></label>'
+    + '<input class="form-input" id="ua-agreement-id" placeholder="e.g. RH-MSA-26-0512-01"></div></div>';
+
+  // ── Effective Date + Status ──
+  html += '<div class="form-row form-row-2">'
+    + '<div class="form-group"><label class="form-label">Effective Date</label>'
+    + '<input class="form-input" type="date" id="ua-effective-date"></div>'
+    + '<div class="form-group"><label class="form-label">Status</label>'
+    + '<select class="form-select" id="ua-status" onchange="onUploadAgreementStatusChange()">'
+    + '<option value="Draft">Draft</option>'
+    + '<option value="Pending Signature">Pending Signature</option>'
+    + '<option value="Signed">Signed</option>'
+    + '</select></div></div>';
+
+  // ── Signed Date (shown only when status = Signed) ──
+  html += '<div class="form-group" id="ua-signed-date-group" style="display:none">'
+    + '<label class="form-label">Signed Date</label>'
+    + '<input class="form-input" type="date" id="ua-signed-date"></div>';
+
+  // ── Notes + AI hint ──
+  html += '<div id="ua-ai-hint" style="display:none;margin-bottom:12px;padding:10px 14px;background:#f5f3ef;border-radius:6px;font-size:12px;color:#6b5e50">'
+    + '<strong>AI extracted:</strong> <span id="ua-ai-hint-text"></span></div>';
+
+  html += '<div class="form-group"><label class="form-label">Notes</label>'
+    + '<textarea class="form-textarea" id="ua-notes" rows="2"></textarea></div>';
+
+  html += '<div id="ua-submit-status"></div>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button class="btn btn-primary" id="ua-submit" onclick="submitUploadedAgreement()">Save Agreement</button>'
+    + '</div>'
+    + '</div></div></div>';
+
+  $('content').innerHTML = html;
+
+  // Pre-select client if navigated from a client context
+  if (clientId) {
+    var sel = $('ua-client');
+    if (sel) { sel.value = clientId; onUploadAgreementClientChange(); }
+  }
+
+  // Populate project dropdown if projects already cached
+  if (_cachedProjects.length > 0) {
+    _filterUploadAgreementProjects(clientId || '', projectId || '');
+  } else {
+    cachedGetProjects(function(projects) {
+      if (projects && !projects.error) {
+        _cachedProjects = projects;
+        _filterUploadAgreementProjects(clientId || '', projectId || '');
+      }
+    });
+  }
+}
+
+function _filterUploadAgreementProjects(clientId, selectedProjectId) {
+  var sel = $('ua-project');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- None --</option>';
+  if (!clientId) return;
+  _cachedProjects.filter(function(p) { return p.clientId === clientId; }).forEach(function(p) {
+    var opt = document.createElement('option');
+    opt.value = p.id; opt.textContent = p.name;
+    if (p.id === selectedProjectId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function onUploadAgreementClientChange() {
+  var clientId = $('ua-client') ? $('ua-client').value : '';
+  _filterUploadAgreementProjects(clientId, '');
+}
+
+function onUploadAgreementStatusChange() {
+  var status = $('ua-status') ? $('ua-status').value : '';
+  var grp = $('ua-signed-date-group');
+  if (grp) grp.style.display = status === 'Signed' ? '' : 'none';
+}
+
+function onUploadAgreementFileSelected() {
+  var input = $('ua-file-input');
+  if (!input || !input.files || !input.files[0]) return;
+  var file = input.files[0];
+  $('ua-file-name').textContent = file.name;
+  $('ua-extract-status').innerHTML = '<div class="status-banner" style="background:#f0ede5;border:1px solid #d9d2c7">Uploading and extracting details…</div>';
+
+  var reader = new FileReader();
+  reader.onload = function(evt) {
+    var base64 = evt.target.result.split(',')[1];
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (!result.success) {
+          $('ua-extract-status').innerHTML = '<div class="status-banner error">Upload failed: ' + esc(result.error || 'Unknown error') + '</div>';
+          return;
+        }
+        _uploadAgreementFileId  = result.fileId;
+        _uploadAgreementFileUrl = result.fileUrl;
+        $('ua-file-name').textContent = file.name + ' ✓';
+
+        if (result.extracted) {
+          _prefillUploadAgreementForm(result.extracted);
+          $('ua-extract-status').innerHTML = '<div class="status-banner success">Details extracted — please review and confirm before saving.</div>';
+        } else {
+          $('ua-extract-status').innerHTML = '<div class="status-banner" style="background:#f0ede5;border:1px solid #d9d2c7">File uploaded'
+            + (result.extractionError ? ' — extraction failed: ' + esc(result.extractionError) : ' — fill in details below') + '.</div>';
+        }
+      })
+      .withFailureHandler(function(err) {
+        $('ua-extract-status').innerHTML = '<div class="status-banner error">Upload failed: ' + esc(err.message) + '</div>';
+      })
+      .panelUploadAgreement({ base64: base64, fileName: file.name, mimeType: file.type });
+  };
+  reader.readAsDataURL(file);
+}
+
+function _prefillUploadAgreementForm(ex) {
+  if (ex.contractType) {
+    var typeSel = $('ua-type');
+    if (typeSel) typeSel.value = ex.contractType;
+  }
+  if (ex.language) {
+    var langSel = $('ua-language');
+    if (langSel) langSel.value = ex.language;
+  }
+  if (ex.title)         { var t = $('ua-title');         if (t) t.value = ex.title; }
+  if (ex.agreementId)   { var a = $('ua-agreement-id'); if (a) a.value = ex.agreementId; }
+  if (ex.effectiveDate) { var d = $('ua-effective-date'); if (d) d.value = ex.effectiveDate; }
+  if (ex.signedDate)    { var sd = $('ua-signed-date');   if (sd) sd.value = ex.signedDate; }
+  if (ex.notes)         { var n = $('ua-notes');          if (n) n.value = ex.notes; }
+
+  if (ex.status) {
+    var statusSel = $('ua-status');
+    if (statusSel) { statusSel.value = ex.status; onUploadAgreementStatusChange(); }
+  }
+
+  // Show AI hint with client name (user must confirm via dropdown)
+  var hints = [];
+  if (ex.clientName)   hints.push('Client: <em>' + esc(ex.clientName) + '</em>');
+  if (ex.parentMsaId)  hints.push('Parent MSA: <em>' + esc(ex.parentMsaId) + '</em>');
+  if (hints.length > 0) {
+    var hintEl = $('ua-ai-hint');
+    if (hintEl) {
+      $('ua-ai-hint-text').innerHTML = hints.join(' &middot; ');
+      hintEl.style.display = '';
+    }
+  }
+
+  // Auto-select client if AI name matches (case-insensitive)
+  if (ex.clientName) {
+    var clientSel = $('ua-client');
+    if (clientSel) {
+      var lower = ex.clientName.toLowerCase();
+      for (var i = 0; i < clientSel.options.length; i++) {
+        if (clientSel.options[i].text.toLowerCase().indexOf(lower) !== -1) {
+          clientSel.value = clientSel.options[i].value;
+          onUploadAgreementClientChange();
+          break;
+        }
+      }
+    }
+  }
+}
+
+function submitUploadedAgreement() {
+  var statusEl = $('ua-submit-status');
+  var submitBtn = $('ua-submit');
+
+  if (!_uploadAgreementFileId) {
+    statusEl.innerHTML = '<div class="status-banner error">Please upload a file first.</div>';
+    return;
+  }
+  var clientId     = $('ua-client').value;
+  var contractType = $('ua-type').value;
+  var title        = $('ua-title').value.trim();
+
+  if (!clientId)     { statusEl.innerHTML = '<div class="status-banner error">Client is required.</div>'; return; }
+  if (!contractType) { statusEl.innerHTML = '<div class="status-banner error">Contract type is required.</div>'; return; }
+  if (!title)        { statusEl.innerHTML = '<div class="status-banner error">Title is required.</div>'; return; }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Saving…';
+
+  var status = $('ua-status').value;
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success) {
+        _ssClear();
+        if (_listCache.agreements !== null) _invalidate('agreements');
+        var msg = '<div class="status-banner success">✅ <strong>' + esc(result.contractId) + '</strong> saved.';
+        if (result.driveUrl)  msg += '&nbsp;<a href="' + esc(result.driveUrl)  + '" target="_blank">Open in Drive &rarr;</a>';
+        if (result.notionUrl) msg += '&nbsp;&middot;&nbsp;<a href="' + esc(result.notionUrl) + '" target="_blank">Open in Notion &rarr;</a>';
+        msg += '</div>';
+        statusEl.innerHTML = msg;
+        submitBtn.textContent = '✅ Saved';
+      } else {
+        statusEl.innerHTML = '<div class="status-banner error">❌ ' + esc(result.error) + '</div>';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save Agreement';
+      }
+    })
+    .withFailureHandler(function(e) {
+      statusEl.innerHTML = '<div class="status-banner error">❌ ' + esc(e.message) + '</div>';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save Agreement';
+    })
+    .panelSaveUploadedAgreement({
+      fileId:        _uploadAgreementFileId,
+      clientId:      clientId,
+      contractType:  contractType,
+      language:      $('ua-language').value,
+      title:         title,
+      agreementId:   $('ua-agreement-id').value.trim(),
+      projectId:     $('ua-project').value || '',
+      effectiveDate: $('ua-effective-date').value || '',
+      signedDate:    status === 'Signed' ? ($('ua-signed-date').value || '') : '',
+      status:        status,
+      notes:         $('ua-notes').value.trim(),
+    });
+}
+
 
 
 // ── DASHBOARD ──────────────────────────────────────────────
@@ -2812,7 +3088,10 @@ var _agreementSort = { col: 'effectiveDate', dir: 'desc' };
 
 function renderAgreements() {
   $('topbar-actions').innerHTML = _isPartner()
-    ? '<button class="btn btn-primary" onclick="navigate(\'newAgreement\',\'New Agreement\',{})">+ New Agreement</button>'
+    ? '<div style="display:flex;gap:8px">'
+      + '<button class="btn btn-secondary" onclick="navigate(\'uploadAgreement\',\'Upload Agreement\',{})">&#8593; Upload</button>'
+      + '<button class="btn btn-primary" onclick="navigate(\'newAgreement\',\'New Agreement\',{})">+ New Agreement</button>'
+      + '</div>'
     : '';
 
   _agreementSort = { col: 'effectiveDate', dir: 'desc' };

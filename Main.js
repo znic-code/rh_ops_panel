@@ -653,6 +653,99 @@ function panelGenerateAgreement(data) {
 }
 
 /**
+ * Upload an externally-created agreement file to Drive staging and run AI extraction.
+ * Returns extracted metadata + staged file info for the client to review before saving.
+ *
+ * @param {Object} params
+ * @param {string} params.base64    Base64-encoded file content
+ * @param {string} params.fileName  Original file name
+ * @param {string} params.mimeType  MIME type
+ * @returns {{ success, fileId?, fileUrl?, fileName?, extracted?, extractionError?, error? }}
+ */
+function panelUploadAgreement(params) {
+  _requireRole(['admin', 'partner']);
+  return processAgreementStaged(params.base64, params.fileName, params.mimeType);
+}
+
+/**
+ * Save an uploaded (externally-created) agreement: move file to its final Drive folder,
+ * create the Notion record, and invalidate caches.
+ *
+ * @param {Object} data
+ * @param {string} data.fileId        Staged Drive file ID (from panelUploadAgreement)
+ * @param {string} data.clientId      Notion client page ID
+ * @param {string} data.contractType  'MSA' | 'SOW (Retainer)' | 'SOW (Project)'
+ * @param {string} data.language      'English' | 'Spanish'
+ * @param {string} data.title         Short agreement title
+ * @param {string} [data.agreementId] Existing ID; auto-generated if blank
+ * @param {string} [data.projectId]
+ * @param {string} [data.effectiveDate]
+ * @param {string} [data.signedDate]
+ * @param {string} [data.status]      Default: 'Draft'
+ * @param {string} [data.notes]
+ * @returns {{ success, contractId?, notionId?, driveUrl?, notionUrl?, error? }}
+ */
+function panelSaveUploadedAgreement(data) {
+  _requireRole(['admin', 'partner']);
+  try {
+    if (!data.fileId)                  return { success: false, error: 'No file uploaded.' };
+    if (!data.clientId)                return { success: false, error: 'Client is required.' };
+    if (!data.contractType)            return { success: false, error: 'Contract type is required.' };
+    if (!data.title || !data.title.trim()) return { success: false, error: 'Title is required.' };
+
+    // Use supplied agreement ID, or generate a new sequential one
+    var idType     = data.contractType === 'MSA' ? 'MSA' : 'SOW';
+    var contractId = (data.agreementId || '').trim() || getNextAgreementId(idType);
+
+    // Resolve client Drive folder for file placement
+    var client = getClientById(data.clientId);
+    if (!client || client.error) return { success: false, error: 'Client not found.' };
+
+    // Move staged file → Contracts/{year}/ and rename
+    var finalFile;
+    try {
+      finalFile = _moveAgreementToFinalFolder(
+        data.fileId,
+        client.driveFolderId || null,
+        contractId,
+        data.title.trim()
+      );
+    } catch (e) {
+      return { success: false, error: 'Could not move file to Drive: ' + e.message };
+    }
+
+    // Create Notion record
+    var notionTitle = contractId + ' — ' + data.title.trim();
+    var notionPage  = createNotionAgreement({
+      title:         notionTitle,
+      docType:       data.contractType,
+      status:        data.status || 'Draft',
+      clientId:      data.clientId,
+      projectId:     data.projectId     || '',
+      effectiveDate: data.effectiveDate || '',
+      signedDate:    data.signedDate    || '',
+      fileUrl:       finalFile.fileUrl,
+      notes:         data.notes         || '',
+      agreementId:   contractId,
+      language:      data.language      || 'English',
+    });
+
+    _cacheInvalidate(_CACHE_KEYS);
+
+    return {
+      success:    true,
+      contractId: contractId,
+      notionId:   notionPage.id,
+      driveUrl:   finalFile.fileUrl,
+      notionUrl:  notionPage.url || '',
+    };
+  } catch (e) {
+    Logger.log('panelSaveUploadedAgreement error: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
  * Return all MSA agreements for a given client.
  * Used to populate the "Parent MSA" dropdown in the Generate Agreement form.
  */

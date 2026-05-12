@@ -101,7 +101,29 @@ function _callClaudeVision(base64Data, mimeType, context) {
   // ── Context-specific prompts ─────────────────────────────
   var prompt;
 
-  if (context === 'payment') {
+  if (context === 'agreement') {
+    prompt = 'Extract contract/agreement metadata from this document. Return ONLY valid JSON with this exact structure:\n'
+      + '{\n'
+      + '  "contractType": "MSA" or "SOW (Retainer)" or "SOW (Project)" or null,\n'
+      + '  "language": "English" or "Spanish",\n'
+      + '  "title": "Short descriptive title (3-8 words, no party names)",\n'
+      + '  "effectiveDate": "YYYY-MM-DD or null",\n'
+      + '  "signedDate": "YYYY-MM-DD or null",\n'
+      + '  "status": "Draft" or "Signed" or "Pending Signature",\n'
+      + '  "agreementId": "existing agreement ID if present (e.g. RH-MSA-26-0512-01), or null",\n'
+      + '  "clientName": "client legal name as it appears in the document",\n'
+      + '  "parentMsaId": "referenced MSA ID if this is a SOW, or null",\n'
+      + '  "notes": "any other relevant information, or null"\n'
+      + '}\n\n'
+      + 'Rules:\n'
+      + '- "status" is "Signed" only if the document has visible signatures or a signed date; otherwise "Draft" or "Pending Signature"\n'
+      + '- "signedDate" is the date signatures were applied, if visible on the document\n'
+      + '- "contractType": infer from the document heading and structure — MSA = master services / general terms; SOW (Retainer) = recurring monthly scope; SOW (Project) = one-time fixed-fee scope\n'
+      + '- "language": detect from the primary language of the document text\n'
+      + '- "parentMsaId": look for a reference like "pursuant to MSA RH-MSA-..." in the document\n'
+      + '- Use null for any field not determinable from the document\n'
+      + '- Return ONLY the JSON object, no other text';
+  } else if (context === 'payment') {
     prompt = 'Extract payment data from this document. Return ONLY valid JSON with this exact structure:\n'
       + '{\n'
       + '  "vendor": "Who was paid / payer name",\n'

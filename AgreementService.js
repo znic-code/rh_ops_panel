@@ -472,3 +472,70 @@ function generateAgreement(data) {
     notionUrl:  notionPage.url || '',
   };
 }
+
+// ── Upload Agreement (externally-created contracts) ──────────
+
+/**
+ * Upload a contract file to the Drive staging folder and run AI extraction.
+ * Mirrors processReceiptStaged() in ReceiptService.js.
+ *
+ * @param {string} base64Data  Base64-encoded file content
+ * @param {string} fileName    Original file name
+ * @param {string} mimeType    MIME type (application/pdf, image/*, etc.)
+ * @returns {{ success, fileId?, fileUrl?, fileName?, extracted?, extractionError?, error? }}
+ */
+function processAgreementStaged(base64Data, fileName, mimeType) {
+  try {
+    var stagingId = resolveOrCreateSubfolder(CONFIG.FINANCIALS_DRIVE_DIR, '_Staging');
+    if (!stagingId) return { success: false, error: 'Could not resolve staging folder in Drive.' };
+
+    var upload     = uploadFileToDrive(base64Data, fileName, mimeType, stagingId);
+    var extraction = extractReceiptData(upload.fileId, 'agreement');
+
+    return {
+      success:         true,
+      fileId:          upload.fileId,
+      fileUrl:         upload.fileUrl,
+      fileName:        upload.fileName,
+      staged:          true,
+      extracted:       extraction.success ? extraction.data : null,
+      extractionError: extraction.success ? null : extraction.error,
+    };
+  } catch (e) {
+    Logger.log('processAgreementStaged error: ' + e.message);
+    return { success: false, error: 'Agreement upload failed: ' + e.message };
+  }
+}
+
+/**
+ * Move a staged agreement file to its final Drive location and rename it.
+ * Destination: 03_Clients/{Client}/Contracts/{year}/ (or LEGAL_CONTRACTS_DIR/{year}/ as fallback).
+ * Final name:  {agreementId} — {title}.{ext}
+ *
+ * @param {string}      fileId              Staged Drive file ID
+ * @param {string|null} clientDriveFolderId Client root Drive folder (or null)
+ * @param {string}      agreementId         Generated or user-supplied agreement ID
+ * @param {string}      title               Agreement title
+ * @returns {{ fileId: string, fileUrl: string }}
+ */
+function _moveAgreementToFinalFolder(fileId, clientDriveFolderId, agreementId, title) {
+  var year = String(new Date().getFullYear());
+
+  var folderId;
+  if (clientDriveFolderId) {
+    var contractsId = resolveOrCreateSubfolder(clientDriveFolderId, 'Contracts');
+    folderId        = resolveOrCreateSubfolder(contractsId, year);
+  } else {
+    folderId = resolveOrCreateSubfolder(CONFIG.LEGAL_CONTRACTS_DIR, year);
+  }
+  if (!folderId) throw new Error('Could not resolve or create the Contracts folder in Drive.');
+
+  var file     = DriveApp.getFileById(fileId);
+  var origName = file.getName();
+  var ext      = origName.indexOf('.') !== -1 ? origName.split('.').pop().toLowerCase() : 'pdf';
+  var name     = agreementId + (title ? ' — ' + title : '') + '.' + ext;
+
+  file.setName(name);
+  file.moveTo(DriveApp.getFolderById(folderId));
+  return { fileId: fileId, fileUrl: file.getUrl() };
+}
