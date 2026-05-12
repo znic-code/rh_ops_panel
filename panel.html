@@ -7916,7 +7916,7 @@ function faqItem(q, a) {
  * Agreements, Data & Reports, Administration, and Troubleshooting.
  */
 function renderHelp() {
-  $('topbar-actions').innerHTML = '<span style="font-size:11px;color:#bba08b">Last Updated: May 11, 2026</span>';
+  $('topbar-actions').innerHTML = '<span style="font-size:11px;color:#bba08b">Last Updated: May 12, 2026</span>';
   var html = '';
 
   // ── Operations Workflow ────────────────────────────────────
@@ -8099,6 +8099,20 @@ function renderHelp() {
   // ── Agreements ────────────────────────────────────────────
   html += '<div class="faq-section"><div class="card"><div class="card-header"><h2>Agreements</h2></div><div class="card-body">';
 
+  html += faqItem('How do I browse and filter agreements?',
+    '<p>The <strong>Agreements</strong> page (pen-tool icon in the sidebar) shows all agreements across all clients in one place.</p>'
+    + '<p><strong>Stat cards at the top:</strong></p>'
+    + '<ul><li><strong>Drafts</strong> &mdash; Generated but not yet sent.</li>'
+    + '<li><strong>Awaiting Signature</strong> &mdash; Marked as Sent, waiting for the client to sign.</li>'
+    + '<li><strong>Active</strong> &mdash; Fully signed agreements.</li></ul>'
+    + '<p><strong>Filtering &amp; searching:</strong></p>'
+    + '<ul><li>Use the <strong>search bar</strong> to find agreements by ID, client, title, or type.</li>'
+    + '<li>Use the <strong>Status</strong> dropdown to filter by Draft, Sent, Signed, or Void.</li>'
+    + '<li>Use the <strong>Type</strong> dropdown to filter by MSA, SOW &mdash; Retainer, or SOW &mdash; Project.</li>'
+    + '<li>Use the <strong>Client</strong> dropdown to see only one client\'s agreements.</li></ul>'
+    + '<p>Click any row to open the agreement detail page.</p>'
+  );
+
   html += faqItem('What types of agreements does the system support?',
     '<p>The system generates two types of agreements from Google Docs templates:</p>'
     + '<ul><li><strong>MSA (Master Service Agreement)</strong> &mdash; Client-level. Establishes the general terms between RH Media and a client. One active MSA per client at a time. Language: English or Spanish.</li>'
@@ -8119,16 +8133,18 @@ function renderHelp() {
   );
 
   html += faqItem('What is the agreement lifecycle?',
-    '<p>Each agreement moves through three stages:</p>'
+    '<p>Each agreement moves through four stages:</p>'
     + '<ol><li><strong>Draft</strong> &mdash; Just generated. Review the document, make any edits directly in Drive.</li>'
     + '<li><strong>Sent</strong> &mdash; Click <strong>Mark as Sent</strong> on the agreement detail page after sending it to the client (via email or BoldSign).</li>'
-    + '<li><strong>Signed</strong> &mdash; When the client returns a signed copy, use the <strong>Log Signed Copy</strong> panel: pick the signed PDF from Drive (e.g. the BoldSign completed folder), enter the signed date, and click <strong>Log Signed Copy</strong>. Status updates to Signed automatically.</li></ol>'
+    + '<li><strong>Signed</strong> &mdash; When the client returns a signed copy, use the <strong>Log Signed Copy</strong> panel: pick the signed PDF from Drive (e.g. the BoldSign completed folder), enter the signed date, and click <strong>Log Signed Copy</strong>. Status updates to Signed automatically.</li>'
+    + '<li><strong>Void</strong> &mdash; Use this to cancel an agreement that was never executed (e.g. a draft that was replaced by a revised version, or an agreement sent in error). Update the status via the <strong>Edit Details</strong> section on the detail page.</li></ol>'
     + '<p>You can also update the <strong>Effective Date</strong> and <strong>Notes</strong> from the agreement detail page at any time using the <strong>Edit Details</strong> section.</p>'
   );
 
   html += faqItem('How does MSA vs. SOW work together?',
     '<p>An <strong>MSA</strong> covers the entire client relationship &mdash; it is not tied to any single project. One active MSA per client.</p>'
     + '<p>Each <strong>SOW</strong> references a parent MSA and governs a specific project or engagement. If an MSA is renegotiated, create a new MSA record &mdash; new SOWs will reference the updated version while existing SOWs remain linked to the original. The parent MSA is shown on each SOW\'s detail page.</p>'
+    + '<p><strong>Companion SOW shortcut:</strong> When you send an MSA and immediately need a paired SOW, open the MSA detail page and click <strong>+ Companion SOW</strong>. This launches the Generate Agreement form with the type pre-set to SOW &mdash; Retainer and the parent MSA already selected. Fill in the scope details and generate. This skips the manual selection step and avoids picking the wrong parent.</p>'
   );
 
   html += '</div></div></div>';
@@ -8222,6 +8238,41 @@ function renderHelp() {
 
   html += '</div></div></div>';
 
+  // ── iOS Quick Log Shortcut ────────────────────────────────
+  html += '<div class="faq-section"><div class="card"><div class="card-header"><h2>iOS Quick Log Shortcut</h2></div><div class="card-body">'
+    + '<p style="color:var(--text-muted);margin-bottom:16px">Log expenses and payments from your iPhone without opening the panel &mdash; just tap, snap a receipt, and it\'s done.</p>';
+
+  html += faqItem('What does the iOS Quick Log Shortcut do?',
+    '<p>The <strong>RH Quick Log</strong> Apple Shortcut lets you log an expense or payment directly from your iPhone. The full workflow:</p>'
+    + '<ol><li>Tap the shortcut on your Home Screen or in the Shortcuts app.</li>'
+    + '<li>Choose <strong>Expense</strong> or <strong>Payment</strong>.</li>'
+    + '<li>Take a photo of the receipt (or pick one from your camera roll).</li>'
+    + '<li>The shortcut sends the image to the panel\'s API endpoint, where Claude AI extracts the vendor, amount, date, and category.</li>'
+    + '<li>The record is logged in Notion with status <strong>Needs Review</strong> and the receipt is saved to Drive.</li>'
+    + '<li>Back in the panel, open <strong>Expenses</strong> (or <strong>Payments</strong>), filter by <strong>Needs Review</strong>, and confirm or correct the extracted data.</li></ol>'
+    + '<p>This is especially useful for logging receipts on the go &mdash; you can batch-review them later from the panel.</p>'
+  );
+
+  html += faqItem('How do I set up the iOS Shortcut?',
+    '<p><strong>One-time setup steps:</strong></p>'
+    + '<ol><li><strong>Configure the API secret:</strong> In <a href="https://script.google.com" target="_blank">script.google.com</a>, open your project &rarr; Project Settings &rarr; Script Properties. Add a property named <code>API_SECRET</code> with a strong random value (e.g. a UUID). This is the password your shortcut uses to authenticate.</li>'
+    + '<li><strong>Get the web app URL:</strong> In the Apps Script editor, go to <strong>Deploy &rarr; Manage deployments</strong> and copy the web app URL.</li>'
+    + '<li><strong>Install the shortcut:</strong> Open the <code>RH_Quick_Log.shortcut</code> file on your iPhone (AirDrop it or open it from Drive). When prompted, enter the web app URL and the <code>API_SECRET</code> value from Step 1.</li>'
+    + '<li><strong>Add to Home Screen:</strong> In the Shortcuts app, long-press the shortcut &rarr; Share &rarr; Add to Home Screen.</li></ol>'
+    + '<p><strong>Test it:</strong> Tap the shortcut, log a test expense, then verify it appears in the Expenses list with status <strong>Needs Review</strong>.</p>'
+  );
+
+  html += faqItem('What happens to shortcut-submitted records?',
+    '<p>All records submitted via the iOS Shortcut are tagged with status <strong>Needs Review</strong>. This is intentional &mdash; AI extraction on a phone photo may not be perfect, so you always have a chance to confirm before treating the record as final.</p>'
+    + '<p>To review them:</p>'
+    + '<ol><li>Go to <strong>Expenses</strong> (or <strong>Payments</strong>) in the panel.</li>'
+    + '<li>Click any <strong>Needs Review</strong> record to open the detail page.</li>'
+    + '<li>Verify the extracted data, correct if needed, and change the status to <strong>Logged</strong>.</li></ol>'
+    + '<p>The receipt file is already saved to Drive in staging &mdash; it moves to the correct client folder when you save.</p>'
+  );
+
+  html += '</div></div></div>';
+
   // ── Data & Reports ────────────────────────────────────────
   html += '<div class="faq-section"><div class="card"><div class="card-header"><h2>Data & Reports</h2></div><div class="card-body">';
 
@@ -8255,6 +8306,17 @@ function renderHelp() {
   // ── Administration ────────────────────────────────────────
   html += '<div class="faq-section"><div class="card"><div class="card-header"><h2>Administration</h2></div><div class="card-body">';
 
+  html += faqItem('How do user roles work?',
+    '<p>Every user in the panel is assigned one of three roles in <strong>Settings &rarr; User Access</strong>. Roles control which pages and actions are available:</p>'
+    + '<ul>'
+    + '<li><strong>Admin</strong> &mdash; Full access: all pages, Settings, user management, health check, data backup, and all destructive operations (delete, void).</li>'
+    + '<li><strong>Partner</strong> &mdash; All operational pages: Clients, Projects, Agreements, Invoices, Quotes, Expenses, Payments, Reports, and Contractors. Cannot access Settings or perform deletes.</li>'
+    + '<li><strong>Staff</strong> &mdash; Clients, Projects, and Contacts only. All financial pages (Invoices, Quotes, Expenses, Payments, Agreements, Reports, Contractors) and Settings are hidden from the sidebar and blocked on the server side.</li>'
+    + '</ul>'
+    + '<p>To add a user or change a role, go to <strong>Settings &rarr; User Access</strong> (admin only). Enter their Google account email and select the role. Changes take effect the next time that user loads the panel.</p>'
+    + '<p><strong>Note:</strong> Users not in the role table will see an Access Denied screen and cannot use the panel at all.</p>'
+  );
+
   html += faqItem('How do email templates work?',
     '<p>The system includes four built-in templates (Invoice, Agreement, Reminder: Upcoming, Reminder: Overdue) that auto-fill variables like client name, invoice ID, and amounts when composing emails.</p>'
     + '<p>In <strong>Settings &rarr; Email Templates</strong> you can:</p>'
@@ -8278,6 +8340,26 @@ function renderHelp() {
     + '<li><strong>01_Admin/Financials/</strong> &mdash; Non-client expenses, payments, and W-9s. Subfolders: <code>Expenses/YYYY/</code>, <code>Payments/YYYY/</code>, <code>W-9s/</code>.</li>'
     + '<li><strong>02_Assets/Legal/Invoices/</strong> &mdash; Central folder for all invoice PDFs.</li></ul>'
     + '<p>Expense, payment, and invoice folders use year subfolders (e.g., <code>Expenses/2026/</code>) created automatically. You can access a client\'s Drive folder from their detail page via the <strong>Open Folder</strong> link.</p>'
+  );
+
+  html += faqItem('What does the System Health Check do?',
+    '<p>The <strong>System Health Check</strong> (in <strong>Settings &rarr; Health Check</strong>, admin only) runs a full diagnostic across your entire setup and flags anything that could cause silent failures.</p>'
+    + '<p>It checks:</p>'
+    + '<ul>'
+    + '<li><strong>Notion API token</strong> &mdash; Is the token set and is Notion reachable?</li>'
+    + '<li><strong>Document templates</strong> &mdash; Can the Invoice and Quote Google Doc templates be opened?</li>'
+    + '<li><strong>Drive folders</strong> &mdash; Are the 5 root folders (Clients, Assets, Financials, Legal Contracts, Legal Invoices) accessible?</li>'
+    + '<li><strong>Notion databases</strong> &mdash; Are all 9 databases (Clients, Contacts, Projects, Invoices, Agreements, Expenses, Payments, Contractors, Quotes) reachable and do they have the expected property schemas?</li>'
+    + '<li><strong>Script Properties</strong> &mdash; Are the required keys set: settings, backup config, recurring configs, email templates?</li>'
+    + '<li><strong>API keys</strong> &mdash; Are <code>PICKER_API_KEY</code>, <code>PICKER_APP_ID</code>, and <code>ANTHROPIC_API_KEY</code> configured?</li>'
+    + '<li><strong>Triggers</strong> &mdash; Do time-driven triggers exist for <code>sendInvoiceReminders</code> and <code>generateRecurringInvoices</code>?</li>'
+    + '</ul>'
+    + '<p><strong>Automatic checks:</strong></p>'
+    + '<ul>'
+    + '<li><strong>On page load</strong> &mdash; A lightweight health ping runs each time an admin loads the panel (cached for 24 hours). If issues are detected, a red banner appears at the top of the page with a link to run the full check.</li>'
+    + '<li><strong>Daily email</strong> &mdash; Set up a time-driven trigger on <code>dailyHealthCheckEmail</code> in <a href="https://script.google.com" target="_blank">script.google.com</a> to receive an automated email whenever any check fails. No email is sent on clean runs.</li>'
+    + '</ul>'
+    + '<p>Run the full check manually anytime from the Settings page. Results are color-coded: green = pass, amber = warning, red = failure.</p>'
   );
 
   html += faqItem('How do I back up my data?',
