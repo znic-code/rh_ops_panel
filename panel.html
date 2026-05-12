@@ -6908,8 +6908,18 @@ function confirmDeleteAgreement(agreementPageId, label, driveUrl) {
   $('content').innerHTML = '<div class="loading"><span class="spinner"></span> Deleting&hellip;</div>';
   google.script.run
     .withSuccessHandler(function(r) {
-      if (r.success) { _ssClear(); _invalidate('agreements'); navigateToRoot('agreements', 'Agreements'); }
-      else { showError(r.error); }
+      if (r.success) {
+        _ssClear();
+        // Optimistically remove from the in-memory list cache rather than nulling it.
+        // Notion has a brief consistency delay — an immediate re-fetch can still return
+        // the archived record. Filtering locally guarantees the list is correct instantly.
+        if (_listCache.agreements !== null) {
+          _listCache.agreements = _listCache.agreements.filter(function(a) { return a.id !== agreementPageId; });
+        } else {
+          _invalidate('agreements');
+        }
+        navigateToRoot('agreements', 'Agreements');
+      } else { showError(r.error); }
     })
     .withFailureHandler(function(e) { showError(e.message); })
     .panelDeleteAgreement(agreementPageId, driveUrl);
