@@ -1703,7 +1703,6 @@ function renderProjectView(projectId, clientId) {
       html += '<div class="card"><div class="card-header"><h2>Invoices</h2>'
         + '<div style="display:flex;gap:8px">'
         + '<button class="btn btn-primary btn-sm" onclick="toggleCreateInvoiceForm()">+ Create</button>'
-        + '<a class="btn btn-success btn-sm" href="' + getInvoiceGeneratorUrl() + '" target="_blank">Generate</a>'
         + '<button class="btn btn-secondary btn-sm" onclick="toggleExpenseForm()">+ Expense</button>'
         + '</div></div>';
       if (data.invoices && data.invoices.length) {
