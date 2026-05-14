@@ -2895,13 +2895,13 @@ function _runHealthChecks() {
 
   // ── 4. Notion databases + 5. Schema validation ────────────
   var dbChecks = [
-    { id: CONFIG.NOTION_CLIENTS_DB,     label: 'Clients',     props: ['Name','Type','Status','Primary Contact','Billing Email','Phone','Website','Drive Folder ID','Notes'] },
+    { id: CONFIG.NOTION_CLIENTS_DB,     label: 'Clients',     props: ['Name','Shorthand','Type','Status','Primary Contact','Billing Email','Billing Street','Billing City','Billing State','Billing ZIP','Billing Country','Phone','Website','Drive Folder ID','Withholding Agent','Withholding Rate','Notes'] },
     { id: CONFIG.NOTION_CONTACTS_DB,    label: 'Contacts',    props: ['Name','Email','Phone','Role','Client','Notes'] },
     { id: CONFIG.NOTION_PROJECTS_DB,    label: 'Projects',    props: ['Name','Client','Type','Status','Start Date','End Date','Notes'] },
     { id: CONFIG.NOTION_INVOICES_DB,    label: 'Invoices',    props: ['Invoice ID','Client','Project','Type','Status','Issued Date','Due Date','Subtotal','Tax','Total','Line Items','Google Drive Link','Period Month','Notes'] },
-    { id: CONFIG.NOTION_AGREEMENTS_DB,  label: 'Agreements',  props: ['Title','Client','Project','Doc Type','Status','Effective Date','Signed Date','Notes'] },
+    { id: CONFIG.NOTION_AGREEMENTS_DB,  label: 'Agreements',  props: ['Title','Agreement ID','Doc Type','Status','Language','Client','Project','Effective Date','Signed Date','File URL','Parent MSA','Notes'] },
     { id: CONFIG.NOTION_EXPENSES_DB,    label: 'Expenses',    props: ['Expense ID','Description','Category','Amount','Expense Date','Client','Project','Type','Contractor','Invoice','Billable','Receipt URL','Status','Notes'] },
-    { id: CONFIG.NOTION_PAYMENTS_DB,    label: 'Payments',    props: ['Payment ID','Description','Invoice','Client','Amount','Method','Payment Date','Status','Receipt URL','Notes'] },
+    { id: CONFIG.NOTION_PAYMENTS_DB,    label: 'Payments',    props: ['Payment ID','Description','Invoice','Client','Amount','Amount Withheld','Method','Payment Date','Status','Receipt URL','Notes'] },
     { id: CONFIG.NOTION_CONTRACTORS_DB, label: 'Contractors', props: ['Name','Email','Phone','Type','Roles','Payment Method','Is Partner','W-9','Notes'] },
     { id: CONFIG.NOTION_QUOTES_DB,      label: 'Quotes',      props: ['Quote ID','Client','Project','Status','Issued Date','Valid Until','Subtotal','Tax','Total','Line Items','Google Drive Link','Converted Invoice','Notes'] },
   ];
@@ -3558,14 +3558,14 @@ function backupNotionData(forceRun) {
     var tables = [
       {
         name: 'Clients',
-        headers: ['Page ID', 'Name', 'Type', 'Status', 'Primary Contact ID', 'Billing Email', 'Billing Street', 'Billing City', 'Billing State', 'Billing ZIP', 'Billing Country', 'Phone', 'Website', 'Drive Folder ID', 'Notes', 'Notion URL'],
+        headers: ['Page ID', 'Name', 'Shorthand', 'Type', 'Status', 'Primary Contact ID', 'Billing Email', 'Billing Street', 'Billing City', 'Billing State', 'Billing ZIP', 'Billing Country', 'Phone', 'Website', 'Drive Folder ID', 'Notes', 'Notion URL'],
         fetchFn: function() {
           var data = getClients();
           if (!data.error) data.forEach(function(c) { clientMap[c.id] = c.name; });
           return data;
         },
         mapFn: function(c) {
-          return [c.id, c.name, c.type, c.status, c.primaryContactId, c.billingEmail, c.billingStreet, c.billingCity, c.billingState, c.billingZip, c.billingCountry, c.phone, c.website, c.driveFolderId, c.notes, c.notionUrl];
+          return [c.id, c.name, c.shorthand, c.type, c.status, c.primaryContactId, c.billingEmail, c.billingStreet, c.billingCity, c.billingState, c.billingZip, c.billingCountry, c.phone, c.website, c.driveFolderId, c.notes, c.notionUrl];
         },
         currencyCols: []
       },

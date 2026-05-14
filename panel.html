@@ -778,6 +778,7 @@ function formatDate(iso) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 function formatMoney(n) { return '$' + parseFloat(n || 0).toFixed(2); }  // Format number as USD
+function _cName(c) { return (c && (c.shorthand || c.name)) || ''; }      // Client display name — prefers Shorthand, falls back to Name
 
 /** Extract Google Drive file ID from a Drive URL. */
 function extractFileIdFromUrl(url) {
@@ -984,6 +985,7 @@ function filterClientList() {
   if (q) {
     filtered = filtered.filter(function(c) {
       return (c.name||'').toLowerCase().indexOf(q) !== -1
+        || (c.shorthand||'').toLowerCase().indexOf(q) !== -1
         || (c.type||'').toLowerCase().indexOf(q) !== -1
         || (c.billingEmail||'').toLowerCase().indexOf(q) !== -1;
     });
@@ -995,13 +997,16 @@ function filterClientList() {
     html = '<tr><td colspan="5" class="empty">' + (q || _clientFilterType ? 'No clients match your filters.' : 'No clients found.') + '</td></tr>';
   } else {
     filtered.forEach(function(c) {
-      html += '<tr onclick="navigate(\'client\',\'' + jsEsc(c.name) + '\',{clientId:\'' + jsEsc(c.id) + '\'})">'
-        + '<td><strong>' + esc(c.name) + '</strong></td>'
+      var displayName = _cName(c);
+      html += '<tr onclick="navigate(\'client\',\'' + jsEsc(displayName) + '\',{clientId:\'' + jsEsc(c.id) + '\'})">'
+        + '<td><strong>' + esc(displayName) + '</strong>'
+        + (c.shorthand ? '<div style="font-size:11px;color:#8c7e6e">' + esc(c.name) + '</div>' : '')
+        + '</td>'
         + '<td>' + esc(c.type || '\u2014') + '</td>'
         + '<td class="hide-mobile">' + esc(c.billingEmail || '\u2014') + '</td>'
         + '<td class="hide-mobile">' + esc(c.phone || '\u2014') + '</td>'
         + '<td><div class="actions-cell">'
-        + '<button class="action-btn" onclick="event.stopPropagation();navigate(\'client\',\'' + jsEsc(c.name) + '\',{clientId:\'' + jsEsc(c.id) + '\'})" title="View client">View</button>'
+        + '<button class="action-btn" onclick="event.stopPropagation();navigate(\'client\',\'' + jsEsc(displayName) + '\',{clientId:\'' + jsEsc(c.id) + '\'})" title="View client">View</button>'
         + '</div></td></tr>';
     });
   }
@@ -1171,13 +1176,16 @@ function renderNewClientForm() {
   html += '<div class="card"><div class="card-header"><h2>Client Information</h2></div><div class="card-body">'
     + '<div class="form-group"><label class="form-label">Client Name *</label>'
     + '<input class="form-input" id="nc-name" placeholder="Legal / business name"></div>'
+    + '<div class="form-group"><label class="form-label">Shorthand <span style="font-weight:400;color:#8c7b6b">(optional nickname, e.g. HRP Labs)</span></label>'
+    + '<input class="form-input" id="nc-shorthand" placeholder="Short display name"></div>'
     + '<div class="form-row form-row-3">'
+    + '<div class="form-group"><label class="form-label">Billing Email</label>'
+    + '<input class="form-input" id="nc-email" type="email" placeholder="billing@client.com"></div>'
     + '<div class="form-group"><label class="form-label">Type</label>'
     + '<select class="form-select" id="nc-type"><option>Business</option><option>Individual</option></select></div>'
     + '<div class="form-group"><label class="form-label">Status</label>'
     + '<select class="form-select" id="nc-client-status"><option selected>Active</option><option>Inactive</option></select></div>'
-    + '<div class="form-group"><label class="form-label">Billing Email</label>'
-    + '<input class="form-input" id="nc-email" type="email" placeholder="billing@client.com"></div></div>'
+    + '</div>'
     + '<div class="form-group"><label class="form-label">Billing Street</label>'
     + '<input class="form-input" id="nc-street" placeholder="Street address"></div>'
     + '<div class="form-row form-row-3">'
@@ -1275,7 +1283,8 @@ function submitNewClient() {
   }
 
   var data = {
-    name: name, type: $('nc-type').value, status: $('nc-client-status').value,
+    name: name, shorthand: $('nc-shorthand').value.trim(),
+    type: $('nc-type').value, status: $('nc-client-status').value,
     billingEmail: $('nc-email').value.trim(), billingStreet: $('nc-street').value.trim(),
     billingCity: $('nc-city').value.trim(), billingState: $('nc-state').value.trim(),
     billingZip: $('nc-zip').value.trim(), billingCountry: $('nc-country').value.trim() || 'US',
@@ -1338,8 +1347,10 @@ function renderClientView(clientId) {
       html += '<div class="card"><div class="card-header"><h2>Details</h2>'
         + '<div style="display:flex;gap:8px">'
         + '<button class="btn btn-secondary btn-sm" onclick="navigate(\'editClient\',\'Edit Client\',{clientId:\'' + jsEsc(clientId) + '\'})">Edit</button>'
-        + (_isAdmin() ? '<button class="btn btn-danger btn-sm" onclick="confirmArchiveClient(\'' + jsEsc(clientId) + '\',\'' + jsEsc(c.name) + '\')">Archive</button>' : '')
+        + (_isAdmin() ? '<button class="btn btn-danger btn-sm" onclick="confirmArchiveClient(\'' + jsEsc(clientId) + '\',\'' + jsEsc(_cName(c)) + '\')">Archive</button>' : '')
         + '</div></div><div class="card-body">'
+        + (c.shorthand ? detailRow('Shorthand', esc(c.shorthand)) : '')
+        + detailRow('Legal Name', c.name)
         + detailRow('Type', c.type)
         + (c.withholdingAgent ? detailRow('Withholding', '<span class="badge warning">Withholding Agent (' + (c.withholdingRate || 10) + '%)</span>', true) : '')
         + detailRow('Email', c.billingEmail ? '<a href="mailto:' + esc(c.billingEmail) + '">' + esc(c.billingEmail) + '</a>' : '', true)
@@ -1571,7 +1582,7 @@ function renderNewProjectForm(clientId) {
       clients.filter(function(c) { return c.status === 'Active'; }).forEach(function(c) {
         var opt = document.createElement('option');
         opt.value = c.id;
-        opt.textContent = c.name;
+        opt.textContent = _cName(c);
         sel.appendChild(opt);
       });
     });
@@ -1932,7 +1943,7 @@ function _doRenderGenerateAgreementForm(projectId, clientId, prefill) {
 
   var clientOpts = '<option value="">-- Select Client --</option>';
   _cachedClients.forEach(function(c) {
-    clientOpts += '<option value="' + jsEsc(c.id) + '"' + (c.id === clientId ? ' selected' : '') + '>' + esc(c.name) + '</option>';
+    clientOpts += '<option value="' + jsEsc(c.id) + '"' + (c.id === clientId ? ' selected' : '') + '>' + esc(_cName(c)) + '</option>';
   });
 
   var projectOpts = '<option value="">-- None --</option>';
@@ -2273,7 +2284,7 @@ function renderUploadAgreementForm(projectId, clientId) {
 
   var clientOpts = '<option value="">-- Select Client --</option>';
   _cachedClients.forEach(function(c) {
-    clientOpts += '<option value="' + jsEsc(c.id) + '"' + (c.id === clientId ? ' selected' : '') + '>' + esc(c.name) + '</option>';
+    clientOpts += '<option value="' + jsEsc(c.id) + '"' + (c.id === clientId ? ' selected' : '') + '>' + esc(_cName(c)) + '</option>';
   });
 
   var projectOpts = '<option value="">-- None --</option>';
@@ -2677,7 +2688,11 @@ function renderEditClientForm(clientId) {
         + '<div class="card"><div class="card-header"><h2>Edit Client</h2></div><div class="card-body">'
         + '<div class="form-group"><label class="form-label">Client Name *</label>'
         + '<input class="form-input" id="ec-name" value="' + esc(c.name) + '"></div>'
+        + '<div class="form-group"><label class="form-label">Shorthand <span style="font-weight:400;color:#8c7b6b">(optional nickname, e.g. HRP Labs)</span></label>'
+        + '<input class="form-input" id="ec-shorthand" placeholder="Short display name" value="' + esc(c.shorthand || '') + '"></div>'
         + '<div class="form-row form-row-3">'
+        + '<div class="form-group"><label class="form-label">Billing Email</label>'
+        + '<input class="form-input" id="ec-email" type="email" value="' + esc(c.billingEmail) + '"></div>'
         + '<div class="form-group"><label class="form-label">Status</label>'
         + '<select class="form-select" id="ec-client-status">'
         + '<option' + (c.status==='Active'   ? ' selected' : '') + '>Active</option>'
@@ -2686,8 +2701,7 @@ function renderEditClientForm(clientId) {
         + '</select></div>'
         + '<div class="form-group"><label class="form-label">Type</label>'
         + '<select class="form-select" id="ec-type"><option' + (c.type==='Business' ? ' selected' : '') + '>Business</option><option' + (c.type==='Individual' ? ' selected' : '') + '>Individual</option></select></div>'
-        + '<div class="form-group"><label class="form-label">Billing Email</label>'
-        + '<input class="form-input" id="ec-email" type="email" value="' + esc(c.billingEmail) + '"></div></div>'
+        + '</div>'
         + '<div class="form-group"><label class="form-label">Billing Street</label>'
         + '<input class="form-input" id="ec-street" value="' + esc(c.billingStreet) + '"></div>'
         + '<div class="form-row form-row-3">'
@@ -2743,7 +2757,8 @@ function submitEditClient(clientId) {
       $('ec-submit').disabled = false; $('ec-submit').textContent = 'Save Changes';
     })
     .panelUpdateClientInfo(clientId, {
-      name: name, type: $('ec-type').value,
+      name: name, shorthand: $('ec-shorthand').value.trim(),
+      type: $('ec-type').value,
       status: $('ec-client-status').value,
       billingEmail: $('ec-email').value.trim(), billingStreet: $('ec-street').value.trim(),
       billingCity: $('ec-city').value.trim(), billingState: $('ec-state').value.trim(),
@@ -3908,7 +3923,7 @@ function _loadEditExpenseDropdowns(selectedClientId, selectedProjectId, selected
     var sel = $('ee-client');
     clients.filter(function(c) { return c.status === 'Active' || c.id === selectedClientId; }).forEach(function(c) {
       var opt = document.createElement('option');
-      opt.value = c.id; opt.textContent = c.name;
+      opt.value = c.id; opt.textContent = _cName(c);
       if (c.id === selectedClientId) opt.selected = true;
       sel.appendChild(opt);
     });
@@ -4127,7 +4142,7 @@ function _loadExpenseDropdowns(data) {
     var sel = $('exp-client');
     clients.filter(function(c) { return c.status === 'Active'; }).forEach(function(c) {
       var opt = document.createElement('option');
-      opt.value = c.id; opt.textContent = c.name;
+      opt.value = c.id; opt.textContent = _cName(c);
       sel.appendChild(opt);
     });
     if (data && data.clientId) { sel.value = data.clientId; onExpenseClientChange(); }
@@ -4931,7 +4946,7 @@ function _loadEditPaymentDropdowns(selectedClientId, selectedInvoiceId) {
     var sel = $('ep-client');
     clients.filter(function(c) { return c.status === 'Active' || c.id === selectedClientId; }).forEach(function(c) {
       var opt = document.createElement('option');
-      opt.value = c.id; opt.textContent = c.name;
+      opt.value = c.id; opt.textContent = _cName(c);
       if (c.id === selectedClientId) opt.selected = true;
       sel.appendChild(opt);
     });
@@ -5071,7 +5086,7 @@ function _loadPaymentDropdowns(data) {
     var sel = $('pay-client');
     clients.filter(function(c) { return c.status === 'Active'; }).forEach(function(c) {
       var opt = document.createElement('option');
-      opt.value = c.id; opt.textContent = c.name;
+      opt.value = c.id; opt.textContent = _cName(c);
       sel.appendChild(opt);
     });
     if (data && data.clientId) {
@@ -6317,7 +6332,7 @@ function _loadNewQuoteDropdowns() {
     var sel = $('nq-client');
     clients.filter(function(c) { return c.status === 'Active'; }).forEach(function(c) {
       var opt = document.createElement('option');
-      opt.value = c.id; opt.textContent = c.name;
+      opt.value = c.id; opt.textContent = _cName(c);
       sel.appendChild(opt);
     });
   });
@@ -8472,7 +8487,7 @@ function renderHelp() {
     + '<p style="color:var(--text-muted);margin-bottom:16px">How the panel supports your day-to-day operations, end to end.</p>';
 
   html += faqItem('1. New Client Onboarding',
-    '<ol><li><strong>Clients &rarr; + New Client</strong> &mdash; Enter name, type, billing info, and optional notes.</li>'
+    '<ol><li><strong>Clients &rarr; + New Client</strong> &mdash; Enter name, optional shorthand (a shorter display name shown in dropdowns and lists), type, billing info, and optional notes.</li>'
     + '<li>Set client <strong>Status</strong> (Active, Prospect, or Inactive) and check <strong>Withholding Agent</strong> if the client withholds 10% on your payments.</li>'
     + '<li>Add a primary contact (auto-linked to the client). Notes can be added per contact too.</li>'
     + '<li>Optionally create the first project right on the form.</li>'
@@ -8555,6 +8570,7 @@ function renderHelp() {
   html += faqItem('How do I create a new client?',
     '<p>From the <strong>Clients</strong> page, click <strong>+ New Client</strong> in the top right.</p>'
     + '<ol><li>Fill in the client name (required), type, billing email, address, phone, and optional notes.</li>'
+    + '<li>Optionally fill in <strong>Shorthand</strong> &mdash; a shorter display name (e.g. "HRP Labs" instead of "HRP Laboratories LLC") shown in dropdowns and list views throughout the panel. If left blank, the full legal name is used everywhere.</li>'
     + '<li>Set the client <strong>Status</strong> (Active, Prospect, or Inactive).</li>'
     + '<li>Check <strong>Withholding Agent</strong> if the client withholds 10% from your payments.</li>'
     + '<li>Add one or more contacts &mdash; each contact can also have notes.</li>'
@@ -8911,7 +8927,7 @@ function renderHelp() {
   );
 
   html += faqItem('How do I back up my data?',
-    '<p>The <strong>Data Backup</strong> feature (in Settings) creates a snapshot of all Notion data in a Google Sheets spreadsheet. It backs up eight tables: Clients, Contacts, Projects, Invoices, Agreements, Expenses, Payments, and Contractors.</p>'
+    '<p>The <strong>Data Backup</strong> feature (in Settings) creates a snapshot of all Notion data in a Google Sheets spreadsheet. It backs up nine tables: Clients, Contacts, Projects, Invoices, Agreements, Expenses, Payments, Quotes, and Contractors.</p>'
     + '<p><strong>How it works:</strong></p>'
     + '<ul><li>Each backup overwrites the same spreadsheet &mdash; no file clutter.</li>'
     + '<li>Google Sheets\' built-in <strong>version history</strong> (File &rarr; Version history) lets you view or restore any previous backup.</li>'
