@@ -81,7 +81,7 @@ function getCompanyInfo() {
 const NP = {
   CLIENTS: {
     NAME:              'Name',
-    LEGAL_NAME:        'Legal Name',
+    SHORTHAND:         'Shorthand',
     TYPE:              'Type',
     STATUS:            'Status',
     PRIMARY_CONTACT:   'Primary Contact',

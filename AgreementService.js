@@ -130,7 +130,7 @@ function _resolveTemplateId(contractType, language) {
  * @returns {string}
  */
 function _buildAgreementFileName(contractId, client, title, language, ext) {
-  var clientName = (typeof client === 'string' ? client : (client.name || client.legalName || 'Client')).trim();
+  var clientName = (typeof client === 'string' ? client : (client.shorthand || client.name || 'Client')).trim();
   var isMSA      = contractId.indexOf('-MSA-') !== -1;
 
   var name;
@@ -212,7 +212,7 @@ function _buildPlaceholderMap(data, client, contact, idMSA, idSOW) {
   var formatDate = lang === 'es' ? _formatDateES : _formatDateEN;
 
   // Client identity
-  var legalName   = client.legalName || client.name;
+  var legalName   = client.name;  // Name IS the legal name
   var addrParts   = [client.billingStreet, client.billingCity, client.billingState, client.billingZip, client.billingCountry].filter(Boolean);
   var billingAddr = addrParts.join(', ');
 

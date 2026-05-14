@@ -260,7 +260,7 @@ function _mapClientProperties(page, fallbackName) {
     id:               page.id,
     notionUrl:        page.url || '',
     name:             p[C.NAME]?.title[0]?.plain_text                 || fallbackName || '(unnamed)',
-    legalName:        p[C.LEGAL_NAME]?.rich_text[0]?.plain_text       || '',
+    shorthand:        p[C.SHORTHAND]?.rich_text[0]?.plain_text        || '',
     type:             p[C.TYPE]?.select?.name                         || '',
     status:           p[C.STATUS]?.select?.name                       || '',
     primaryContactId: primaryContactRel.length > 0 ? primaryContactRel[0].id : '',
@@ -470,7 +470,8 @@ function createNotionClient(props) {
   if (props.billingCountry) properties[C.BILLING_COUNTRY] = { rich_text: [{ text: { content: props.billingCountry } }] };
   if (props.phone)   properties[C.PHONE]   = { phone_number: props.phone };
   if (props.website) properties[C.WEBSITE] = { url: props.website };
-  if (props.notes)   properties[C.NOTES]   = { rich_text: [{ text: { content: props.notes } }] };
+  if (props.notes)     properties[C.NOTES]     = { rich_text: [{ text: { content: props.notes } }] };
+  if (props.shorthand) properties[C.SHORTHAND] = { rich_text: [{ text: { content: props.shorthand } }] };
   if (props.withholdingAgent !== undefined) properties[C.WITHHOLDING_AGENT] = { checkbox: !!props.withholdingAgent };
   if (props.withholdingRate  !== undefined) properties[C.WITHHOLDING_RATE]  = { number: parseFloat(props.withholdingRate) || 0 };
   return _notionCreatePage(CONFIG.NOTION_CLIENTS_DB, properties);
@@ -496,7 +497,8 @@ function updateClientInfo(clientId, props) {
   if (props.billingCountry !== undefined) properties[C.BILLING_COUNTRY] = { rich_text: [{ text: { content: props.billingCountry || '' } }] };
   if (props.phone !== undefined)   properties[C.PHONE]   = props.phone ? { phone_number: props.phone } : { phone_number: null };
   if (props.website !== undefined) properties[C.WEBSITE] = props.website ? { url: props.website } : { url: null };
-  if (props.notes !== undefined)   properties[C.NOTES]   = { rich_text: [{ text: { content: props.notes || '' } }] };
+  if (props.notes     !== undefined) properties[C.NOTES]     = { rich_text: [{ text: { content: props.notes || '' } }] };
+  if (props.shorthand !== undefined) properties[C.SHORTHAND] = { rich_text: [{ text: { content: props.shorthand || '' } }] };
   if (props.withholdingAgent !== undefined) properties[C.WITHHOLDING_AGENT] = { checkbox: !!props.withholdingAgent };
   if (props.withholdingRate  !== undefined) properties[C.WITHHOLDING_RATE]  = { number: parseFloat(props.withholdingRate) || 0 };
   return _notionUpdatePage(clientId, properties);

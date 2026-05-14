@@ -40,18 +40,21 @@ function createFullClient(data) {
   try {
     // 1. Create Client record in Notion
     var clientPage = createNotionClient({
-      name:           data.name,
-      type:           data.type,
-      status:         data.status || 'Active',
-      billingEmail:   data.billingEmail,
-      billingStreet:  data.billingStreet,
-      billingCity:    data.billingCity,
-      billingState:   data.billingState,
-      billingZip:     data.billingZip,
-      billingCountry: data.billingCountry || 'US',
-      phone:          data.phone,
-      website:        data.website,
-      notes:          data.notes,
+      name:             data.name,
+      shorthand:        data.shorthand,
+      type:             data.type,
+      status:           data.status || 'Active',
+      billingEmail:     data.billingEmail,
+      billingStreet:    data.billingStreet,
+      billingCity:      data.billingCity,
+      billingState:     data.billingState,
+      billingZip:       data.billingZip,
+      billingCountry:   data.billingCountry || 'US',
+      phone:            data.phone,
+      website:          data.website,
+      notes:            data.notes,
+      withholdingAgent: data.withholdingAgent,
+      withholdingRate:  data.withholdingRate,
     });
     var clientId = clientPage.id;
     createdNotionIds.push(clientId);
