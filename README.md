@@ -115,6 +115,8 @@ Set the correct Notion database IDs and Google Drive folder IDs in `Config.js` f
 
 In the Apps Script editor, create a **Web App** deployment. The panel is served via `doGet()`.
 
+Use **Execute as: User accessing the web app** and **Who has access: Anyone within roadhazardsmedia.com** (matching `appsscript.json`). Never deploy as **Execute as: Me**; see the header of `AccessControl.js`.
+
 ### 6. Set up triggers
 
 In the Apps Script editor → **Triggers**, add daily time-driven triggers for:

@@ -23,26 +23,30 @@
 //   A new server function must either end in "_" or start with a gate.
 //
 // DEPLOYMENT NOTE:
-//   Session.getActiveUser().getEmail() returns the accessing user's email
-//   only when the web app is deployed with executeAs: "USER_ACCESSING".
-//   After pushing this code, update the deployment in the GAS editor:
-//     Deploy → Manage Deployments → Edit → Execute as: "Me (USER_ACCESSING)"
-//   While the app runs as USER_DEPLOYING, all callers resolve to the owner
-//   (admin), so existing behavior is unchanged until you redeploy.
+//   Deploy the web app as Execute as: "User accessing the web app"
+//   (USER_ACCESSING) and Who has access: "Anyone within roadhazardsmedia.com"
+//   (DOMAIN), matching appsscript.json. In that setup
+//   Session.getActiveUser().getEmail() reliably identifies the caller.
+//   Never deploy this project as Execute as: "Me" (USER_DEPLOYING): every
+//   call would then use the owner's Drive/Gmail, and anonymous or outside
+//   visitors have a blank email. _getCallerEmail_ gives them no role; it used
+//   to fall back to the owner, which made every such visitor admin. An
+//   endpoint for the iOS Shortcut belongs in a separate API-only project, not
+//   in an owner-mode deployment of this one.
 // ─────────────────────────────────────────────────────────────
 
 var _BOOTSTRAP_ADMIN = 'hello@roadhazardsmedia.com';
 
 /**
- * Returns the email of the user currently calling the server function.
- * Requires executeAs: USER_ACCESSING in the deployment.
+ * Returns the email of the user currently calling the server function,
+ * or '' if it is unknown. Requires executeAs: USER_ACCESSING.
+ * Fails closed: there is deliberately no fallback to
+ * Session.getEffectiveUser(), which is the owner (bootstrap admin) under an
+ * "Execute as: Me" deployment. An unknown caller gets no role.
  */
 function _getCallerEmail_() {
   try {
-    var email = Session.getActiveUser().getEmail();
-    if (email) return email;
-    // Fallback: when executeAs=USER_DEPLOYING, getEffectiveUser() returns the owner
-    return Session.getEffectiveUser().getEmail() || '';
+    return Session.getActiveUser().getEmail() || '';
   } catch (e) { return ''; }
 }
 
