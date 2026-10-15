@@ -3530,11 +3530,13 @@ function panelRunBackup() {
  * Back up all Notion data to a single Google Sheets spreadsheet.
  * Each sheet is overwritten; Google Sheets version history provides recovery.
  * When called from a time-driven trigger, respects the frequency setting.
- * @param {boolean} [forceRun=false]  If true, skip frequency check (manual trigger).
+ * @param {boolean} [forceRun=false]  Only an explicit `true` (panelRunBackup) skips the
+ *   frequency check. A time-driven trigger passes its event object here, which doesn't count.
  * @returns {Object} { success, sheetUrl, lastBackup, error? }
  */
 function backupNotionData(forceRun) {
   _requireTriggerOrRole_(forceRun, ['admin']);  // forceRun is the event object on trigger runs
+  var force = forceRun === true;
   try {
     // ── Read config ──────────────────────────────────────────
     var raw = PropertiesService.getScriptProperties().getProperty('backup_config');
@@ -3545,12 +3547,15 @@ function backupNotionData(forceRun) {
     var folderId      = config.folderId      || '';
 
     // ── Frequency gate (skip for manual runs) ────────────────
-    if (!forceRun && lastBackup) {
+    // 6h of slack: trigger fire times drift within their hour, and lastBackup
+    // is stamped when the previous run finished, so a daily run lands just
+    // under 1 day later.
+    if (!force && lastBackup) {
       var lastDate = new Date(lastBackup);
       var now = new Date();
       var daysSince = (now - lastDate) / (1000 * 60 * 60 * 24);
       var thresholds = { daily: 1, weekly: 7, monthly: 30 };
-      if (daysSince < (thresholds[frequency] || 7)) {
+      if (daysSince < (thresholds[frequency] || 7) - 0.25) {
         Logger.log('backupNotionData: skipped — last backup ' + daysSince.toFixed(1) + ' days ago (frequency: ' + frequency + ')');
         return { success: true, skipped: true, lastBackup: lastBackup };
       }

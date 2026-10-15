@@ -432,7 +432,7 @@ These functions are meant to be called by GAS time-driven triggers (configured i
 | `sendInvoiceReminders()` | Daily | Sends email reminders for upcoming and overdue invoices based on configured intervals. Prunes stale reminder log entries. |
 | `generateRecurringInvoices()` | Daily | Generates invoices for active retainer projects based on recurring billing configs. LockService protected. Uses `_addDays_()` for DST-safe date math. |
 | `dailyHealthCheckEmail()` | Daily | Runs full health check. Only sends email if errors/warnings found. HTML-formatted with tables. Also clears the cached quick ping. |
-| `backupNotionData(forceRun)` | Daily | Backs up all Notion databases to Google Sheets. Always runs when triggered (no frequency gate). |
+| `backupNotionData(forceRun)` | Daily | Backs up all Notion databases to Google Sheets. When triggered, runs only if the Settings frequency (daily/weekly/monthly, with 6h slack) has passed since the last backup; Settings → Run Backup always runs. |
 | `cleanupStagingFolder()` | Daily | Deletes orphaned files in `_Staging/` older than 24 hours (receipts uploaded but never submitted). |
 
 Each handler starts with `_requireTriggerOrRole_()`, so it can still be run from the editor or a trigger, but not from the browser by a non-admin.
