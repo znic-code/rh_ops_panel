@@ -15,18 +15,18 @@
 //   Table 1 — Line items  (row 0: header, row 1: template row, row 2: spacer)
 //   Table 2 — Totals      (subtotal, taxes, total)
 
-function generateInvoice(data) {
+function generateInvoice_(data) {
   try {
-    var invoiceId = getNextInvoiceId();
+    var invoiceId = getNextInvoiceId_();
 
     // Resolve the client's Invoices folder: direct ID lookup → name search → root fallback.
-    // resolveClientInvoicesFolder() handles invalid IDs gracefully (returns null).
-    var folderId = resolveClientInvoicesFolder(data.driveFolderId);
-    if (!folderId) folderId = getClientInvoicesFolder(data.clientName);
+    // resolveClientInvoicesFolder_() handles invalid IDs gracefully (returns null).
+    var folderId = resolveClientInvoicesFolder_(data.driveFolderId);
+    if (!folderId) folderId = getClientInvoicesFolder_(data.clientName);
     if (!folderId) folderId = CONFIG.CLIENTS_DRIVE_ROOT;
 
     // Organize into year subfolder (e.g., Invoices/2026/)
-    var yearFolderId = resolveOrCreateSubfolder(folderId, new Date().getFullYear().toString());
+    var yearFolderId = resolveOrCreateSubfolder_(folderId, new Date().getFullYear().toString());
     if (yearFolderId) folderId = yearFolderId;
 
     // Copy via Drive API (not DriveApp.makeCopy) to avoid carrying the bound script
@@ -42,7 +42,7 @@ function generateInvoice(data) {
       var body = doc.getBody();
 
       // ── Step 1: Replace scalar placeholders ──────────────────
-      var clientAddress = formatBillingAddress(data);
+      var clientAddress = formatBillingAddress_(data);
       var replacements = {
         '{{INVOICE_ID}}':         invoiceId,
         '{{INVOICE_ISSUE_DATE}}': data.issueDate,
@@ -52,17 +52,17 @@ function generateInvoice(data) {
         '{{CLIENT_PHONE}}':       data.clientPhone   || '',
         '{{CLIENT_EMAIL}}':       data.clientEmail   || '',
         '{{CLIENT_WEBSITE}}':     data.clientWebsite || '',
-        '{{INVOICE_SUBTOTAL}}':   formatCurrency(data.subtotal),
-        '{{INVOICE_TAXES}}':      formatCurrency(data.taxes),
-        '{{INVOICE_TOTAL}}':      formatCurrency(data.total),
+        '{{INVOICE_SUBTOTAL}}':   formatCurrency_(data.subtotal),
+        '{{INVOICE_TAXES}}':      formatCurrency_(data.taxes),
+        '{{INVOICE_TOTAL}}':      formatCurrency_(data.total),
       };
       for (var find in replacements) {
-        body.replaceText(escapeRegex(find), replacements[find]);
+        body.replaceText(escapeRegex_(find), replacements[find]);
       }
 
       // ── Step 2: Remove blank optional client rows ────────────
       var tables = body.getTables();
-      removeBlankClientRows(tables[0]);
+      removeBlankClientRows_(tables[0]);
 
       // ── Step 3: Fill line items (Table 1) ────────────────────
       //    Row 0 = header, Row 1 = template row (has placeholders), last row = spacer
@@ -83,7 +83,7 @@ function generateInvoice(data) {
       lineTable.getRow(1).getCell(0).clear();
 
       // Fill item 1 into the existing template row
-      fillLineItemRow(lineTable, 1, data.lineItems[0]);
+      fillLineItemRow_(lineTable, 1, data.lineItems[0]);
 
       // Append new rows for items 2+
       for (var i = 1; i < data.lineItems.length; i++) {
@@ -91,7 +91,7 @@ function generateInvoice(data) {
         while (newRow.getNumCells() < 4) {
           newRow.appendTableCell('');
         }
-        fillLineItemRow(lineTable, lineTable.getNumRows() - 1, data.lineItems[i]);
+        fillLineItemRow_(lineTable, lineTable.getNumRows() - 1, data.lineItems[i]);
       }
 
       // Re-add spacer row at the bottom of the line items table
@@ -136,7 +136,7 @@ function generateInvoice(data) {
     var invoicePageId = null;
     if (data.logToNotion) {
       try {
-        var notionResult = logToNotion(invoiceId, data, driveUrl);
+        var notionResult = logToNotion_(invoiceId, data, driveUrl);
         if (notionResult && notionResult.success) {
           invoicePageId = notionResult.pageId;
         } else {
@@ -150,7 +150,7 @@ function generateInvoice(data) {
     // ── Step 7: Mark imported billable expenses as invoiced ──
     if (invoicePageId && data.importedExpenseIds && data.importedExpenseIds.length) {
       try {
-        markExpensesAsInvoiced(data.importedExpenseIds, invoicePageId);
+        markExpensesAsInvoiced_(data.importedExpenseIds, invoicePageId);
       } catch (markErr) {
         Logger.log('markExpensesAsInvoiced error: ' + markErr.message);
       }
@@ -178,14 +178,14 @@ function generateInvoice(data) {
  * Numeric cells (cols 1-3):
  *   Plain text, horizontally centered.
  */
-function fillLineItemRow(table, rowIndex, item) {
+function fillLineItemRow_(table, rowIndex, item) {
   const row = table.getRow(rowIndex);
 
   // ── Numeric cells (cols 1-3) — centered ─────────────────────
-  const total = formatCurrency(item.qty * item.price);
+  const total = formatCurrency_(item.qty * item.price);
   var numCells = [
     { cell: row.getCell(1), val: String(item.qty) },
-    { cell: row.getCell(2), val: '$' + formatCurrency(item.price) },
+    { cell: row.getCell(2), val: '$' + formatCurrency_(item.price) },
     { cell: row.getCell(3), val: '$' + total },
   ];
   numCells.forEach(function(c) {
@@ -215,7 +215,7 @@ function fillLineItemRow(table, rowIndex, item) {
  * website) when the client doesn't have them.
  * Walks backwards to avoid index shifting when removing rows.
  */
-function removeBlankClientRows(table) {
+function removeBlankClientRows_(table) {
   const CLIENT_SECTION_START = 4;
   for (let r = table.getNumRows() - 1; r >= CLIENT_SECTION_START; r--) {
     if (table.getRow(r).getCell(0).getText().trim() === '') {
@@ -228,7 +228,7 @@ function removeBlankClientRows(table) {
  * Build a single-line billing address from individual fields.
  * Omits country for US/USA. Example: "300 Calle..., San Juan, PR 00918"
  */
-function formatBillingAddress(data) {
+function formatBillingAddress_(data) {
   const parts = [];
   if (data.clientStreet) parts.push(data.clientStreet);
   const cityState = [data.clientCity, data.clientState].filter(Boolean).join(', ');
@@ -247,7 +247,7 @@ function formatBillingAddress(data) {
  * the full client name (case-insensitive), then looks for an "Invoices" subfolder inside it.
  * Returns the folder ID, or null if no match is found.
  */
-function getClientInvoicesFolder(clientName) {
+function getClientInvoicesFolder_(clientName) {
   if (!clientName) return null;
   const root = DriveApp.getFolderById(CONFIG.CLIENTS_DRIVE_ROOT);
   const target = clientName.toLowerCase().trim();
@@ -270,7 +270,7 @@ function getClientInvoicesFolder(clientName) {
  * Uses LockService to prevent duplicate IDs when two requests
  * (e.g., sidebar + API call) fire at the same time.
  */
-function getNextInvoiceId() {
+function getNextInvoiceId_() {
   const lock = LockService.getScriptLock();
   lock.waitLock(15000); // wait up to 15 s for any competing request
   try {

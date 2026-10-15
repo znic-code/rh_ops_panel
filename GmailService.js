@@ -47,7 +47,7 @@ var _DEFAULT_EMAIL_TEMPLATES = [
  * @param {Object} variables Key-value map of variable names to values
  * @returns {string}
  */
-function resolveTemplateVariables(template, variables) {
+function resolveTemplateVariables_(template, variables) {
   if (!template) return '';
   var result = template;
 
@@ -76,9 +76,9 @@ function resolveTemplateVariables(template, variables) {
  * @param {Object} params  Document data
  * @returns {Object}  Variable name -> value map
  */
-function buildTemplateVariables(params) {
+function buildTemplateVariables_(params) {
   var todayFormatted = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  var co = getCompanyInfo(); // single read — avoids 4 separate Script Properties lookups
+  var co = getCompanyInfo_(); // single read — avoids 4 separate Script Properties lookups
 
   return {
     // Contact / Client
@@ -118,7 +118,7 @@ function buildTemplateVariables(params) {
  * @param {string} [filterType]  Optional type filter
  * @returns {Array}  Array of template objects
  */
-function getEmailTemplates(filterType) {
+function getEmailTemplates_(filterType) {
   var customs = [];
   try {
     var raw = PropertiesService.getScriptProperties().getProperty('email_templates');
@@ -166,7 +166,7 @@ function getEmailTemplates(filterType) {
  * @param {string} [params.fileId]     Drive file ID to attach
  * @returns {Object} { success, draftSubject?, error? }
  */
-function createEmailDraft(params) {
+function createEmailDraft_(params) {
   try {
     var options = {};
     if (params.fileId) {
@@ -185,10 +185,10 @@ function createEmailDraft(params) {
 /**
  * Send an email immediately with a Drive file attached.
  *
- * @param {Object} params  Same as createEmailDraft
+ * @param {Object} params  Same as createEmailDraft_
  * @returns {Object} { success, error? }
  */
-function sendEmail(params) {
+function sendEmail_(params) {
   try {
     var options = {};
     if (params.fileId) {
@@ -217,12 +217,12 @@ function sendEmail(params) {
  * @param {string} [params.dueDate]    Human-readable due date
  * @returns {Object} { success, draftSubject?, error? }
  */
-function createDocumentDraft(params) {
+function createDocumentDraft_(params) {
   var templateType = params.documentType === 'Invoice' ? 'invoice' : 'agreement';
-  var templates = getEmailTemplates(templateType);
+  var templates = getEmailTemplates_(templateType);
   var template = templates[0]; // default
 
-  var variables = buildTemplateVariables({
+  var variables = buildTemplateVariables_({
     clientName:   params.clientName,
     clientEmail:  params.clientEmail,
     documentId:   params.documentId,
@@ -231,10 +231,10 @@ function createDocumentDraft(params) {
     dueDate:      params.dueDate || '',
   });
 
-  var subject = resolveTemplateVariables(template.subject, variables);
-  var body = resolveTemplateVariables(template.body, variables);
+  var subject = resolveTemplateVariables_(template.subject, variables);
+  var body = resolveTemplateVariables_(template.body, variables);
 
-  return createEmailDraft({
+  return createEmailDraft_({
     to:      params.clientEmail,
     subject: subject,
     body:    body,
@@ -256,7 +256,7 @@ function createDocumentDraft(params) {
  * @param {string} [params.driveLink]  Drive URL for the invoice
  * @returns {Object} { success, error? }
  */
-function sendInvoiceReminder(params) {
+function sendInvoiceReminder_(params) {
   var dueFormatted = params.dueDate;
   try {
     var d = new Date(params.dueDate + 'T12:00:00');
@@ -267,13 +267,13 @@ function sendInvoiceReminder(params) {
   var templateType = params.isOverdue ? 'reminder_overdue' : 'reminder_upcoming';
 
   // Prefer a custom template; fall back to default
-  var templates = getEmailTemplates(templateType);
+  var templates = getEmailTemplates_(templateType);
   var template = templates[0];
   for (var i = 0; i < templates.length; i++) {
     if (!templates[i].isDefault) { template = templates[i]; break; }
   }
 
-  var variables = buildTemplateVariables({
+  var variables = buildTemplateVariables_({
     clientName:  params.clientName,
     invoiceId:   params.invoiceId,
     total:       totalFormatted,
@@ -281,8 +281,8 @@ function sendInvoiceReminder(params) {
     driveLink:   params.driveLink || '',
   });
 
-  var subject = resolveTemplateVariables(template.subject, variables);
-  var body = resolveTemplateVariables(template.body, variables);
+  var subject = resolveTemplateVariables_(template.subject, variables);
+  var body = resolveTemplateVariables_(template.body, variables);
 
-  return sendEmail({ to: params.to, subject: subject, body: body });
+  return sendEmail_({ to: params.to, subject: subject, body: body });
 }

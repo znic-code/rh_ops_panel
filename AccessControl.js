@@ -24,7 +24,7 @@ var _BOOTSTRAP_ADMIN = 'hello@roadhazardsmedia.com';
  * Returns the email of the user currently calling the server function.
  * Requires executeAs: USER_ACCESSING in the deployment.
  */
-function _getCallerEmail() {
+function _getCallerEmail_() {
   try {
     var email = Session.getActiveUser().getEmail();
     if (email) return email;
@@ -37,8 +37,8 @@ function _getCallerEmail() {
  * Returns the calling user's role string, or null if not authorized.
  * Bootstrap admin always returns 'admin'.
  */
-function _getCallerRole() {
-  var email = _getCallerEmail();
+function _getCallerRole_() {
+  var email = _getCallerEmail_();
   if (!email) return null;
   if (email === _BOOTSTRAP_ADMIN) return 'admin';
   try {
@@ -55,8 +55,8 @@ function _getCallerRole() {
  * Throws 'Access denied.' if the caller's role is not in the allowed list.
  * @param {string[]} allowed  e.g. ['admin'] or ['admin', 'partner']
  */
-function _requireRole(allowed) {
-  var role = _getCallerRole();
+function _requireRole_(allowed) {
+  var role = _getCallerRole_();
   if (!role || allowed.indexOf(role) === -1) {
     throw new Error('Access denied.');
   }
@@ -67,8 +67,8 @@ function _requireRole(allowed) {
  * role is null if the caller is not in the role table.
  */
 function panelGetCurrentUser() {
-  var email = _getCallerEmail();
-  var role  = _getCallerRole();
+  var email = _getCallerEmail_();
+  var role  = _getCallerRole_();
   return { email: email, role: role };
 }
 
@@ -77,7 +77,7 @@ function panelGetCurrentUser() {
  * Admin only.
  */
 function panelGetRoleTable() {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
     var raw = PropertiesService.getScriptProperties().getProperty('user_roles');
     return raw ? JSON.parse(raw) : {};
@@ -95,7 +95,7 @@ function panelGetRoleTable() {
  * @returns {{ success: boolean, error?: string }}
  */
 function panelSaveRoleTable(roles) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   if (!roles || typeof roles !== 'object') {
     return { success: false, error: 'Invalid roles object.' };
   }

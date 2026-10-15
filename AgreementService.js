@@ -15,21 +15,21 @@ var _MONTHS_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agos
 // ── Date helpers ─────────────────────────────────────────────
 
 /** Format ISO date → "Month DD, YYYY" (English). e.g. "May 5, 2026" */
-function _formatDateEN(isoDate) {
+function _formatDateEN_(isoDate) {
   if (!isoDate) return '';
   var p = isoDate.split('-');
   return _MONTHS_EN[parseInt(p[1], 10) - 1] + ' ' + parseInt(p[2], 10) + ', ' + p[0];
 }
 
 /** Format ISO date → "D de mes de YYYY" (Spanish). e.g. "5 de mayo de 2026" */
-function _formatDateES(isoDate) {
+function _formatDateES_(isoDate) {
   if (!isoDate) return '';
   var p = isoDate.split('-');
   return parseInt(p[2], 10) + ' de ' + _MONTHS_ES[parseInt(p[1], 10) - 1] + ' de ' + p[0];
 }
 
 /** Format a number as "$X,XXX.XX USD". Safe for GAS environment. */
-function _formatMoney(amount) {
+function _formatMoney_(amount) {
   var num = parseFloat(amount || 0);
   var parts = num.toFixed(2).split('.');
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -45,7 +45,7 @@ function _formatMoney(amount) {
  * @param {string} type  'MSA' | 'SOW'
  * @returns {string}
  */
-function getNextAgreementId(type) {
+function getNextAgreementId_(type) {
   var lock = LockService.getScriptLock();
   lock.waitLock(15000);
   try {
@@ -81,12 +81,12 @@ function getNextAgreementId(type) {
  * @param {string} [year]               Defaults to current year
  * @returns {string|null}
  */
-function resolveContractFolder(clientDriveFolderId, year) {
+function resolveContractFolder_(clientDriveFolderId, year) {
   if (!clientDriveFolderId) return null;
   var yr          = year || new Date().getFullYear().toString();
-  var contractsId = resolveOrCreateSubfolder(clientDriveFolderId, 'Contracts');
+  var contractsId = resolveOrCreateSubfolder_(clientDriveFolderId, 'Contracts');
   if (!contractsId) return null;
-  return resolveOrCreateSubfolder(contractsId, yr);
+  return resolveOrCreateSubfolder_(contractsId, yr);
 }
 
 /**
@@ -94,9 +94,9 @@ function resolveContractFolder(clientDriveFolderId, year) {
  * @param {string} contractFolderId
  * @returns {string|null}
  */
-function resolveSignedFolder(contractFolderId) {
+function resolveSignedFolder_(contractFolderId) {
   if (!contractFolderId) return null;
-  return resolveOrCreateSubfolder(contractFolderId, 'Signed');
+  return resolveOrCreateSubfolder_(contractFolderId, 'Signed');
 }
 
 // ── Template resolution ──────────────────────────────────────
@@ -107,7 +107,7 @@ function resolveSignedFolder(contractFolderId) {
  * @param {string} language      'English' | 'Spanish'
  * @returns {string|null}
  */
-function _resolveTemplateId(contractType, language) {
+function _resolveTemplateId_(contractType, language) {
   var es = (language === 'Spanish');
   if (contractType === 'MSA')            return es ? CONFIG.CONTRACT_TEMPLATE_MSA_ES    : CONFIG.CONTRACT_TEMPLATE_MSA_EN;
   if (contractType === 'SOW (Retainer)') return es ? CONFIG.CONTRACT_TEMPLATE_SOW_RET_ES : CONFIG.CONTRACT_TEMPLATE_SOW_RET_EN;
@@ -129,7 +129,7 @@ function _resolveTemplateId(contractType, language) {
  * @param {string}        [ext]       File extension without dot (e.g. 'pdf'). Omit for Google Docs.
  * @returns {string}
  */
-function _buildAgreementFileName(contractId, client, title, language, ext) {
+function _buildAgreementFileName_(contractId, client, title, language, ext) {
   var clientName = (typeof client === 'string' ? client : (client.shorthand || client.name || 'Client')).trim();
   var isMSA      = contractId.indexOf('-MSA-') !== -1;
 
@@ -165,8 +165,8 @@ function _buildAgreementFileName(contractId, client, title, language, ext) {
  * @param {string} placeholder  Literal placeholder, e.g. '{{STRATEGY_LINE_ITEMS}}'
  * @param {string} raw          Raw multi-line textarea input from the form
  */
-function _fillBulletItems(body, placeholder, raw) {
-  var escaped = escapeRegex(placeholder);
+function _fillBulletItems_(body, placeholder, raw) {
+  var escaped = escapeRegex_(placeholder);
   if (!raw || !raw.trim()) { body.replaceText(escaped, 'N/A'); return; }
   var items = raw.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
   if (items.length === 0) { body.replaceText(escaped, 'N/A'); return; }
@@ -201,15 +201,15 @@ function _fillBulletItems(body, placeholder, raw) {
  * Build the complete {{PLACEHOLDER}} → value map for a contract.
  *
  * @param {Object}      data     Form submission data
- * @param {Object}      client   Mapped client record (from getClientById)
+ * @param {Object}      client   Mapped client record (from getClientById_)
  * @param {Object|null} contact  Mapped primary contact (or null)
  * @param {string}      idMSA    MSA agreement ID string (new MSA's own ID, or parent MSA ID for SOWs)
  * @param {string}      idSOW    SOW agreement ID string (empty for MSA)
  * @returns {Object}  map of placeholder string → replacement value
  */
-function _buildPlaceholderMap(data, client, contact, idMSA, idSOW) {
+function _buildPlaceholderMap_(data, client, contact, idMSA, idSOW) {
   var lang       = data.language === 'Spanish' ? 'es' : 'en';
-  var formatDate = lang === 'es' ? _formatDateES : _formatDateEN;
+  var formatDate = lang === 'es' ? _formatDateES_ : _formatDateEN_;
 
   // Client identity
   var legalName   = client.name;  // Name IS the legal name
@@ -259,7 +259,7 @@ function _buildPlaceholderMap(data, client, contact, idMSA, idSOW) {
     '{{END_DATE}}':   formatDate(data.endDate   || ''),
     '{{DEADLINE}}':   formatDate(data.deadline  || ''),
 
-    // §4 Scope (SOW) — these placeholders are filled by _fillBulletItems() before
+    // §4 Scope (SOW) — these placeholders are filled by _fillBulletItems_() before
     // the replaceText loop runs; the entries here are intentional no-ops kept
     // so the keys stay documented alongside the rest of the map.
     '{{STRATEGY_LINE_ITEMS}}':             '',
@@ -267,18 +267,18 @@ function _buildPlaceholderMap(data, client, contact, idMSA, idSOW) {
     '{{CONTENT_DELIVERABLES_LINE_ITEMS}}': '',
 
     // §7 Fees — SOW Retainer
-    '{{MONTHLY_RETAINER}}':    data.monthlyRetainer    ? _formatMoney(data.monthlyRetainer)    : '',
-    '{{INITIAL_INSTALLMENT}}': data.initialInstallment ? _formatMoney(data.initialInstallment) : '',
-    '{{FINAL_INSTALLMENT}}':   data.finalInstallment   ? _formatMoney(data.finalInstallment)   : '',
+    '{{MONTHLY_RETAINER}}':    data.monthlyRetainer    ? _formatMoney_(data.monthlyRetainer)    : '',
+    '{{INITIAL_INSTALLMENT}}': data.initialInstallment ? _formatMoney_(data.initialInstallment) : '',
+    '{{FINAL_INSTALLMENT}}':   data.finalInstallment   ? _formatMoney_(data.finalInstallment)   : '',
 
     // §10 Term — SOW Retainer
     '{{INITIAL_TERM_MONTHS}}': data.initialTermMonths ? String(data.initialTermMonths) : '3',
     '{{RENEWAL_TERM_MONTHS}}': data.renewalTermMonths ? String(data.renewalTermMonths) : '9',
 
     // §7 Fees — SOW Project
-    '{{PROJECT_FEE}}':             data.projectFee         ? _formatMoney(data.projectFee)         : '',
-    '{{BOOKING_FEE_AMOUNT}}':      data.bookingFee         ? _formatMoney(data.bookingFee)          : '',
-    '{{FINAL_PAYMENT_AMOUNT}}':    data.finalPayment       ? _formatMoney(data.finalPayment)        : '',
+    '{{PROJECT_FEE}}':             data.projectFee         ? _formatMoney_(data.projectFee)         : '',
+    '{{BOOKING_FEE_AMOUNT}}':      data.bookingFee         ? _formatMoney_(data.bookingFee)          : '',
+    '{{FINAL_PAYMENT_AMOUNT}}':    data.finalPayment       ? _formatMoney_(data.finalPayment)        : '',
     '{{MILESTONE_THRESHOLD}}':     data.milestoneThreshold ? '$' + parseFloat(data.milestoneThreshold).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '$10,000',
 
     // §6 Operational overrides (SOW — blank = use MSA default)
@@ -341,7 +341,7 @@ function _buildPlaceholderMap(data, client, contact, idMSA, idSOW) {
  *
  * @returns {{ success, contractId?, notionId?, driveUrl?, notionUrl?, error? }}
  */
-function generateAgreement(data) {
+function generateAgreement_(data) {
 
   // ── 1. Validate ───────────────────────────────────────────
   if (!data.contractType)               return { success: false, error: 'Contract type is required.' };
@@ -376,12 +376,12 @@ function generateAgreement(data) {
   }
 
   // ── 2. Fetch client + contact ─────────────────────────────
-  var client = getClientById(data.clientId);
+  var client = getClientById_(data.clientId);
   if (!client || client.error) return { success: false, error: 'Client not found.' };
 
   var contact = null;
   if (client.primaryContactId) {
-    try { contact = getContactById(client.primaryContactId); } catch (e) { /* leave null */ }
+    try { contact = getContactById_(client.primaryContactId); } catch (e) { /* leave null */ }
   }
 
   // ── 3. Resolve parent MSA ID string (for SOWs) ───────────
@@ -390,8 +390,8 @@ function generateAgreement(data) {
   if (!isMSA && data.parentMsaId) {
     parentMsaPageId = data.parentMsaId;
     try {
-      var parentRaw = _notionGet('pages/' + data.parentMsaId);
-      var parentAg  = _mapAgreementProperties(parentRaw);
+      var parentRaw = _notionGet_('pages/' + data.parentMsaId);
+      var parentAg  = _mapAgreementProperties_(parentRaw);
       idMSA = parentAg.agreementId || parentAg.title || '';
     } catch (e) {
       Logger.log('generateAgreement: could not fetch parent MSA — ' + e.message);
@@ -400,14 +400,14 @@ function generateAgreement(data) {
 
   // ── 4. Generate contract ID ───────────────────────────────
   var idType    = isMSA ? 'MSA' : 'SOW';
-  var contractId = getNextAgreementId(idType);
+  var contractId = getNextAgreementId_(idType);
   if (isMSA)  idMSA = contractId;
   var idSOW     = isMSA ? '' : contractId;
 
   // ── 5. Resolve Drive folder ───────────────────────────────
   // Fall back to current year when no effective date is set (e.g. MSA pre-signing)
   var year = (data.effectiveDate || '').substring(0, 4) || new Date().getFullYear().toString();
-  var contractFolderId = resolveContractFolder(client.driveFolderId, year);
+  var contractFolderId = resolveContractFolder_(client.driveFolderId, year);
   if (!contractFolderId) {
     // Fallback: use the central contracts directory
     contractFolderId = CONFIG.LEGAL_CONTRACTS_DIR;
@@ -415,10 +415,10 @@ function generateAgreement(data) {
   }
 
   // ── 6. Determine template ─────────────────────────────────
-  var templateId = _resolveTemplateId(data.contractType, data.language);
+  var templateId = _resolveTemplateId_(data.contractType, data.language);
   if (!templateId) return { success: false, error: 'Template not found for: ' + data.contractType };
 
-  var fileName = _buildAgreementFileName(contractId, client, data.title.trim(), data.language);
+  var fileName = _buildAgreementFileName_(contractId, client, data.title.trim(), data.language);
 
   // ── 7. Copy template → Drive ──────────────────────────────
   var docId, docUrl;
@@ -434,19 +434,19 @@ function generateAgreement(data) {
 
   // ── 8. Fill placeholders ──────────────────────────────────
   try {
-    var placeholders = _buildPlaceholderMap(data, client, contact, idMSA, idSOW);
+    var placeholders = _buildPlaceholderMap_(data, client, contact, idMSA, idSOW);
     var doc  = DocumentApp.openById(docId);
     var body = doc.getBody();
 
     // Bullet-list placeholders must be handled with element-level DOM manipulation
     // so that each item becomes a proper list paragraph (not a plain "- text" line).
     // These run first; the generic loop below becomes a silent no-op for these keys.
-    _fillBulletItems(body, '{{STRATEGY_LINE_ITEMS}}',             data.strategyItems   || '');
-    _fillBulletItems(body, '{{PRODUCTION_LINE_ITEMS}}',           data.productionItems || '');
-    _fillBulletItems(body, '{{CONTENT_DELIVERABLES_LINE_ITEMS}}', data.contentItems    || '');
+    _fillBulletItems_(body, '{{STRATEGY_LINE_ITEMS}}',             data.strategyItems   || '');
+    _fillBulletItems_(body, '{{PRODUCTION_LINE_ITEMS}}',           data.productionItems || '');
+    _fillBulletItems_(body, '{{CONTENT_DELIVERABLES_LINE_ITEMS}}', data.contentItems    || '');
 
     for (var key in placeholders) {
-      body.replaceText(escapeRegex(key), placeholders[key]);
+      body.replaceText(escapeRegex_(key), placeholders[key]);
     }
     doc.saveAndClose();
   } catch (e) {
@@ -461,7 +461,7 @@ function generateAgreement(data) {
   var notionTitle = contractId + ' — ' + data.title.trim();
   var notionPage;
   try {
-    notionPage = createNotionAgreement({
+    notionPage = createNotionAgreement_({
       title:         notionTitle,
       docType:       data.contractType,
       status:        'Draft',
@@ -499,20 +499,20 @@ function generateAgreement(data) {
 
 /**
  * Upload a contract file to the Drive staging folder and run AI extraction.
- * Mirrors processReceiptStaged() in ReceiptService.js.
+ * Mirrors processReceiptStaged_() in ReceiptService.js.
  *
  * @param {string} base64Data  Base64-encoded file content
  * @param {string} fileName    Original file name
  * @param {string} mimeType    MIME type (application/pdf, image/*, etc.)
  * @returns {{ success, fileId?, fileUrl?, fileName?, extracted?, extractionError?, error? }}
  */
-function processAgreementStaged(base64Data, fileName, mimeType) {
+function processAgreementStaged_(base64Data, fileName, mimeType) {
   try {
-    var stagingId = resolveOrCreateSubfolder(CONFIG.FINANCIALS_DRIVE_DIR, '_Staging');
+    var stagingId = resolveOrCreateSubfolder_(CONFIG.FINANCIALS_DRIVE_DIR, '_Staging');
     if (!stagingId) return { success: false, error: 'Could not resolve staging folder in Drive.' };
 
-    var upload     = uploadFileToDrive(base64Data, fileName, mimeType, stagingId);
-    var extraction = extractReceiptData(upload.fileId, 'agreement');
+    var upload     = uploadFileToDrive_(base64Data, fileName, mimeType, stagingId);
+    var extraction = extractReceiptData_(upload.fileId, 'agreement');
 
     return {
       success:         true,
@@ -532,7 +532,7 @@ function processAgreementStaged(base64Data, fileName, mimeType) {
 /**
  * Move a staged agreement file to its final Drive location and rename it.
  * Destination: 03_Clients/{Client}/Contracts/{year}/ (or LEGAL_CONTRACTS_DIR/{year}/ as fallback).
- * Final name follows the shared _buildAgreementFileName convention.
+ * Final name follows the shared _buildAgreementFileName_ convention.
  *
  * @param {string}      fileId              Staged Drive file ID
  * @param {string|null} clientDriveFolderId Client root Drive folder (or null)
@@ -542,22 +542,22 @@ function processAgreementStaged(base64Data, fileName, mimeType) {
  * @param {string}      language            'English' | 'Spanish'
  * @returns {{ fileId: string, fileUrl: string }}
  */
-function _moveAgreementToFinalFolder(fileId, clientDriveFolderId, agreementId, clientName, title, language) {
+function _moveAgreementToFinalFolder_(fileId, clientDriveFolderId, agreementId, clientName, title, language) {
   var year = String(new Date().getFullYear());
 
   var folderId;
   if (clientDriveFolderId) {
-    var contractsId = resolveOrCreateSubfolder(clientDriveFolderId, 'Contracts');
-    folderId        = resolveOrCreateSubfolder(contractsId, year);
+    var contractsId = resolveOrCreateSubfolder_(clientDriveFolderId, 'Contracts');
+    folderId        = resolveOrCreateSubfolder_(contractsId, year);
   } else {
-    folderId = resolveOrCreateSubfolder(CONFIG.LEGAL_CONTRACTS_DIR, year);
+    folderId = resolveOrCreateSubfolder_(CONFIG.LEGAL_CONTRACTS_DIR, year);
   }
   if (!folderId) throw new Error('Could not resolve or create the Contracts folder in Drive.');
 
   var file     = DriveApp.getFileById(fileId);
   var origName = file.getName();
   var ext      = origName.indexOf('.') !== -1 ? origName.split('.').pop().toLowerCase() : 'pdf';
-  var name     = _buildAgreementFileName(agreementId, clientName, title, language, ext);
+  var name     = _buildAgreementFileName_(agreementId, clientName, title, language, ext);
 
   file.setName(name);
   file.moveTo(DriveApp.getFolderById(folderId));

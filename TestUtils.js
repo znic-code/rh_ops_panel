@@ -1,16 +1,18 @@
 // ── TEST UTILITIES ────────────────────────────────────────────
-// Run seedTestData() from the Apps Script editor to create a
-// full set of test records (client, contact, project, MSA).
-// Run teardownTestData() when done to archive everything and
-// trash the Drive folder.
+// seedTestData_() creates a full set of test records (client,
+// contact, project, MSA). teardownTestData_() archives everything
+// and trashes the Drive folder.
 //
 // IDs are stored in Script Properties under TEST_* keys so
 // teardown always knows exactly what to clean up, even across
 // editor sessions.
 //
 // HOW TO RUN:
-//   Apps Script editor → select function → ▶ Run
-//   Check Execution log (View → Logs) for results.
+//   These functions are private (trailing _), so they don't appear
+//   in the editor's ▶ Run menu and can't be called from the browser.
+//   Use Settings → Test Data in the panel, or run the admin-only
+//   panelSeedTestData / panelTeardownTestData / panelInspectTestData
+//   from the editor. Check Execution log (View → Logs) for results.
 // ─────────────────────────────────────────────────────────────
 
 var _TEST_PROPS = {
@@ -32,18 +34,18 @@ var _TEST_PROPS = {
  * Agreements, invoices, quotes etc. are tested manually through the
  * panel UI — that's the point of the test cycle.
  *
- * IDs are written to Script Properties so teardownTestData()
+ * IDs are written to Script Properties so teardownTestData_()
  * can clean everything up without guessing.
  *
- * Safe to call from the Apps Script editor as the project owner —
- * bypasses _requireRole() wrappers intentionally.
+ * Does not call _requireRole_() itself; being private, it is only
+ * reachable from other server code.
  */
-function seedTestData() {
+function seedTestData_() {
   var sp = PropertiesService.getScriptProperties();
 
   // Guard: don't double-seed
   if (sp.getProperty(_TEST_PROPS.CLIENT_ID)) {
-    Logger.log('[TEST] Seed data already exists. Run teardownTestData() first.');
+    Logger.log('[TEST] Seed data already exists. Run panelTeardownTestData() first.');
     Logger.log('[TEST] Seeded at: ' + sp.getProperty(_TEST_PROPS.SEEDED_AT));
     return;
   }
@@ -51,7 +53,7 @@ function seedTestData() {
   Logger.log('[TEST] Seeding test data...');
 
   // ── 1. Client + Contact + Project ────────────────────────
-  var clientResult = createFullClient({
+  var clientResult = createFullClient_({
     name:           '[TEST] Road Hazards — Sample Co',
     type:           'Business',
     billingEmail:   'test@example.com',
@@ -95,19 +97,19 @@ function seedTestData() {
   });
 
   Logger.log('[TEST] Done. All IDs saved to Script Properties.');
-  Logger.log('[TEST] Run teardownTestData() when finished testing.');
+  Logger.log('[TEST] Run panelTeardownTestData() when finished testing.');
 }
 
 // ── Teardown ──────────────────────────────────────────────────
 
 /**
- * Archive all Notion records created by seedTestData() and
+ * Archive all Notion records created by seedTestData_() and
  * move the client Drive folder to trash.
  *
  * Reads IDs from Script Properties — works correctly even if
- * called in a different editor session from seedTestData().
+ * called in a different editor session from seedTestData_().
  */
-function teardownTestData() {
+function teardownTestData_() {
   var sp  = PropertiesService.getScriptProperties();
   var clientId   = sp.getProperty(_TEST_PROPS.CLIENT_ID);
   var contactIds = sp.getProperty(_TEST_PROPS.CONTACT_IDS);
@@ -126,7 +128,7 @@ function teardownTestData() {
   function archiveSafely(id, label) {
     if (!id) return;
     try {
-      archiveNotionPage(id);
+      archiveNotionPage_(id);
       Logger.log('[TEST] Archived ' + label + ': ' + id);
     } catch (e) {
       var msg = 'Failed to archive ' + label + ' (' + id + '): ' + e.message;
@@ -177,7 +179,7 @@ function teardownTestData() {
  * Log the current seeded test record IDs without changing anything.
  * Useful for checking what's active before running teardown.
  */
-function inspectTestData() {
+function inspectTestData_() {
   var sp = PropertiesService.getScriptProperties();
   var clientId    = sp.getProperty(_TEST_PROPS.CLIENT_ID);
 

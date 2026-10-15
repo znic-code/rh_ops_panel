@@ -22,7 +22,7 @@
  * @param {string} [data.notes]
  * @returns {Object} { success, client, contacts, project, driveFolderId, error? }
  */
-function createFullClient(data) {
+function createFullClient_(data) {
   // Validate required fields (fast-fail before acquiring lock)
   if (!data.name || !data.name.trim()) {
     return { success: false, error: 'Client name is required.' };
@@ -39,7 +39,7 @@ function createFullClient(data) {
 
   try {
     // 1. Create Client record in Notion
-    var clientPage = createNotionClient({
+    var clientPage = createNotionClient_({
       name:             data.name,
       shorthand:        data.shorthand,
       type:             data.type,
@@ -64,7 +64,7 @@ function createFullClient(data) {
     if (data.contacts && data.contacts.length) {
       for (var i = 0; i < data.contacts.length; i++) {
         var c = data.contacts[i];
-        var contactPage = createNotionContact({
+        var contactPage = createNotionContact_({
           name:      c.name,
           clientId:  clientId,
           role:      c.role || '',
@@ -76,7 +76,7 @@ function createFullClient(data) {
       }
       // Set first contact as primary on the client record
       if (contactResults.length > 0) {
-        _notionUpdatePage(clientId, {
+        _notionUpdatePage_(clientId, {
           'Primary Contact': { relation: [{ id: contactResults[0].id }] }
         });
       }
@@ -85,7 +85,7 @@ function createFullClient(data) {
     // 3. Create Project record
     var projectResult = null;
     if (data.projectName) {
-      var projectPage = createNotionProject({
+      var projectPage = createNotionProject_({
         name:      data.projectName,
         clientId:  clientId,
         type:      data.projectType || 'One-Off',
@@ -97,10 +97,10 @@ function createFullClient(data) {
     }
 
     // 4. Create Drive folder structure
-    driveFolderId = createClientFolderStructure(data.name);
+    driveFolderId = createClientFolderStructure_(data.name);
 
     // 5. Write Drive Folder ID back to the Client record
-    updateClientDriveFolderId(clientId, driveFolderId);
+    updateClientDriveFolderId_(clientId, driveFolderId);
 
     return {
       success: true,
@@ -112,7 +112,7 @@ function createFullClient(data) {
   } catch (e) {
     // Rollback: archive any Notion pages we created
     createdNotionIds.forEach(function(id) {
-      try { archiveNotionPage(id); } catch (ce) {
+      try { archiveNotionPage_(id); } catch (ce) {
         Logger.log('createFullClient cleanup failed for ' + id + ': ' + ce.message);
       }
     });

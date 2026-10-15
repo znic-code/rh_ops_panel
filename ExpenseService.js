@@ -21,7 +21,7 @@
  * @param {string} [data.notes]
  * @returns {Object} { success, expense, error? }
  */
-function logExpense(data) {
+function logExpense_(data) {
   try {
     // Validate required fields — relaxed for "Needs Review" status (iOS Shortcut drafts)
     var isReview = data.status === 'Needs Review';
@@ -33,9 +33,9 @@ function logExpense(data) {
     }
 
     // Auto-generate expense ID if not provided
-    var expenseId = data.expenseId || _generateExpenseId(data.expenseDate);
+    var expenseId = data.expenseId || _generateExpenseId_(data.expenseDate);
 
-    var page = createNotionExpense({
+    var page = createNotionExpense_({
       expenseId:    expenseId,
       description:  data.description,
       type:         data.type || '',
@@ -72,7 +72,7 @@ function logExpense(data) {
  * @param {string} [dateStr]  ISO date to use (defaults to today)
  * @returns {string} e.g., "RH-EXP-26-0318-01"
  */
-function _generateExpenseId(dateStr) {
+function _generateExpenseId_(dateStr) {
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(5000);

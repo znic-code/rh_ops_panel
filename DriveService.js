@@ -17,7 +17,7 @@
  *       Expenses/
  *       Payments/
  */
-function createClientFolderStructure(clientName) {
+function createClientFolderStructure_(clientName) {
   const root = DriveApp.getFolderById(CONFIG.CLIENTS_DRIVE_ROOT);
   const clientFolder = root.createFolder(clientName);
   CONFIG.CLIENT_SUBFOLDERS.forEach(function(name) {
@@ -30,7 +30,7 @@ function createClientFolderStructure(clientName) {
  * Find a subfolder by name inside a parent folder.
  * Returns the folder ID, or null if not found.
  */
-function resolveSubfolder(parentFolderId, subfolderName) {
+function resolveSubfolder_(parentFolderId, subfolderName) {
   try {
     const parent = DriveApp.getFolderById(parentFolderId);
     const subs = parent.getFoldersByName(subfolderName);
@@ -47,7 +47,7 @@ function resolveSubfolder(parentFolderId, subfolderName) {
  * @param {string} subfolderName   Name of the subfolder to find or create
  * @returns {string|null}
  */
-function resolveOrCreateSubfolder(parentFolderId, subfolderName) {
+function resolveOrCreateSubfolder_(parentFolderId, subfolderName) {
   try {
     var parent = DriveApp.getFolderById(parentFolderId);
     var subs = parent.getFoldersByName(subfolderName);
@@ -63,18 +63,18 @@ function resolveOrCreateSubfolder(parentFolderId, subfolderName) {
  * Resolve the client's Invoices folder from their Drive Folder ID.
  * Falls back to the client folder itself if Invoices/ doesn't exist.
  */
-function resolveClientInvoicesFolder(clientDriveFolderId) {
+function resolveClientInvoicesFolder_(clientDriveFolderId) {
   if (!clientDriveFolderId) return null;
-  return resolveSubfolder(clientDriveFolderId, 'Invoices') || clientDriveFolderId;
+  return resolveSubfolder_(clientDriveFolderId, 'Invoices') || clientDriveFolderId;
 }
 
 /**
  * Resolve (or create) the client's Quotes folder from their Drive Folder ID.
  * Creates Quotes/ subfolder on demand if it doesn't exist.
  */
-function resolveClientQuotesFolder(clientDriveFolderId) {
+function resolveClientQuotesFolder_(clientDriveFolderId) {
   if (!clientDriveFolderId) return null;
-  return resolveOrCreateSubfolder(clientDriveFolderId, 'Quotes') || clientDriveFolderId;
+  return resolveOrCreateSubfolder_(clientDriveFolderId, 'Quotes') || clientDriveFolderId;
 }
 
 // ── Expense / Payment Folder Resolution ─────────────────────
@@ -83,24 +83,24 @@ function resolveClientQuotesFolder(clientDriveFolderId) {
  * Resolve the target folder for an expense receipt file.
  *   - Client linked:  03_Clients/{Client}/Expenses/{year}/
  *   - No client:      01_Admin/Financials/Expenses/{year}/
- * Creates subfolders on demand via resolveOrCreateSubfolder().
+ * Creates subfolders on demand via resolveOrCreateSubfolder_().
  *
  * @param {string|null} clientDriveFolderId  Client's Drive folder ID (null for overhead)
  * @param {string} [year]                    Year subfolder name (defaults to current year)
  * @returns {string|null} Drive folder ID for the receipt
  */
-function resolveExpenseFolder(clientDriveFolderId, year) {
+function resolveExpenseFolder_(clientDriveFolderId, year) {
   var yr = year || new Date().getFullYear().toString();
   var parentId;
   if (clientDriveFolderId) {
     // Client-linked: 03_Clients/{Client}/Expenses/{year}/
-    parentId = resolveOrCreateSubfolder(clientDriveFolderId, 'Expenses');
+    parentId = resolveOrCreateSubfolder_(clientDriveFolderId, 'Expenses');
   } else {
     // Overhead: 01_Admin/Financials/Expenses/{year}/
-    parentId = resolveOrCreateSubfolder(CONFIG.FINANCIALS_DRIVE_DIR, 'Expenses');
+    parentId = resolveOrCreateSubfolder_(CONFIG.FINANCIALS_DRIVE_DIR, 'Expenses');
   }
   if (!parentId) return null;
-  return resolveOrCreateSubfolder(parentId, yr);
+  return resolveOrCreateSubfolder_(parentId, yr);
 }
 
 /**
@@ -112,16 +112,16 @@ function resolveExpenseFolder(clientDriveFolderId, year) {
  * @param {string} [year]                    Year subfolder name (defaults to current year)
  * @returns {string|null} Drive folder ID for the payment record
  */
-function resolvePaymentFolder(clientDriveFolderId, year) {
+function resolvePaymentFolder_(clientDriveFolderId, year) {
   var yr = year || new Date().getFullYear().toString();
   var parentId;
   if (clientDriveFolderId) {
-    parentId = resolveOrCreateSubfolder(clientDriveFolderId, 'Payments');
+    parentId = resolveOrCreateSubfolder_(clientDriveFolderId, 'Payments');
   } else {
-    parentId = resolveOrCreateSubfolder(CONFIG.FINANCIALS_DRIVE_DIR, 'Payments');
+    parentId = resolveOrCreateSubfolder_(CONFIG.FINANCIALS_DRIVE_DIR, 'Payments');
   }
   if (!parentId) return null;
-  return resolveOrCreateSubfolder(parentId, yr);
+  return resolveOrCreateSubfolder_(parentId, yr);
 }
 
 // ── File Upload ─────────────────────────────────────────────
@@ -136,7 +136,7 @@ function resolvePaymentFolder(clientDriveFolderId, year) {
  * @param {string} targetFolderId  Drive folder ID to save into
  * @returns {{ fileId: string, fileUrl: string, fileName: string }}
  */
-function uploadFileToDrive(base64Data, fileName, mimeType, targetFolderId) {
+function uploadFileToDrive_(base64Data, fileName, mimeType, targetFolderId) {
   var decoded = Utilities.base64Decode(base64Data);
   var blob = Utilities.newBlob(decoded, mimeType, fileName);
   var folder = DriveApp.getFolderById(targetFolderId);
@@ -169,7 +169,7 @@ function uploadFileToDrive(base64Data, fileName, mimeType, targetFolderId) {
  * @param {string} targetFolderId  Destination folder ID
  * @returns {{ success: boolean, newUrl: string }}
  */
-function moveDriveFile(fileId, targetFolderId) {
+function moveDriveFile_(fileId, targetFolderId) {
   try {
     var file = DriveApp.getFileById(fileId);
     var targetFolder = DriveApp.getFolderById(targetFolderId);
@@ -190,7 +190,7 @@ function moveDriveFile(fileId, targetFolderId) {
   }
 }
 
-function trashDriveFile(fileId) {
+function trashDriveFile_(fileId) {
   try {
     var file = DriveApp.getFileById(fileId);
     file.setTrashed(true);
@@ -209,7 +209,7 @@ function trashDriveFile(fileId) {
  * @param {string} url  Drive URL
  * @returns {string|null} file ID or null
  */
-function extractDriveFileId(url) {
+function extractDriveFileId_(url) {
   if (!url) return null;
   // Pattern: /file/d/{fileId}/
   var match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
@@ -223,7 +223,7 @@ function extractDriveFileId(url) {
   return null;
 }
 
-function getFileAsBase64(fileId) {
+function getFileAsBase64_(fileId) {
   var file = DriveApp.getFileById(fileId);
   var blob = file.getBlob();
   return {
@@ -247,7 +247,7 @@ function cleanupStagingFolder(maxAgeHours) {
   var errors = 0;
 
   try {
-    var stagingId = resolveSubfolder(CONFIG.FINANCIALS_DRIVE_DIR, '_Staging');
+    var stagingId = resolveSubfolder_(CONFIG.FINANCIALS_DRIVE_DIR, '_Staging');
     if (!stagingId) {
       Logger.log('cleanupStagingFolder: _Staging folder not found — nothing to clean.');
       return { deleted: 0, errors: 0 };

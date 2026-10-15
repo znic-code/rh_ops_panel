@@ -23,7 +23,7 @@ var _CACHE_CHUNK_SIZE = 90000;  // 90KB per chunk (margin below 100KB GAS limit)
 var _CACHE_KEYS = ['dashboard', 'financialReport', 'clients', 'projects', 'contractors'];
 
 /** Retrieve a cached value (handles both single-key and chunked payloads). */
-function _cacheGet(key) {
+function _cacheGet_(key) {
   try {
     var cache = CacheService.getScriptCache();
 
@@ -53,7 +53,7 @@ function _cacheGet(key) {
 }
 
 /** Store a value in cache, auto-chunking if it exceeds _CACHE_CHUNK_SIZE. */
-function _cacheSet(key, value, ttl) {
+function _cacheSet_(key, value, ttl) {
   try {
     var json = JSON.stringify(value);
     var cache = CacheService.getScriptCache();
@@ -76,7 +76,7 @@ function _cacheSet(key, value, ttl) {
     for (var c = 0; c < chunks.length; c++) {
       cache.put(key + '_' + c, chunks[c], effectiveTtl);
     }
-    // Remove the single-key entry so _cacheGet doesn't find stale data
+    // Remove the single-key entry so _cacheGet_ doesn't find stale data
     cache.remove(key);
 
     Logger.log('Cache chunked (' + key + '): ' + chunks.length + ' chunks, ' + json.length + ' bytes');
@@ -86,7 +86,7 @@ function _cacheSet(key, value, ttl) {
 }
 
 /** Remove cached values including any chunk keys. */
-function _cacheInvalidate(keys) {
+function _cacheInvalidate_(keys) {
   try {
     var cache = CacheService.getScriptCache();
     var allKeys = [];
@@ -114,12 +114,12 @@ function _cacheInvalidate(keys) {
  * Extract the 11 client billing fields used by every invoice and quote
  * payload builder. Eliminates copy-paste across panelQuickCreateInvoice,
  * panelReviseInvoice, panelConvertQuoteToInvoice, panelCreateQuote,
- * panelReviseQuote, and _handleGenerateInvoice.
+ * panelReviseQuote, and _handleGenerateInvoice_.
  *
- * @param {Object} client  A mapped client object from getClientById()
+ * @param {Object} client  A mapped client object from getClientById_()
  * @returns {Object}
  */
-function _clientBillingFields(client) {
+function _clientBillingFields_(client) {
   return {
     clientId:      client.id,
     clientName:    client.name,
@@ -167,14 +167,14 @@ function doGet(e) {
   if (page === 'api') {
     var secret = e.parameter.secret;
     if (secret !== CONFIG.API_SECRET) {
-      return _jsonResponse({ success: false, error: 'Invalid secret' });
+      return _jsonResponse_({ success: false, error: 'Invalid secret' });
     }
     var apiAction = e.parameter.action || '';
     switch (apiAction) {
       case 'getPickerData':
-        return _jsonResponse(_getShortcutPickerData());
+        return _jsonResponse_(_getShortcutPickerData_());
       default:
-        return _jsonResponse({ success: false, error: 'Unknown API action: ' + apiAction });
+        return _jsonResponse_({ success: false, error: 'Unknown API action: ' + apiAction });
     }
   }
 
@@ -205,60 +205,60 @@ function doPost(e) {
     const body = JSON.parse(e.postData.contents);
 
     if (body.secret !== CONFIG.API_SECRET) {
-      return _jsonResponse({ success: false, error: 'Invalid secret' });
+      return _jsonResponse_({ success: false, error: 'Invalid secret' });
     }
 
     const action = body.action || 'generateInvoice';
 
     switch (action) {
       case 'generateInvoice':
-        return _handleGenerateInvoice(body);
+        return _handleGenerateInvoice_(body);
       case 'createClient':
-        return _jsonResponse(createFullClient(body));
+        return _jsonResponse_(createFullClient_(body));
       case 'createProject':
-        return _jsonResponse(createProject(body));
+        return _jsonResponse_(createProject_(body));
       case 'generateAgreement':
-        return _jsonResponse(generateAgreement(body));
+        return _jsonResponse_(generateAgreement_(body));
       case 'logExpense':
-        return _jsonResponse(logExpense(body));
+        return _jsonResponse_(logExpense_(body));
       case 'logPayment':
-        return _jsonResponse(logPayment(body));
+        return _jsonResponse_(logPayment_(body));
       case 'sendEmail':
-        return _jsonResponse(createDocumentDraft(body));
+        return _jsonResponse_(createDocumentDraft_(body));
 
       // ── iOS Shortcut actions ─────────────────────────────
       case 'quickExpense':
-        return _jsonResponse(_handleQuickExpense(body));
+        return _jsonResponse_(_handleQuickExpense_(body));
       case 'quickPayment':
-        return _jsonResponse(_handleQuickPayment(body));
+        return _jsonResponse_(_handleQuickPayment_(body));
       case 'getPickerData':
-        return _jsonResponse(_getShortcutPickerData());
+        return _jsonResponse_(_getShortcutPickerData_());
       default:
-        return _jsonResponse({ success: false, error: 'Unknown action: ' + action });
+        return _jsonResponse_({ success: false, error: 'Unknown action: ' + action });
     }
   } catch (err) {
-    return _jsonResponse({ success: false, error: err.message });
+    return _jsonResponse_({ success: false, error: err.message });
   }
 }
 
 /** Handle the generateInvoice action (original doPost flow). */
-function _handleGenerateInvoice(body) {
+function _handleGenerateInvoice_(body) {
   if (!body.clientName || !body.lineItems || !body.lineItems.length) {
-    return _jsonResponse({ success: false, error: 'clientName and lineItems are required' });
+    return _jsonResponse_({ success: false, error: 'clientName and lineItems are required' });
   }
 
-  const client = lookupClientByName(body.clientName);
-  const project = body.projectName ? lookupProjectByName(body.projectName) : null;
+  const client = lookupClientByName_(body.clientName);
+  const project = body.projectName ? lookupProjectByName_(body.projectName) : null;
 
   const issueISO = body.issueDate || new Date().toISOString().split('T')[0];
-  const dueISO   = body.dueDate   || _addDays(issueISO, 14);
-  const issueDateForDoc = _formatDateForDoc(issueISO);
-  const dueDateForDoc   = _formatDateForDoc(dueISO);
+  const dueISO   = body.dueDate   || _addDays_(issueISO, 14);
+  const issueDateForDoc = _formatDateForDoc_(issueISO);
+  const dueDateForDoc   = _formatDateForDoc_(dueISO);
 
   const subtotal = body.lineItems.reduce(function(s, i) { return s + (i.qty || 1) * (i.price || 0); }, 0);
   const taxes    = parseFloat(body.tax || 0);
 
-  const data = Object.assign(_clientBillingFields(client || { id: '', name: body.clientName }), {
+  const data = Object.assign(_clientBillingFields_(client || { id: '', name: body.clientName }), {
     projectId:    project ? project.id : '',
     issueDate:    issueDateForDoc,
     dueDate:      dueDateForDoc,
@@ -275,9 +275,9 @@ function _handleGenerateInvoice(body) {
     logToNotion: body.logToNotion !== undefined ? body.logToNotion : true,
   });
 
-  const result = generateInvoice(data);
-  if (result.success) _cacheInvalidate(_CACHE_KEYS);
-  return _jsonResponse(result);
+  const result = generateInvoice_(data);
+  if (result.success) _cacheInvalidate_(_CACHE_KEYS);
+  return _jsonResponse_(result);
 }
 
 // ── iOS SHORTCUT HANDLERS ──────────────────────────────────
@@ -286,9 +286,9 @@ function _handleGenerateInvoice(body) {
  * Return picker data for iOS Shortcuts — client list and categories.
  * Called via GET ?page=api&action=getPickerData&secret=... or POST action=getPickerData.
  */
-function _getShortcutPickerData() {
+function _getShortcutPickerData_() {
   try {
-    var clients = getClients();
+    var clients = getClients_();
     var clientList = (clients && !clients.error)
       ? clients.map(function(c) { return { id: c.id, name: c.name }; })
       : [];
@@ -323,14 +323,14 @@ function _getShortcutPickerData() {
  * @param {string} [body.notes]     Additional notes
  * @returns {{ success, expense?, error? }}
  */
-function _handleQuickExpense(body) {
+function _handleQuickExpense_(body) {
   try {
     if (!body.image) {
       return { success: false, error: 'No image provided.' };
     }
 
     // 1. Upload to staging and extract (expense context)
-    var staged = processReceiptStaged(
+    var staged = processReceiptStaged_(
       body.image,
       body.fileName || 'receipt.jpg',
       body.mimeType || 'image/jpeg',
@@ -347,7 +347,7 @@ function _handleQuickExpense(body) {
 
     // Resolve client by name if clientId not provided
     if (!clientId && body.clientName) {
-      var client = lookupClientByName(body.clientName);
+      var client = lookupClientByName_(body.clientName);
       if (client) clientId = client.id;
     }
 
@@ -370,21 +370,21 @@ function _handleQuickExpense(body) {
     };
 
     // 3. Pre-generate ID and move file to correct folder with proper name
-    var preGeneratedId = _generateExpenseId(expenseData.expenseDate);
+    var preGeneratedId = _generateExpenseId_(expenseData.expenseDate);
     expenseData.expenseId = preGeneratedId;
 
     if (staged.fileId) {
-      var finalFile = _moveReceiptToFinalFolder(staged.fileId, clientId, 'Expenses', false, preGeneratedId);
+      var finalFile = _moveReceiptToFinalFolder_(staged.fileId, clientId, 'Expenses', false, preGeneratedId);
       expenseData.receiptUrl = finalFile.fileUrl;
     }
 
     // 4. Log to Notion
     Logger.log('quickExpense expenseData: status=' + expenseData.status + ', amount=' + expenseData.amount + ', extracted=' + JSON.stringify(extracted).substring(0, 200));
-    var result = logExpense(expenseData);
+    var result = logExpense_(expenseData);
     Logger.log('quickExpense logExpense result: ' + JSON.stringify(result).substring(0, 300));
 
     if (result.success) {
-      _cacheInvalidate(_CACHE_KEYS);
+      _cacheInvalidate_(_CACHE_KEYS);
       return {
         success: true,
         expense: result.expense,
@@ -417,14 +417,14 @@ function _handleQuickExpense(body) {
  * @param {string} [body.notes]      Additional notes
  * @returns {{ success, payment?, error? }}
  */
-function _handleQuickPayment(body) {
+function _handleQuickPayment_(body) {
   try {
     var extracted = {};
     var stagedFileId = null;
 
     // 1. If image provided, upload and extract (payment context)
     if (body.image) {
-      var staged = processReceiptStaged(
+      var staged = processReceiptStaged_(
         body.image,
         body.fileName || 'payment.jpg',
         body.mimeType || 'image/jpeg',
@@ -442,7 +442,7 @@ function _handleQuickPayment(body) {
 
     // Resolve client by name if clientId not provided
     if (!clientId && body.clientName) {
-      var client = lookupClientByName(body.clientName);
+      var client = lookupClientByName_(body.clientName);
       if (client) clientId = client.id;
     }
 
@@ -468,21 +468,21 @@ function _handleQuickPayment(body) {
     };
 
     // 3. Pre-generate ID and move file to correct folder with proper name
-    var preGeneratedId = _generatePaymentId(paymentData.paymentDate);
+    var preGeneratedId = _generatePaymentId_(paymentData.paymentDate);
     paymentData.paymentId = preGeneratedId;
 
     if (stagedFileId) {
-      var finalFile = _moveReceiptToFinalFolder(stagedFileId, clientId, 'Payments', false, preGeneratedId);
+      var finalFile = _moveReceiptToFinalFolder_(stagedFileId, clientId, 'Payments', false, preGeneratedId);
       paymentData.receiptUrl = finalFile.fileUrl;
     }
 
     // 4. Log to Notion
     Logger.log('quickPayment paymentData: status=' + paymentData.status + ', amount=' + paymentData.amount);
-    var result = logPayment(paymentData);
+    var result = logPayment_(paymentData);
     Logger.log('quickPayment logPayment result: ' + JSON.stringify(result).substring(0, 300));
 
     if (result.success) {
-      _cacheInvalidate(_CACHE_KEYS);
+      _cacheInvalidate_(_CACHE_KEYS);
       return {
         success: true,
         payment: result.payment,
@@ -503,7 +503,7 @@ function _handleQuickPayment(body) {
 /** Return a JSON ContentService response.
  *  Note: Apps Script ContentService always returns HTTP 200;
  *  errors are conveyed via { success: false, error: "..." } in the body. */
-function _jsonResponse(obj) {
+function _jsonResponse_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
@@ -511,7 +511,7 @@ function _jsonResponse(obj) {
 // ── DRAFT EMAIL (backward-compatible for sidebar/webapp) ─────
 
 function createInvoiceDraft(params) {
-  return createDocumentDraft({
+  return createDocumentDraft_({
     fileId:       params.fileId,
     clientEmail:  params.clientEmail,
     clientName:   params.clientName,
@@ -527,16 +527,16 @@ function createInvoiceDraft(params) {
 
 /** Get all active clients for the list view. */
 function panelGetClients() {
-  var cached = _cacheGet('clients');
+  var cached = _cacheGet_('clients');
   if (cached) return cached;
-  var data = getClients();
-  if (!data.error) _cacheSet('clients', data);
+  var data = getClients_();
+  if (!data.error) _cacheSet_('clients', data);
   return data;
 }
 
 /** Get full client details + contacts + projects for client view. */
 function panelGetClientDetails(clientId) {
-  var data = _batchGetClientDetails(clientId);
+  var data = _batchGetClientDetails_(clientId);
   if (!data.client) return { error: 'Client not found' };
 
   var totalRevenue = 0, outstanding = 0;
@@ -550,28 +550,28 @@ function panelGetClientDetails(clientId) {
 
 /** Get project details + invoices + agreements for project dashboard. */
 function panelGetProjectDetails(projectId) {
-  var data = _batchGetProjectDetails(projectId);
+  var data = _batchGetProjectDetails_(projectId);
   if (!data.project) return { error: 'Project not found' };
   return { project: data.project, invoices: data.invoices, agreements: data.agreements, clientName: data.clientName, client: data.client };
 }
 
 /** Create a new client (full flow). */
 function panelCreateClient(data) {
-  _requireRole(['admin', 'partner']);
-  var result = createFullClient(data);
-  if (result.success) _cacheInvalidate(_CACHE_KEYS);
+  _requireRole_(['admin', 'partner']);
+  var result = createFullClient_(data);
+  if (result.success) _cacheInvalidate_(_CACHE_KEYS);
   return result;
 }
 
 /** Add a contact to a client. */
 function panelAddContact(data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
     if (data.clientId) {
-      var client = getClientById(data.clientId);
+      var client = getClientById_(data.clientId);
       if (!client) return { success: false, error: 'Client not found.' };
     }
-    var page = createNotionContact(data);
+    var page = createNotionContact_(data);
     return { success: true, contact: { id: page.id, name: data.name, notionUrl: page.url || '' } };
   } catch (e) {
     return { success: false, error: e.message };
@@ -581,7 +581,7 @@ function panelAddContact(data) {
 /** Get a single contact by ID (for edit form). */
 function panelGetContactById(contactId) {
   try {
-    return getContactById(contactId);
+    return getContactById_(contactId);
   } catch (e) {
     Logger.log('panelGetContactById error: ' + e.message);
     return null;
@@ -590,12 +590,12 @@ function panelGetContactById(contactId) {
 
 /** Update contact info fields. */
 function panelUpdateContactInfo(contactId, data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
     if (data.name !== undefined && !data.name.trim()) {
       return { success: false, error: 'Contact name cannot be empty.' };
     }
-    updateContactInfo(contactId, data);
+    updateContactInfo_(contactId, data);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -604,12 +604,12 @@ function panelUpdateContactInfo(contactId, data) {
 
 /** Set a contact as the primary contact for a client. */
 function panelSetPrimaryContact(clientId, contactId) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
-    _notionUpdatePage(clientId, {
+    _notionUpdatePage_(clientId, {
       'Primary Contact': { relation: [{ id: contactId }] }
     });
-    _cacheInvalidate(_CACHE_KEYS);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -618,10 +618,10 @@ function panelSetPrimaryContact(clientId, contactId) {
 
 /** Archive (soft-delete) a contact. */
 function panelArchiveContact(contactId) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
-    archiveNotionPage(contactId);
-    _cacheInvalidate(_CACHE_KEYS);
+    archiveNotionPage_(contactId);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -630,25 +630,25 @@ function panelArchiveContact(contactId) {
 
 /** Create a new project. */
 function panelCreateProject(data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   if (data.clientId) {
-    var client = getClientById(data.clientId);
+    var client = getClientById_(data.clientId);
     if (!client) return { success: false, error: 'Client not found.' };
   }
-  var result = createProject(data);
-  if (result.success) _cacheInvalidate(_CACHE_KEYS);
+  var result = createProject_(data);
+  if (result.success) _cacheInvalidate_(_CACHE_KEYS);
   return result;
 }
 
 /**
  * Generate a new contract document from a template.
  * Copies the template, fills placeholders, creates a Notion entry.
- * See AgreementService.js → generateAgreement() for full data shape.
+ * See AgreementService.js → generateAgreement_() for full data shape.
  */
 function panelGenerateAgreement(data) {
-  _requireRole(['admin', 'partner']);
-  var result = generateAgreement(data);
-  if (result.success) _cacheInvalidate(_CACHE_KEYS);
+  _requireRole_(['admin', 'partner']);
+  var result = generateAgreement_(data);
+  if (result.success) _cacheInvalidate_(_CACHE_KEYS);
   return result;
 }
 
@@ -663,8 +663,8 @@ function panelGenerateAgreement(data) {
  * @returns {{ success, fileId?, fileUrl?, fileName?, extracted?, extractionError?, error? }}
  */
 function panelUploadAgreement(params) {
-  _requireRole(['admin', 'partner']);
-  return processAgreementStaged(params.base64, params.fileName, params.mimeType);
+  _requireRole_(['admin', 'partner']);
+  return processAgreementStaged_(params.base64, params.fileName, params.mimeType);
 }
 
 /**
@@ -686,7 +686,7 @@ function panelUploadAgreement(params) {
  * @returns {{ success, contractId?, notionId?, driveUrl?, notionUrl?, error? }}
  */
 function panelSaveUploadedAgreement(data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
     if (!data.fileId)                  return { success: false, error: 'No file uploaded.' };
     if (!data.clientId)                return { success: false, error: 'Client is required.' };
@@ -695,16 +695,16 @@ function panelSaveUploadedAgreement(data) {
 
     // Use supplied agreement ID, or generate a new sequential one
     var idType     = data.contractType === 'MSA' ? 'MSA' : 'SOW';
-    var contractId = (data.agreementId || '').trim() || getNextAgreementId(idType);
+    var contractId = (data.agreementId || '').trim() || getNextAgreementId_(idType);
 
     // Resolve client Drive folder for file placement
-    var client = getClientById(data.clientId);
+    var client = getClientById_(data.clientId);
     if (!client || client.error) return { success: false, error: 'Client not found.' };
 
     // Move staged file → Contracts/{year}/ and rename
     var finalFile;
     try {
-      finalFile = _moveAgreementToFinalFolder(
+      finalFile = _moveAgreementToFinalFolder_(
         data.fileId,
         client.driveFolderId || null,
         contractId,
@@ -718,7 +718,7 @@ function panelSaveUploadedAgreement(data) {
 
     // Create Notion record
     var notionTitle = contractId + ' — ' + data.title.trim();
-    var notionPage  = createNotionAgreement({
+    var notionPage  = createNotionAgreement_({
       title:         notionTitle,
       docType:       data.contractType,
       status:        data.status || 'Draft',
@@ -732,7 +732,7 @@ function panelSaveUploadedAgreement(data) {
       language:      data.language      || 'English',
     });
 
-    _cacheInvalidate(_CACHE_KEYS);
+    _cacheInvalidate_(_CACHE_KEYS);
 
     return {
       success:    true,
@@ -752,9 +752,9 @@ function panelSaveUploadedAgreement(data) {
  * Used to populate the "Parent MSA" dropdown in the Generate Agreement form.
  */
 function panelGetClientMSAs(clientId) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
-    var msas = getAgreementsByClient(clientId, 'MSA');
+    var msas = getAgreementsByClient_(clientId, 'MSA');
     if (msas.error) return [];
     return msas;
   } catch (e) {
@@ -768,13 +768,13 @@ function panelGetClientMSAs(clientId) {
  * Used to power the top-level Agreements list page.
  */
 function panelGetAllAgreements() {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
-    var agreements = getAllAgreements();
+    var agreements = getAllAgreements_();
     if (agreements.error) return agreements;
 
     var clientMap = {};
-    var clients = getClients();
+    var clients = getClients_();
     if (!clients.error) {
       clients.forEach(function(c) { clientMap[c.id] = c.name; });
     }
@@ -798,27 +798,27 @@ function panelGetAllAgreements() {
  * @param {Object} data         { fileId, signedDate }
  */
 function panelLogSignedCopy(agreementId, data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   if (!data.fileId)     return { success: false, error: 'No file selected.' };
   if (!data.signedDate) return { success: false, error: 'Signed date is required.' };
 
   try {
     // Fetch agreement to get clientId
-    var raw = _notionGet('pages/' + agreementId);
+    var raw = _notionGet_('pages/' + agreementId);
     if (!raw || raw.error) return { success: false, error: 'Agreement not found.' };
-    var ag = _mapAgreementProperties(raw);
+    var ag = _mapAgreementProperties_(raw);
 
     // Fetch client to get their Drive folder
     var newFileUrl = 'https://drive.google.com/file/d/' + data.fileId + '/view';
     if (ag.clientId) {
-      var client = getClientById(ag.clientId);
+      var client = getClientById_(ag.clientId);
       if (client && !client.error && client.driveFolderId) {
         var year = data.signedDate.substring(0, 4);
-        var contractFolderId = resolveContractFolder(client.driveFolderId, year);
+        var contractFolderId = resolveContractFolder_(client.driveFolderId, year);
         if (contractFolderId) {
-          var signedFolderId = resolveSignedFolder(contractFolderId);
+          var signedFolderId = resolveSignedFolder_(contractFolderId);
           if (signedFolderId) {
-            var moveResult = moveDriveFile(data.fileId, signedFolderId);
+            var moveResult = moveDriveFile_(data.fileId, signedFolderId);
             if (moveResult.success) newFileUrl = moveResult.newUrl;
           }
         }
@@ -826,8 +826,8 @@ function panelLogSignedCopy(agreementId, data) {
     }
 
     // Update Notion
-    logSignedCopyToAgreement(agreementId, data.signedDate, newFileUrl);
-    _cacheInvalidate(_CACHE_KEYS);
+    logSignedCopyToAgreement_(agreementId, data.signedDate, newFileUrl);
+    _cacheInvalidate_(_CACHE_KEYS);
 
     return { success: true, newUrl: newFileUrl };
   } catch (e) {
@@ -837,14 +837,14 @@ function panelLogSignedCopy(agreementId, data) {
 
 /** Get all expenses for the expenses list view. */
 function panelGetAllExpenses() {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
-    var expenses = getAllExpenses();
+    var expenses = getAllExpenses_();
     if (expenses.error) return expenses;
 
     // Resolve client names for filtering
     var clientMap = {};
-    var clients = getClients();
+    var clients = getClients_();
     if (!clients.error) {
       clients.forEach(function(c) { clientMap[c.id] = c.name; });
     }
@@ -860,16 +860,16 @@ function panelGetAllExpenses() {
 
 /** Log an expense. */
 function panelLogExpense(data) {
-  _requireRole(['admin', 'partner']);
-  var result = logExpense(data);
-  if (result.success) _cacheInvalidate(_CACHE_KEYS);
+  _requireRole_(['admin', 'partner']);
+  var result = logExpense_(data);
+  if (result.success) _cacheInvalidate_(_CACHE_KEYS);
   return result;
 }
 
 /** Get a single expense by Notion page ID. */
 function panelGetExpenseById(expensePageId) {
   try {
-    var expense = getExpenseById(expensePageId);
+    var expense = getExpenseById_(expensePageId);
     if (!expense) return { success: false, error: 'Expense not found.' };
     return { success: true, expense: expense };
   } catch (e) {
@@ -879,17 +879,17 @@ function panelGetExpenseById(expensePageId) {
 
 /** Update an existing expense. */
 function panelUpdateExpense(expensePageId, data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   if (!data.description || !data.description.trim()) return { success: false, error: 'Description is required.' };
   if (!data.amount || parseFloat(data.amount) <= 0)  return { success: false, error: 'Amount must be greater than zero.' };
   if (!data.expenseDate) return { success: false, error: 'Date is required.' };
   try {
-    var existing = getExpenseById(expensePageId);
+    var existing = getExpenseById_(expensePageId);
 
     // If a new staged receipt was uploaded, move it to the final folder
     if (data.receiptFileId) {
       var expId = existing ? existing.expenseId : null;
-      var finalFile = _moveReceiptToFinalFolder(
+      var finalFile = _moveReceiptToFinalFolder_(
         data.receiptFileId,
         data.clientId || '',
         'Expenses',
@@ -901,17 +901,17 @@ function panelUpdateExpense(expensePageId, data) {
       // Check if client changed — if so, move the existing receipt file
       var clientChanged = existing && (existing.clientId || '') !== (data.clientId || '');
       if (clientChanged && existing.receiptUrl) {
-        var fileId = extractDriveFileId(existing.receiptUrl);
+        var fileId = extractDriveFileId_(existing.receiptUrl);
         if (fileId) {
           var newClientDriveFolderId = null;
           if (data.clientId) {
-            var client = getClientById(data.clientId);
+            var client = getClientById_(data.clientId);
             if (client) newClientDriveFolderId = client.driveFolderId;
           }
           var year = existing.expenseDate ? existing.expenseDate.substring(0, 4) : new Date().getFullYear().toString();
-          var targetFolder = resolveExpenseFolder(newClientDriveFolderId, year);
+          var targetFolder = resolveExpenseFolder_(newClientDriveFolderId, year);
           if (targetFolder) {
-            var moveResult = moveDriveFile(fileId, targetFolder);
+            var moveResult = moveDriveFile_(fileId, targetFolder);
             if (moveResult.success && moveResult.newUrl) {
               data.receiptUrl = moveResult.newUrl;
             }
@@ -920,8 +920,8 @@ function panelUpdateExpense(expensePageId, data) {
       }
     }
 
-    updateExpenseInfo(expensePageId, data);
-    _cacheInvalidate(_CACHE_KEYS);
+    updateExpenseInfo_(expensePageId, data);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -933,22 +933,22 @@ function panelUpdateExpense(expensePageId, data) {
  * Also trashes the associated receipt file in Drive if one exists.
  */
 function panelArchiveExpense(expensePageId) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
     // Fetch the expense first to get the receipt URL
-    var expense = getExpenseById(expensePageId);
+    var expense = getExpenseById_(expensePageId);
     var receiptTrashed = false;
 
     if (expense && expense.receiptUrl) {
-      var fileId = extractDriveFileId(expense.receiptUrl);
+      var fileId = extractDriveFileId_(expense.receiptUrl);
       if (fileId) {
-        receiptTrashed = trashDriveFile(fileId);
+        receiptTrashed = trashDriveFile_(fileId);
         Logger.log('panelArchiveExpense: receipt file ' + fileId + ' trashed: ' + receiptTrashed);
       }
     }
 
-    archiveNotionPage(expensePageId);
-    _cacheInvalidate(_CACHE_KEYS);
+    archiveNotionPage_(expensePageId);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true, receiptTrashed: receiptTrashed };
   } catch (e) {
     return { success: false, error: e.message };
@@ -970,11 +970,11 @@ function panelArchiveExpense(expensePageId) {
  * Upload receipt to a temporary staging folder and run AI extraction.
  * The file is NOT placed in its final folder yet — that happens at submit
  * time via panelLogExpenseFromReceipt / panelLogPaymentFromReceipt, which
- * call _moveReceiptToFinalFolder() to place it correctly.
+ * call _moveReceiptToFinalFolder_() to place it correctly.
  */
 function panelUploadAndExtractReceipt(data) {
   try {
-    return processReceiptStaged(data.base64, data.fileName, data.mimeType);
+    return processReceiptStaged_(data.base64, data.fileName, data.mimeType);
   } catch (e) {
     return { success: false, error: e.message };
   }
@@ -990,7 +990,7 @@ function panelUploadAndExtractReceipt(data) {
  */
 function panelReExtractReceipt(fileId, context) {
   try {
-    return extractReceiptData(fileId, context || 'expense');
+    return extractReceiptData_(fileId, context || 'expense');
   } catch (e) {
     return { success: false, error: e.message };
   }
@@ -1005,15 +1005,15 @@ function panelReExtractReceipt(fileId, context) {
  * Moves/copies the receipt file to the correct folder based on the final client selection.
  */
 function panelLogExpenseFromReceipt(data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
     // Pre-generate ID so the file can be renamed to match
-    var expenseId = _generateExpenseId(data.expenseDate);
+    var expenseId = _generateExpenseId_(data.expenseDate);
     data.expenseId = expenseId;
 
     // Move/copy receipt to final folder if we have a file
     if (data.receiptFileId) {
-      var finalFile = _moveReceiptToFinalFolder(
+      var finalFile = _moveReceiptToFinalFolder_(
         data.receiptFileId,
         data.clientId || '',
         'Expenses',
@@ -1023,8 +1023,8 @@ function panelLogExpenseFromReceipt(data) {
       data.receiptUrl = finalFile.fileUrl;
     }
 
-    var result = logExpense(data);
-    if (result.success) _cacheInvalidate(_CACHE_KEYS);
+    var result = logExpense_(data);
+    if (result.success) _cacheInvalidate_(_CACHE_KEYS);
     return result;
   } catch (e) {
     return { success: false, error: e.message };
@@ -1033,13 +1033,13 @@ function panelLogExpenseFromReceipt(data) {
 
 /** Log a payment. */
 function panelLogPayment(data) {
-  _requireRole(['admin', 'partner']);
-  var result = logPayment(data);
+  _requireRole_(['admin', 'partner']);
+  var result = logPayment_(data);
   if (result.success) {
-    _cacheInvalidate(_CACHE_KEYS);
+    _cacheInvalidate_(_CACHE_KEYS);
     if (data.closeProject && data.projectId) {
       try {
-        setProjectStatus(data.projectId, 'Closed');
+        setProjectStatus_(data.projectId, 'Closed');
         result.projectClosed = true;
       } catch (e) {
         result.projectCloseError = e.message;
@@ -1051,21 +1051,21 @@ function panelLogPayment(data) {
 
 /** Get all payments for the standalone list view. */
 function panelGetAllPayments() {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
-    var payments = getAllPayments();
+    var payments = getAllPayments_();
     if (payments.error) return payments;
 
     // Resolve client names for filtering
     var clientMap = {};
-    var clients = getClients();
+    var clients = getClients_();
     if (!clients.error) {
       clients.forEach(function(c) { clientMap[c.id] = c.name; });
     }
 
     // Resolve invoice numbers for display
     var invoiceMap = {};
-    var invoices = getAllInvoices();
+    var invoices = getAllInvoices_();
     if (!invoices.error) {
       invoices.forEach(function(inv) { invoiceMap[inv.id] = inv.invoiceId; });
     }
@@ -1084,7 +1084,7 @@ function panelGetAllPayments() {
 /** Get a single payment by Notion page ID. */
 function panelGetPaymentById(paymentPageId) {
   try {
-    var payment = getPaymentById(paymentPageId);
+    var payment = getPaymentById_(paymentPageId);
     if (!payment) return { success: false, error: 'Payment not found.' };
     return { success: true, payment: payment };
   } catch (e) {
@@ -1094,31 +1094,31 @@ function panelGetPaymentById(paymentPageId) {
 
 /** Update an existing payment. */
 function panelUpdatePayment(paymentPageId, data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   if (!data.amount || parseFloat(data.amount) <= 0) return { success: false, error: 'Amount must be greater than zero.' };
   if (!data.paymentDate) return { success: false, error: 'Date is required.' };
   try {
-    var existing = getPaymentById(paymentPageId);
+    var existing = getPaymentById_(paymentPageId);
 
     // New receipt file staged — move to final folder
     if (data.receiptFileId) {
       var payId = existing ? existing.paymentId : null;
       var clientId = data.clientId || (existing ? existing.clientId : '');
-      var finalFile = _moveReceiptToFinalFolder(data.receiptFileId, clientId, 'Payments', !!data.pickerSource, payId);
+      var finalFile = _moveReceiptToFinalFolder_(data.receiptFileId, clientId, 'Payments', !!data.pickerSource, payId);
       data.receiptUrl = finalFile.fileUrl;
     } else if (existing && (existing.clientId || '') !== (data.clientId || '') && existing.receiptUrl) {
       // Client changed — move existing receipt to new client folder
-      var fileId = extractDriveFileId(existing.receiptUrl);
+      var fileId = extractDriveFileId_(existing.receiptUrl);
       if (fileId) {
         var newClientDriveFolderId = null;
         if (data.clientId) {
-          var movedClient = getClientById(data.clientId);
+          var movedClient = getClientById_(data.clientId);
           if (movedClient) newClientDriveFolderId = movedClient.driveFolderId;
         }
         var year = existing.paymentDate ? existing.paymentDate.substring(0, 4) : new Date().getFullYear().toString();
-        var targetFolder = resolvePaymentFolder(newClientDriveFolderId, year);
+        var targetFolder = resolvePaymentFolder_(newClientDriveFolderId, year);
         if (targetFolder) {
-          var moveResult = moveDriveFile(fileId, targetFolder);
+          var moveResult = moveDriveFile_(fileId, targetFolder);
           if (moveResult.success && moveResult.newUrl) {
             data.receiptUrl = moveResult.newUrl;
           }
@@ -1126,8 +1126,8 @@ function panelUpdatePayment(paymentPageId, data) {
       }
     }
 
-    updatePaymentInfo(paymentPageId, data);
-    _cacheInvalidate(_CACHE_KEYS);
+    updatePaymentInfo_(paymentPageId, data);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -1139,21 +1139,21 @@ function panelUpdatePayment(paymentPageId, data) {
  * Also trashes the associated receipt file in Drive if one exists.
  */
 function panelArchivePayment(paymentPageId) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
-    var payment = getPaymentById(paymentPageId);
+    var payment = getPaymentById_(paymentPageId);
     var receiptTrashed = false;
 
     if (payment && payment.receiptUrl) {
-      var fileId = extractDriveFileId(payment.receiptUrl);
+      var fileId = extractDriveFileId_(payment.receiptUrl);
       if (fileId) {
-        receiptTrashed = trashDriveFile(fileId);
+        receiptTrashed = trashDriveFile_(fileId);
         Logger.log('panelArchivePayment: receipt file ' + fileId + ' trashed: ' + receiptTrashed);
       }
     }
 
-    archiveNotionPage(paymentPageId);
-    _cacheInvalidate(_CACHE_KEYS);
+    archiveNotionPage_(paymentPageId);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true, receiptTrashed: receiptTrashed };
   } catch (e) {
     return { success: false, error: e.message };
@@ -1170,7 +1170,7 @@ function panelArchivePayment(paymentPageId) {
  */
 function panelUploadAndExtractPaymentReceipt(data) {
   try {
-    return processReceiptStaged(data.base64, data.fileName, data.mimeType);
+    return processReceiptStaged_(data.base64, data.fileName, data.mimeType);
   } catch (e) {
     return { success: false, error: e.message };
   }
@@ -1188,7 +1188,7 @@ function panelUploadAndExtractPaymentReceipt(data) {
 function panelPickerExtractPaymentReceipt(data) {
   try {
     var originalFile = DriveApp.getFileById(data.fileId);
-    var extraction = extractReceiptData(data.fileId, 'payment');
+    var extraction = extractReceiptData_(data.fileId, 'payment');
 
     return {
       success:         true,
@@ -1210,15 +1210,15 @@ function panelPickerExtractPaymentReceipt(data) {
  * Moves/copies the receipt file to the correct folder based on the final client selection.
  */
 function panelLogPaymentFromReceipt(data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
     // Pre-generate ID so the file can be renamed to match
-    var paymentId = _generatePaymentId(data.paymentDate);
+    var paymentId = _generatePaymentId_(data.paymentDate);
     data.paymentId = paymentId;
 
     // Move/copy receipt to final folder if we have a file
     if (data.receiptFileId) {
-      var finalFile = _moveReceiptToFinalFolder(
+      var finalFile = _moveReceiptToFinalFolder_(
         data.receiptFileId,
         data.clientId || '',
         'Payments',
@@ -1228,12 +1228,12 @@ function panelLogPaymentFromReceipt(data) {
       data.receiptUrl = finalFile.fileUrl;
     }
 
-    var result = logPayment(data);
+    var result = logPayment_(data);
     if (result.success) {
-      _cacheInvalidate(_CACHE_KEYS);
+      _cacheInvalidate_(_CACHE_KEYS);
       if (data.closeProject && data.projectId) {
         try {
-          setProjectStatus(data.projectId, 'Closed');
+          setProjectStatus_(data.projectId, 'Closed');
           result.projectClosed = true;
         } catch (e) {
           result.projectCloseError = e.message;
@@ -1282,7 +1282,7 @@ function panelGetPickerConfig() {
 function panelPickerExtractReceipt(data) {
   try {
     var originalFile = DriveApp.getFileById(data.fileId);
-    var extraction = extractReceiptData(data.fileId, 'expense');
+    var extraction = extractReceiptData_(data.fileId, 'expense');
 
     return {
       success:         true,
@@ -1301,12 +1301,12 @@ function panelPickerExtractReceipt(data) {
 
 /** Create an email draft for a document (legacy). */
 function panelCreateDraft(params) {
-  return createDocumentDraft(params);
+  return createDocumentDraft_(params);
 }
 
 /** Create an email draft from pre-composed content (used by compose view). */
 function panelCreateComposedDraft(params) {
-  return createEmailDraft({
+  return createEmailDraft_({
     to: params.to,
     subject: params.subject,
     body: params.body,
@@ -1316,7 +1316,7 @@ function panelCreateComposedDraft(params) {
 
 /** Get primary contact email for a client. */
 function panelGetPrimaryContact(clientId) {
-  return getPrimaryContact(clientId);
+  return getPrimaryContact_(clientId);
 }
 
 // ── COMPOSE & SEND EMAIL ────────────────────────────────────
@@ -1327,7 +1327,7 @@ function panelGetPrimaryContact(clientId) {
  */
 function panelGetComposeData(params) {
   try {
-    var contact = getPrimaryContact(params.clientId);
+    var contact = getPrimaryContact_(params.clientId);
     if (!contact || !contact.email) {
       return { error: 'No primary contact email found. Add a contact with an email first.' };
     }
@@ -1335,20 +1335,20 @@ function panelGetComposeData(params) {
     // Fetch client record for extra variables
     var client = null;
     if (params.clientId) {
-      try { client = getClientById(params.clientId); } catch (_) {}
+      try { client = getClientById_(params.clientId); } catch (_) {}
     }
 
     // Fetch project name if available
     var projectName = '';
     if (params.projectId) {
       try {
-        var project = _notionGet('pages/' + params.projectId);
+        var project = _notionGet_('pages/' + params.projectId);
         projectName = project.properties['Name']?.title[0]?.plain_text || '';
       } catch (_) {}
     }
 
     var templateType = params.documentType === 'Invoice' ? 'invoice' : 'agreement';
-    var templates = getEmailTemplates(templateType);
+    var templates = getEmailTemplates_(templateType);
 
     // Find requested template or use first available
     var template = templates[0];
@@ -1376,7 +1376,7 @@ function panelGetComposeData(params) {
 
     var totalNum = params.total ? parseFloat(params.total).toFixed(2) : '';
 
-    var variables = buildTemplateVariables({
+    var variables = buildTemplateVariables_({
       clientName:    client ? client.name : contact.name,
       clientEmail:   contact.email,
       clientPhone:   client ? client.phone : '',
@@ -1393,8 +1393,8 @@ function panelGetComposeData(params) {
       driveLink:     params.driveLink || '',
     });
 
-    var subject = resolveTemplateVariables(template.subject, variables);
-    var body = resolveTemplateVariables(template.body, variables);
+    var subject = resolveTemplateVariables_(template.subject, variables);
+    var body = resolveTemplateVariables_(template.body, variables);
 
     return {
       contact: { name: contact.name, email: contact.email },
@@ -1413,17 +1413,17 @@ function panelGetComposeData(params) {
 
 /** Resolve a specific template with variables (for template switch in compose view). */
 function panelResolveTemplate(templateId, variables) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
-    var templates = getEmailTemplates();
+    var templates = getEmailTemplates_();
     var template = null;
     for (var i = 0; i < templates.length; i++) {
       if (templates[i].id === templateId) { template = templates[i]; break; }
     }
     if (!template) return { error: 'Template not found.' };
     return {
-      subject: resolveTemplateVariables(template.subject, variables),
-      body: resolveTemplateVariables(template.body, variables),
+      subject: resolveTemplateVariables_(template.subject, variables),
+      body: resolveTemplateVariables_(template.body, variables),
     };
   } catch (e) {
     return { error: e.message };
@@ -1435,9 +1435,9 @@ function panelResolveTemplate(templateId, variables) {
  * If email fails, status is NOT updated. If status update fails, a warning is returned.
  */
 function panelSendDocumentEmail(params) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   // Step 1: Send the email
-  var emailResult = sendEmail({
+  var emailResult = sendEmail_({
     to: params.to,
     subject: params.subject,
     body: params.body,
@@ -1452,11 +1452,11 @@ function panelSendDocumentEmail(params) {
   var statusError = null;
   try {
     if (params.entityType === 'invoice') {
-      updateInvoiceStatus(params.entityId, 'Sent', null);
+      updateInvoiceStatus_(params.entityId, 'Sent', null);
     } else if (params.entityType === 'agreement') {
-      updateAgreementStatus(params.entityId, 'Sent');
+      updateAgreementStatus_(params.entityId, 'Sent');
     }
-    _cacheInvalidate(_CACHE_KEYS);
+    _cacheInvalidate_(_CACHE_KEYS);
   } catch (e) {
     statusError = e.message;
   }
@@ -1470,12 +1470,12 @@ function panelSendDocumentEmail(params) {
 
 /** Get all email templates (defaults + custom). */
 function panelGetEmailTemplates() {
-  return getEmailTemplates();
+  return getEmailTemplates_();
 }
 
 /** Save a custom email template (create new or update existing). */
 function panelSaveEmailTemplate(template) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
     if (!template.name || !template.name.trim()) return { success: false, error: 'Template name is required.' };
     if (!template.type) return { success: false, error: 'Template type is required.' };
@@ -1534,7 +1534,7 @@ function panelSaveEmailTemplate(template) {
 
 /** Delete a custom email template. */
 function panelDeleteEmailTemplate(templateId) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
     var raw = PropertiesService.getScriptProperties().getProperty('email_templates');
     var customs = raw ? JSON.parse(raw) : [];
@@ -1551,7 +1551,7 @@ function panelDeleteEmailTemplate(templateId) {
 
 /** Reset a customized default template back to its original. */
 function panelResetEmailTemplate(templateId) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
     // Only allow resetting default templates
     if (templateId.indexOf('default_') !== 0) {
@@ -1572,22 +1572,22 @@ function panelResetEmailTemplate(templateId) {
 
 /** Update project status. */
 function panelUpdateProjectStatus(projectId, status) {
-  _requireRole(['admin', 'partner']);
-  var result = setProjectStatus(projectId, status);
-  if (result.success) _cacheInvalidate(_CACHE_KEYS);
+  _requireRole_(['admin', 'partner']);
+  var result = setProjectStatus_(projectId, status);
+  if (result.success) _cacheInvalidate_(_CACHE_KEYS);
   return result;
 }
 
 /** Update invoice status. */
 function panelUpdateInvoiceStatus(invoiceId, status) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
     var validStatuses = ['Draft', 'Sent', 'Paid', 'Overdue', 'Void'];
     if (validStatuses.indexOf(status) === -1) {
       return { success: false, error: 'Invalid status. Must be one of: ' + validStatuses.join(', ') };
     }
-    updateInvoiceStatus(invoiceId, status, status === 'Paid' ? new Date().toISOString().split('T')[0] : null);
-    _cacheInvalidate(_CACHE_KEYS);
+    updateInvoiceStatus_(invoiceId, status, status === 'Paid' ? new Date().toISOString().split('T')[0] : null);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -1596,14 +1596,14 @@ function panelUpdateInvoiceStatus(invoiceId, status) {
 
 /** Update agreement status. */
 function panelUpdateAgreementStatus(agreementId, status) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
     var validStatuses = ['Draft', 'Sent', 'Signed', 'Void'];
     if (validStatuses.indexOf(status) === -1) {
       return { success: false, error: 'Invalid status. Must be one of: ' + validStatuses.join(', ') };
     }
-    updateAgreementStatus(agreementId, status);
-    _cacheInvalidate(_CACHE_KEYS);
+    updateAgreementStatus_(agreementId, status);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -1618,7 +1618,7 @@ function panelUpdateAgreementStatus(agreementId, status) {
  * Extracted from panelGetDashboardData so the logic can be tested and reused
  * without going through the panel RPC layer.
  */
-function _computeDashboardResult(clients, projects, yearInvoices, outstandingInvoices, expenses, todayISO) {
+function _computeDashboardResult_(clients, projects, yearInvoices, outstandingInvoices, expenses, todayISO) {
   // Merge and dedup: year invoices + outstanding (some may overlap)
   var seen = {};
   var invoices = [];
@@ -1678,7 +1678,7 @@ function _computeDashboardResult(clients, projects, yearInvoices, outstandingInv
 }
 
 function panelGetDashboardData() {
-  var cached = _cacheGet('dashboard');
+  var cached = _cacheGet_('dashboard');
   if (cached) return cached;
 
   // Dual-fetch strategy:
@@ -1688,11 +1688,11 @@ function panelGetDashboardData() {
   var yearStart = now.getFullYear() + '-01-01';
   var todayISO  = now.toISOString().split('T')[0];
 
-  var clients             = getClients();
-  var projects            = getProjects();
-  var yearInvoices        = getInvoicesByDateRange(yearStart, todayISO);
-  var outstandingInvoices = getInvoicesByStatus(['Sent', 'Overdue']);
-  var expenses            = getExpensesByDateRange(yearStart, todayISO);
+  var clients             = getClients_();
+  var projects            = getProjects_();
+  var yearInvoices        = getInvoicesByDateRange_(yearStart, todayISO);
+  var outstandingInvoices = getInvoicesByStatus_(['Sent', 'Overdue']);
+  var expenses            = getExpensesByDateRange_(yearStart, todayISO);
 
   if (clients.error)             clients             = [];
   if (projects.error)            projects            = [];
@@ -1700,8 +1700,8 @@ function panelGetDashboardData() {
   if (outstandingInvoices.error) outstandingInvoices = [];
   if (expenses.error)            expenses            = [];
 
-  var result = _computeDashboardResult(clients, projects, yearInvoices, outstandingInvoices, expenses, todayISO);
-  _cacheSet('dashboard', result);
+  var result = _computeDashboardResult_(clients, projects, yearInvoices, outstandingInvoices, expenses, todayISO);
+  _cacheSet_('dashboard', result);
   return result;
 }
 
@@ -1709,13 +1709,13 @@ function panelGetDashboardData() {
 
 /** Update client info fields. */
 function panelUpdateClientInfo(clientId, data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
     if (data.name !== undefined && !data.name.trim()) {
       return { success: false, error: 'Client name cannot be empty.' };
     }
-    updateClientInfo(clientId, data);
-    _cacheInvalidate(_CACHE_KEYS);
+    updateClientInfo_(clientId, data);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -1724,13 +1724,13 @@ function panelUpdateClientInfo(clientId, data) {
 
 /** Update project info fields. */
 function panelUpdateProjectInfo(projectId, data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
     if (data.name !== undefined && !data.name.trim()) {
       return { success: false, error: 'Project name cannot be empty.' };
     }
-    updateProjectInfo(projectId, data);
-    _cacheInvalidate(_CACHE_KEYS);
+    updateProjectInfo_(projectId, data);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -1739,13 +1739,13 @@ function panelUpdateProjectInfo(projectId, data) {
 
 /** Update agreement info fields. */
 function panelUpdateAgreementInfo(agreementId, data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
     if (data.title !== undefined && !data.title.trim()) {
       return { success: false, error: 'Agreement title cannot be empty.' };
     }
-    updateAgreementInfo(agreementId, data);
-    _cacheInvalidate(_CACHE_KEYS);
+    updateAgreementInfo_(agreementId, data);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -1756,19 +1756,19 @@ function panelUpdateAgreementInfo(agreementId, data) {
 
 /** Get all invoices enriched with client names for the Invoices list view. */
 function panelGetAllInvoices() {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
-    var invoices = getAllInvoices();
+    var invoices = getAllInvoices_();
     if (invoices.error) return invoices;
 
     var clientMap = {};
-    var clients = getClients();
+    var clients = getClients_();
     if (!clients.error) {
       clients.forEach(function(c) { clientMap[c.id] = c.name; });
     }
 
     var projectMap = {};
-    var projects = getProjects();
+    var projects = getProjects_();
     if (!projects.error) {
       projects.forEach(function(p) { projectMap[p.id] = p.name; });
     }
@@ -1785,11 +1785,11 @@ function panelGetAllInvoices() {
 
 /** Get invoice details + payments for invoice view. */
 function panelGetInvoiceDetails(invoiceId) {
-  var invoice = getInvoiceById(invoiceId);
+  var invoice = getInvoiceById_(invoiceId);
   if (!invoice) return { error: 'Invoice not found' };
-  var payments = getPaymentsByInvoice(invoiceId);
+  var payments = getPaymentsByInvoice_(invoiceId);
   if (payments && payments.error) { Logger.log('Payments query error: ' + payments.error); payments = []; }
-  var client = invoice.clientId ? getClientById(invoice.clientId) : null;
+  var client = invoice.clientId ? getClientById_(invoice.clientId) : null;
   return {
     invoice: invoice,
     payments: payments,
@@ -1804,21 +1804,21 @@ function panelGetInvoiceDetails(invoiceId) {
 /** Get agreement details for agreement view (includes new lifecycle fields). */
 function panelGetAgreementDetails(agreementId) {
   try {
-    var raw = _notionGet('pages/' + agreementId);
+    var raw = _notionGet_('pages/' + agreementId);
     if (!raw || raw.error) return { error: 'Agreement not found' };
-    var agreement = _mapAgreementProperties(raw);
+    var agreement = _mapAgreementProperties_(raw);
 
     var clientName = '';
     if (agreement.clientId) {
-      var client = getClientById(agreement.clientId);
+      var client = getClientById_(agreement.clientId);
       if (client && !client.error) clientName = client.name;
     }
 
     var parentMsaTitle = '';
     if (agreement.parentMsaId) {
       try {
-        var parentRaw = _notionGet('pages/' + agreement.parentMsaId);
-        var parentAg  = _mapAgreementProperties(parentRaw);
+        var parentRaw = _notionGet_('pages/' + agreement.parentMsaId);
+        var parentAg  = _mapAgreementProperties_(parentRaw);
         parentMsaTitle = parentAg.agreementId
           ? parentAg.agreementId + ' — ' + (parentAg.title || '').replace(/^RH-\S+ — /, '')
           : parentAg.title || '';
@@ -1841,7 +1841,7 @@ function checkOverdueInvoices() {
   var today = new Date().toISOString().split('T')[0];
 
   // Fetch only Sent invoices with Due Date before today (server-side filter)
-  var invoices = getSentInvoicesDueBefore(today);
+  var invoices = getSentInvoicesDueBefore_(today);
   if (invoices.error) { Logger.log('checkOverdueInvoices: ' + invoices.error); return; }
   if (!invoices.length) { Logger.log('checkOverdueInvoices: no overdue invoices found.'); return; }
 
@@ -1853,7 +1853,7 @@ function checkOverdueInvoices() {
       payload: { properties: { 'Status': { select: { name: 'Overdue' } } } }
     };
   });
-  var results = _notionBatchRequest(specs);
+  var results = _notionBatchRequest_(specs);
   var updated = 0;
   results.forEach(function(res, i) {
     if (res.error) {
@@ -1873,7 +1873,7 @@ function checkOverdueInvoices() {
  * Extracted from panelGetFinancialReport so the logic can be tested and
  * reused without going through the panel RPC layer.
  */
-function _computeFinancialResult(clients, projects, yearInvoices, outstandingInvoices, expenses, allPayments, now) {
+function _computeFinancialResult_(clients, projects, yearInvoices, outstandingInvoices, expenses, allPayments, now) {
   // Merge and dedup
   var seen = {};
   var invoices = [];
@@ -1948,8 +1948,8 @@ function _computeFinancialResult(clients, projects, yearInvoices, outstandingInv
 }
 
 function panelGetFinancialReport() {
-  _requireRole(['admin', 'partner']);
-  var cached = _cacheGet('financialReport');
+  _requireRole_(['admin', 'partner']);
+  var cached = _cacheGet_('financialReport');
   if (cached) return cached;
 
   // Dual-fetch: date-scoped for revenue/expenses, status-scoped for AR aging
@@ -1957,12 +1957,12 @@ function panelGetFinancialReport() {
   var yearStart = now.getFullYear() + '-01-01';
   var todayISO  = now.toISOString().split('T')[0];
 
-  var clients             = getClients();
-  var projects            = getProjects();
-  var yearInvoices        = getInvoicesByDateRange(yearStart, todayISO);
-  var outstandingInvoices = getInvoicesByStatus(['Sent', 'Overdue']);
-  var expenses            = getExpensesByDateRange(yearStart, todayISO);
-  var allPayments         = getAllPayments();
+  var clients             = getClients_();
+  var projects            = getProjects_();
+  var yearInvoices        = getInvoicesByDateRange_(yearStart, todayISO);
+  var outstandingInvoices = getInvoicesByStatus_(['Sent', 'Overdue']);
+  var expenses            = getExpensesByDateRange_(yearStart, todayISO);
+  var allPayments         = getAllPayments_();
 
   if (clients.error)             clients             = [];
   if (projects.error)            projects            = [];
@@ -1970,8 +1970,8 @@ function panelGetFinancialReport() {
   if (outstandingInvoices.error) outstandingInvoices = [];
   if (expenses.error)            expenses            = [];
 
-  var result = _computeFinancialResult(clients, projects, yearInvoices, outstandingInvoices, expenses, allPayments, now);
-  _cacheSet('financialReport', result);
+  var result = _computeFinancialResult_(clients, projects, yearInvoices, outstandingInvoices, expenses, allPayments, now);
+  _cacheSet_('financialReport', result);
   return result;
 }
 
@@ -1987,16 +1987,16 @@ function panelGetFinancialReport() {
  * @returns {Object}
  */
 function panelGetTaxSummary(year) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
     var yearStr   = String(year || new Date().getFullYear());
     var startDate = yearStr + '-01-01';
     var endDate   = yearStr + '-12-31';
 
-    var invoices    = getInvoicesByDateRange(startDate, endDate);
-    var expenses    = getExpensesByDateRange(startDate, endDate);
-    var allPayments = getAllPayments();
-    var contractors = getAllContractors();
+    var invoices    = getInvoicesByDateRange_(startDate, endDate);
+    var expenses    = getExpensesByDateRange_(startDate, endDate);
+    var allPayments = getAllPayments_();
+    var contractors = getAllContractors_();
 
     if (invoices.error)    invoices    = [];
     if (expenses.error)    expenses    = [];
@@ -2063,9 +2063,9 @@ function panelGetTaxSummary(year) {
 
 /** Get all projects (enriched with client names) for the Projects view. */
 function panelGetAllProjects() {
-  var cached = _cacheGet('projects');
+  var cached = _cacheGet_('projects');
   if (cached) return cached;
-  var projects = getProjects();
+  var projects = getProjects_();
   if (projects.error) return projects;
   var clients = panelGetClients(); // uses client cache if warm
   var clientMap = {};
@@ -2075,7 +2075,7 @@ function panelGetAllProjects() {
   projects.forEach(function(p) {
     p.clientName = p.clientId ? (clientMap[p.clientId] || '') : '';
   });
-  _cacheSet('projects', projects);
+  _cacheSet_('projects', projects);
   return projects;
 }
 
@@ -2087,13 +2087,13 @@ var _SETTINGS_DEFAULTS = {
 };
 
 function panelGetSettings() {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
     var raw = PropertiesService.getScriptProperties().getProperty('settings_reminders');
     var reminders = raw ? JSON.parse(raw) : _SETTINGS_DEFAULTS.reminders;
-    return { reminders: reminders, company: getCompanyInfo() };
+    return { reminders: reminders, company: getCompanyInfo_() };
   } catch (e) {
-    return { reminders: _SETTINGS_DEFAULTS.reminders, company: getCompanyInfo() };
+    return { reminders: _SETTINGS_DEFAULTS.reminders, company: getCompanyInfo_() };
   }
 }
 
@@ -2102,7 +2102,7 @@ function panelGetSettings() {
  * Keys: company_name, company_email, company_address, company_phone
  */
 function panelSaveCompanyInfo(data) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
     var email = (data.email || '').trim();
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -2120,7 +2120,7 @@ function panelSaveCompanyInfo(data) {
 }
 
 function panelSaveSettings(data) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
     if (data.reminders) {
       var r = {
@@ -2139,13 +2139,13 @@ function panelSaveSettings(data) {
 // ── CONTRACTORS ──────────────────────────────────────────────
 
 function panelGetAllContractors() {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
-    var cached = _cacheGet('contractors');
+    var cached = _cacheGet_('contractors');
     if (cached) return cached;
-    var result = getAllContractors();
+    var result = getAllContractors_();
     if (result && result.error) return { error: result.error };
-    _cacheSet('contractors', result);
+    _cacheSet_('contractors', result);
     return result;
   } catch (e) {
     return { error: e.message };
@@ -2153,12 +2153,12 @@ function panelGetAllContractors() {
 }
 
 function panelGetContractorById(contractorId) {
-  return getContractorById(contractorId);
+  return getContractorById_(contractorId);
 }
 
 function panelGetContractorDetails(contractorId) {
   try {
-    var data = _batchGetContractorDetails(contractorId);
+    var data = _batchGetContractorDetails_(contractorId);
     if (!data.contractor) return { success: false, error: 'Contractor not found.' };
     var totalExpenses = data.expenses.reduce(function(sum, e) { return sum + e.amount; }, 0);
     return { success: true, contractor: data.contractor, expenses: data.expenses, totalExpenses: totalExpenses };
@@ -2168,11 +2168,11 @@ function panelGetContractorDetails(contractorId) {
 }
 
 function panelCreateContractor(data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
     if (!data.name || !data.name.trim()) return { success: false, error: 'Contractor name is required.' };
-    var page = createNotionContractor(data);
-    _cacheInvalidate(_CACHE_KEYS);
+    var page = createNotionContractor_(data);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true, contractor: { id: page.id, name: data.name, notionUrl: page.url || '' } };
   } catch (e) {
     return { success: false, error: e.message };
@@ -2180,10 +2180,10 @@ function panelCreateContractor(data) {
 }
 
 function panelUpdateContractorInfo(contractorId, data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
-    updateContractorInfo(contractorId, data);
-    _cacheInvalidate(_CACHE_KEYS);
+    updateContractorInfo_(contractorId, data);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -2202,9 +2202,9 @@ function panelUpdateContractorInfo(contractorId, data) {
  * @returns {{ success, fileUrl?, error? }}
  */
 function panelUploadW9(data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
-    var folderId = resolveOrCreateSubfolder(CONFIG.FINANCIALS_DRIVE_DIR, 'W-9s');
+    var folderId = resolveOrCreateSubfolder_(CONFIG.FINANCIALS_DRIVE_DIR, 'W-9s');
     if (!folderId) return { success: false, error: 'Could not resolve or create W-9s folder.' };
 
     // Name the file: "ContractorName - W9.ext"
@@ -2212,7 +2212,7 @@ function panelUploadW9(data) {
     var cleanName = (data.contractorName || 'Contractor').replace(/[\/\\]/g, '-');
     var finalName = cleanName + ' - W9.' + ext;
 
-    var upload = uploadFileToDrive(data.base64, finalName, data.mimeType, folderId);
+    var upload = uploadFileToDrive_(data.base64, finalName, data.mimeType, folderId);
     return { success: true, fileUrl: upload.fileUrl, fileName: upload.fileName };
   } catch (e) {
     Logger.log('panelUploadW9 error: ' + e.message);
@@ -2221,10 +2221,10 @@ function panelUploadW9(data) {
 }
 
 function panelArchiveContractor(contractorId) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
-    archiveNotionPage(contractorId);
-    _cacheInvalidate(_CACHE_KEYS);
+    archiveNotionPage_(contractorId);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -2235,10 +2235,10 @@ function panelArchiveContractor(contractorId) {
 // ── ARCHIVING ────────────────────────────────────────────────
 
 function panelArchiveClient(clientId) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
-    updateClientInfo(clientId, { status: 'Inactive' });
-    _cacheInvalidate(_CACHE_KEYS);
+    updateClientInfo_(clientId, { status: 'Inactive' });
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -2246,10 +2246,10 @@ function panelArchiveClient(clientId) {
 }
 
 function panelArchiveProject(projectId) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
-    updateProjectInfo(projectId, { status: 'Closed' });
-    _cacheInvalidate(_CACHE_KEYS);
+    updateProjectInfo_(projectId, { status: 'Closed' });
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -2258,10 +2258,10 @@ function panelArchiveProject(projectId) {
 
 /** Delete a project by archiving it in Notion (recoverable from Notion trash). */
 function panelDeleteProject(projectId) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
-    archiveNotionPage(projectId);
-    _cacheInvalidate(_CACHE_KEYS);
+    archiveNotionPage_(projectId);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -2275,9 +2275,9 @@ function panelDeleteProject(projectId) {
  * @returns {Object} { success, error? }
  */
 function panelDeleteInvoice(invoicePageId, driveLink) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
-    archiveNotionPage(invoicePageId);
+    archiveNotionPage_(invoicePageId);
 
     // Trash the Drive PDF if a link was provided
     if (driveLink) {
@@ -2291,7 +2291,7 @@ function panelDeleteInvoice(invoicePageId, driveLink) {
       }
     }
 
-    _cacheInvalidate(_CACHE_KEYS);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -2306,9 +2306,9 @@ function panelDeleteInvoice(invoicePageId, driveLink) {
  * @returns {{ success, error? }}
  */
 function panelDeleteAgreement(agreementPageId, driveUrl) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
-    archiveNotionPage(agreementPageId);
+    archiveNotionPage_(agreementPageId);
 
     // Trash the Drive document if a URL was provided
     if (driveUrl) {
@@ -2320,7 +2320,7 @@ function panelDeleteAgreement(agreementPageId, driveUrl) {
       }
     }
 
-    _cacheInvalidate(_CACHE_KEYS);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -2335,30 +2335,30 @@ function panelDeleteAgreement(agreementPageId, driveUrl) {
  * @param {string[]} paymentIdsToTransfer   - Notion page IDs of payments to re-link.
  */
 function panelReviseInvoice(originalInvoicePageId, data, paymentIdsToTransfer) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
-    var original = getInvoiceById(originalInvoicePageId);
+    var original = getInvoiceById_(originalInvoicePageId);
     if (!original) return { success: false, error: 'Original invoice not found.' };
     if (original.status === 'Void') return { success: false, error: 'Invoice is already voided.' };
 
     if (!data.clientId) return { success: false, error: 'Client ID is required.' };
     if (!data.lineItems || !data.lineItems.length) return { success: false, error: 'At least one line item is required.' };
 
-    var client = getClientById(data.clientId);
+    var client = getClientById_(data.clientId);
     if (!client) return { success: false, error: 'Client not found.' };
 
     var issueISO  = data.issueDateISO || new Date().toISOString().split('T')[0];
-    var dueISO    = data.dueDateISO   || _addDays(issueISO, 14);
+    var dueISO    = data.dueDateISO   || _addDays_(issueISO, 14);
     var lineItems = data.lineItems.map(function(i) {
       return { name: i.name || '', description: i.description || '', qty: i.qty || 1, price: i.price || 0 };
     });
     var subtotal = lineItems.reduce(function(s, i) { return s + i.qty * i.price; }, 0);
     var taxes    = parseFloat(data.tax || 0);
 
-    var invoiceData = Object.assign(_clientBillingFields(client), {
+    var invoiceData = Object.assign(_clientBillingFields_(client), {
       projectId:    data.projectId || '',
-      issueDate:    _formatDateForDoc(issueISO),
-      dueDate:      _formatDateForDoc(dueISO),
+      issueDate:    _formatDateForDoc_(issueISO),
+      dueDate:      _formatDateForDoc_(dueISO),
       issueDateISO: issueISO,
       dueDateISO:   dueISO,
       invoiceType:  data.invoiceType || 'Final',
@@ -2370,16 +2370,16 @@ function panelReviseInvoice(originalInvoicePageId, data, paymentIdsToTransfer) {
       logToNotion:  true,
     });
 
-    var result = generateInvoice(invoiceData);
+    var result = generateInvoice_(invoiceData);
     if (!result.success) return result;
 
     // Void the original — if this fails, roll back the new invoice so we
     // never have two live invoices simultaneously.
     try {
-      updateInvoiceStatus(originalInvoicePageId, 'Void', null);
+      updateInvoiceStatus_(originalInvoicePageId, 'Void', null);
     } catch (voidErr) {
       Logger.log('panelReviseInvoice: void failed (' + voidErr.message + ') — rolling back new invoice ' + result.pageId);
-      try { if (result.pageId) archiveNotionPage(result.pageId); } catch (_) {}
+      try { if (result.pageId) archiveNotionPage_(result.pageId); } catch (_) {}
       try {
         var driveMatch = (result.url || '').match(/\/d\/([^\/]+)/);
         if (driveMatch) DriveApp.getFileById(driveMatch[1]).setTrashed(true);
@@ -2392,7 +2392,7 @@ function panelReviseInvoice(originalInvoicePageId, data, paymentIdsToTransfer) {
     if (paymentIdsToTransfer && paymentIdsToTransfer.length && result.pageId) {
       paymentIdsToTransfer.forEach(function(paymentPageId) {
         try {
-          updatePaymentInfo(paymentPageId, { invoiceId: result.pageId });
+          updatePaymentInfo_(paymentPageId, { invoiceId: result.pageId });
           paymentsMoved++;
         } catch (e) {
           Logger.log('panelReviseInvoice: could not transfer payment ' + paymentPageId + ' — ' + e.message);
@@ -2400,7 +2400,7 @@ function panelReviseInvoice(originalInvoicePageId, data, paymentIdsToTransfer) {
       });
     }
 
-    _cacheInvalidate(_CACHE_KEYS);
+    _cacheInvalidate_(_CACHE_KEYS);
     return {
       success:       true,
       invoiceId:     result.invoiceId,
@@ -2416,9 +2416,9 @@ function panelReviseInvoice(originalInvoicePageId, data, paymentIdsToTransfer) {
 // ── QUOTES ───────────────────────────────────────────────────
 
 function panelGetAllQuotes() {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
-    return getAllQuotes();
+    return getAllQuotes_();
   } catch (e) {
     return { error: e.message };
   }
@@ -2426,10 +2426,10 @@ function panelGetAllQuotes() {
 
 function panelGetQuoteDetails(quotePageId) {
   try {
-    var quote = getQuoteById(quotePageId);
+    var quote = getQuoteById_(quotePageId);
     if (!quote) return { error: 'Quote not found' };
-    var client  = quote.clientId  ? getClientById(quote.clientId)   : null;
-    var project = quote.projectId ? getProjectById(quote.projectId) : null;
+    var client  = quote.clientId  ? getClientById_(quote.clientId)   : null;
+    var project = quote.projectId ? getProjectById_(quote.projectId) : null;
     return {
       quote:       quote,
       clientName:  client  ? client.name  : '',
@@ -2441,26 +2441,26 @@ function panelGetQuoteDetails(quotePageId) {
 }
 
 function panelCreateQuote(data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
     if (!data.clientId) return { success: false, error: 'Client is required.' };
     if (!data.lineItems || !data.lineItems.length) return { success: false, error: 'At least one line item is required.' };
 
-    var client = getClientById(data.clientId);
+    var client = getClientById_(data.clientId);
     if (!client) return { success: false, error: 'Client not found.' };
 
     var issueISO = data.issueDateISO || new Date().toISOString().split('T')[0];
-    var validISO = data.validDateISO || _addDays(issueISO, 30);
+    var validISO = data.validDateISO || _addDays_(issueISO, 30);
     var lineItems = data.lineItems.map(function(i) {
       return { name: i.name || '', description: i.description || '', qty: i.qty || 1, price: i.price || 0 };
     });
     var subtotal = lineItems.reduce(function(s, i) { return s + i.qty * i.price; }, 0);
     var taxes    = parseFloat(data.tax || 0);
 
-    var quoteData = Object.assign(_clientBillingFields(client), {
+    var quoteData = Object.assign(_clientBillingFields_(client), {
       projectId:   data.projectId || '',
-      issueDate:   _formatDateForDoc(issueISO),
-      validDate:   _formatDateForDoc(validISO),
+      issueDate:   _formatDateForDoc_(issueISO),
+      validDate:   _formatDateForDoc_(validISO),
       issueDateISO: issueISO,
       validDateISO: validISO,
       lineItems:   lineItems,
@@ -2470,8 +2470,8 @@ function panelCreateQuote(data) {
       logToNotion: true,
     });
 
-    var result = generateQuote(quoteData);
-    if (result.success) _cacheInvalidate(_CACHE_KEYS);
+    var result = generateQuote_(quoteData);
+    if (result.success) _cacheInvalidate_(_CACHE_KEYS);
     return result;
   } catch (e) {
     return { success: false, error: e.message };
@@ -2479,9 +2479,9 @@ function panelCreateQuote(data) {
 }
 
 function panelUpdateQuoteStatus(quotePageId, status) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
-    updateQuoteStatus(quotePageId, status);
+    updateQuoteStatus_(quotePageId, status);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -2489,9 +2489,9 @@ function panelUpdateQuoteStatus(quotePageId, status) {
 }
 
 function panelDeleteQuote(quotePageId, driveLink) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
-    archiveNotionPage(quotePageId);
+    archiveNotionPage_(quotePageId);
     if (driveLink) {
       try {
         var match = driveLink.match(/\/d\/([a-zA-Z0-9_-]+)/);
@@ -2500,7 +2500,7 @@ function panelDeleteQuote(quotePageId, driveLink) {
         Logger.log('panelDeleteQuote: could not trash Drive file — ' + e.message);
       }
     }
-    _cacheInvalidate(_CACHE_KEYS);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -2514,19 +2514,19 @@ function panelDeleteQuote(quotePageId, driveLink) {
  * @param {Object} data        - { issueDateISO, validDateISO, lineItems, tax, notes }
  */
 function panelEditQuote(quotePageId, data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
-    var quote = getQuoteById(quotePageId);
+    var quote = getQuoteById_(quotePageId);
     if (!quote) return { success: false, error: 'Quote not found.' };
     if (quote.status === 'Converted') return { success: false, error: 'Cannot edit a converted quote.' };
 
     if (!data.lineItems || !data.lineItems.length) return { success: false, error: 'At least one line item is required.' };
 
-    var client = getClientById(quote.clientId);
+    var client = getClientById_(quote.clientId);
     if (!client) return { success: false, error: 'Client not found.' };
 
     var issueISO = data.issueDateISO || new Date().toISOString().split('T')[0];
-    var validISO = data.validDateISO || _addDays(issueISO, 30);
+    var validISO = data.validDateISO || _addDays_(issueISO, 30);
     var lineItems = data.lineItems.map(function(i) {
       return { name: i.name || '', description: i.description || '', qty: i.qty || 1, price: i.price || 0 };
     });
@@ -2545,15 +2545,15 @@ function panelEditQuote(quotePageId, data) {
       clientPhone:   client.phone          || '',
       clientEmail:   client.billingEmail   || '',
       clientWebsite: client.website        || '',
-      issueDate:     _formatDateForDoc(issueISO),
-      validDate:     _formatDateForDoc(validISO),
+      issueDate:     _formatDateForDoc_(issueISO),
+      validDate:     _formatDateForDoc_(validISO),
       lineItems:     lineItems,
       subtotal:      subtotal,
       taxes:         taxes,
       total:         subtotal + taxes,
     };
 
-    var pdfResult = regenerateQuotePdf(pdfData);
+    var pdfResult = regenerateQuotePdf_(pdfData);
     if (!pdfResult.success) return pdfResult;
 
     // Trash the old PDF
@@ -2567,7 +2567,7 @@ function panelEditQuote(quotePageId, data) {
     }
 
     // Update the Notion record in-place
-    updateQuoteRecord(quotePageId, {
+    updateQuoteRecord_(quotePageId, {
       issueDateISO: issueISO,
       validDateISO: validISO,
       lineItems:    lineItems,
@@ -2579,7 +2579,7 @@ function panelEditQuote(quotePageId, data) {
       projectId:    data.projectId || quote.projectId || '',
     });
 
-    _cacheInvalidate(_CACHE_KEYS);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true, quoteId: quote.quoteId, url: pdfResult.driveUrl };
   } catch (e) {
     return { success: false, error: e.message };
@@ -2592,30 +2592,30 @@ function panelEditQuote(quotePageId, data) {
  * @param {Object} data        - Same shape as panelCreateQuote data.
  */
 function panelReviseQuote(quotePageId, data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
-    var original = getQuoteById(quotePageId);
+    var original = getQuoteById_(quotePageId);
     if (!original) return { success: false, error: 'Original quote not found.' };
     if (original.status === 'Converted') return { success: false, error: 'Cannot revise a converted quote.' };
 
     if (!data.clientId) return { success: false, error: 'Client is required.' };
     if (!data.lineItems || !data.lineItems.length) return { success: false, error: 'At least one line item is required.' };
 
-    var client = getClientById(data.clientId);
+    var client = getClientById_(data.clientId);
     if (!client) return { success: false, error: 'Client not found.' };
 
     var issueISO = data.issueDateISO || new Date().toISOString().split('T')[0];
-    var validISO = data.validDateISO || _addDays(issueISO, 30);
+    var validISO = data.validDateISO || _addDays_(issueISO, 30);
     var lineItems = data.lineItems.map(function(i) {
       return { name: i.name || '', description: i.description || '', qty: i.qty || 1, price: i.price || 0 };
     });
     var subtotal = lineItems.reduce(function(s, i) { return s + i.qty * i.price; }, 0);
     var taxes    = parseFloat(data.tax || 0);
 
-    var quoteData = Object.assign(_clientBillingFields(client), {
+    var quoteData = Object.assign(_clientBillingFields_(client), {
       projectId:   data.projectId || '',
-      issueDate:   _formatDateForDoc(issueISO),
-      validDate:   _formatDateForDoc(validISO),
+      issueDate:   _formatDateForDoc_(issueISO),
+      validDate:   _formatDateForDoc_(validISO),
       issueDateISO: issueISO,
       validDateISO: validISO,
       lineItems:   lineItems,
@@ -2625,13 +2625,13 @@ function panelReviseQuote(quotePageId, data) {
       logToNotion: true,
     });
 
-    var result = generateQuote(quoteData);
+    var result = generateQuote_(quoteData);
     if (!result.success) return result;
 
     // Expire the original
-    updateQuoteStatus(quotePageId, 'Expired');
+    updateQuoteStatus_(quotePageId, 'Expired');
 
-    _cacheInvalidate(_CACHE_KEYS);
+    _cacheInvalidate_(_CACHE_KEYS);
     return {
       success:    true,
       quoteId:    result.quoteId,
@@ -2651,17 +2651,17 @@ function panelReviseQuote(quotePageId, data) {
  * @param {Object} invoiceData  { issueDateISO, dueDateISO, invoiceType, tax, lineItems? }
  */
 function panelConvertQuoteToInvoice(quotePageId, invoiceData) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
-    var quote = getQuoteById(quotePageId);
+    var quote = getQuoteById_(quotePageId);
     if (!quote) return { success: false, error: 'Quote not found.' };
     if (quote.convertedInvoiceId) return { success: false, error: 'This quote has already been converted to an invoice.' };
 
-    var client = quote.clientId ? getClientById(quote.clientId) : null;
+    var client = quote.clientId ? getClientById_(quote.clientId) : null;
     if (!client) return { success: false, error: 'Client not found.' };
 
     var issueISO = (invoiceData && invoiceData.issueDateISO) || new Date().toISOString().split('T')[0];
-    var dueISO   = (invoiceData && invoiceData.dueDateISO)   || _addDays(issueISO, 14);
+    var dueISO   = (invoiceData && invoiceData.dueDateISO)   || _addDays_(issueISO, 14);
 
     // Use provided line items or fall back to quote line items summary as a single item
     var lineItems = (invoiceData && invoiceData.lineItems && invoiceData.lineItems.length)
@@ -2673,10 +2673,10 @@ function panelConvertQuoteToInvoice(quotePageId, invoiceData) {
     var subtotal = lineItems.reduce(function(s, i) { return s + (i.qty || 1) * (i.price || 0); }, 0);
     var taxes    = parseFloat((invoiceData && invoiceData.tax) || quote.tax || 0);
 
-    var inv = Object.assign(_clientBillingFields(client), {
+    var inv = Object.assign(_clientBillingFields_(client), {
       projectId:    (invoiceData && invoiceData.projectId) || quote.projectId || '',
-      issueDate:    _formatDateForDoc(issueISO),
-      dueDate:      _formatDateForDoc(dueISO),
+      issueDate:    _formatDateForDoc_(issueISO),
+      dueDate:      _formatDateForDoc_(dueISO),
       issueDateISO: issueISO,
       dueDateISO:   dueISO,
       invoiceType:  (invoiceData && invoiceData.invoiceType) || 'Deposit',
@@ -2688,15 +2688,15 @@ function panelConvertQuoteToInvoice(quotePageId, invoiceData) {
       logToNotion:  true,
     });
 
-    var result = generateInvoice(inv);
+    var result = generateInvoice_(inv);
     if (!result.success) return result;
 
     // Link quote → invoice in Notion (non-fatal)
-    try { linkQuoteToInvoice(quotePageId, result.pageId || ''); } catch (e) {
+    try { linkQuoteToInvoice_(quotePageId, result.pageId || ''); } catch (e) {
       Logger.log('linkQuoteToInvoice error: ' + e.message);
     }
 
-    _cacheInvalidate(_CACHE_KEYS);
+    _cacheInvalidate_(_CACHE_KEYS);
     return { success: true, invoiceId: result.invoiceId, invoiceUrl: result.url, quoteId: quote.quoteId };
   } catch (e) {
     return { success: false, error: e.message };
@@ -2707,7 +2707,7 @@ function panelConvertQuoteToInvoice(quotePageId, invoiceData) {
  * Quick-create an invoice from the project detail page.
  * Fetches full client billing info server-side so the panel only
  * needs to send clientId, projectId, lineItems, dates, and tax.
- * Reuses the existing generateInvoice() + logToNotion() chain.
+ * Reuses the existing generateInvoice_() + logToNotion_() chain.
  * @param {Object} data  { clientId, projectId, invoiceType, lineItems, tax, issueDateISO, dueDateISO }
  * @returns {Object} { success, invoiceId, url, error? }
  */
@@ -2717,7 +2717,7 @@ function panelConvertQuoteToInvoice(quotePageId, invoiceData) {
  */
 function getBillableExpensesForClient(clientId) {
   try {
-    return { success: true, expenses: getUnInvoicedBillableExpenses(clientId) };
+    return { success: true, expenses: getUnInvoicedBillableExpenses_(clientId) };
   } catch (e) {
     Logger.log('getBillableExpensesForClient error: ' + e.message);
     return { success: false, error: e.message, expenses: [] };
@@ -2725,26 +2725,26 @@ function getBillableExpensesForClient(clientId) {
 }
 
 function panelQuickCreateInvoice(data) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
     if (!data.clientId) return { success: false, error: 'Client ID is required.' };
     if (!data.lineItems || !data.lineItems.length) return { success: false, error: 'At least one line item is required.' };
 
-    var client = getClientById(data.clientId);
+    var client = getClientById_(data.clientId);
     if (!client) return { success: false, error: 'Client not found.' };
 
     var issueISO = data.issueDateISO || new Date().toISOString().split('T')[0];
-    var dueISO   = data.dueDateISO   || _addDays(issueISO, 14);
+    var dueISO   = data.dueDateISO   || _addDays_(issueISO, 14);
     var lineItems = data.lineItems.map(function(i) {
       return { name: i.name || '', description: i.description || '', qty: i.qty || 1, price: i.price || 0 };
     });
     var subtotal = lineItems.reduce(function(s, i) { return s + i.qty * i.price; }, 0);
     var taxes    = parseFloat(data.tax || 0);
 
-    var invoiceData = Object.assign(_clientBillingFields(client), {
+    var invoiceData = Object.assign(_clientBillingFields_(client), {
       projectId:    data.projectId || '',
-      issueDate:    _formatDateForDoc(issueISO),
-      dueDate:      _formatDateForDoc(dueISO),
+      issueDate:    _formatDateForDoc_(issueISO),
+      dueDate:      _formatDateForDoc_(dueISO),
       issueDateISO: issueISO,
       dueDateISO:   dueISO,
       invoiceType:  data.invoiceType || 'Final',
@@ -2756,8 +2756,8 @@ function panelQuickCreateInvoice(data) {
       logToNotion:  true,
     });
 
-    var result = generateInvoice(invoiceData);
-    if (result.success) _cacheInvalidate(_CACHE_KEYS);
+    var result = generateInvoice_(invoiceData);
+    if (result.success) _cacheInvalidate_(_CACHE_KEYS);
     return result;
   } catch (e) {
     return { success: false, error: e.message };
@@ -2788,7 +2788,7 @@ function panelQuickPing() {
 
   // 1. Notion API token
   try {
-    _notionGet('users/me');
+    _notionGet_('users/me');
   } catch (e) {
     issues.push('Notion API: ' + e.message);
   }
@@ -2818,7 +2818,7 @@ function panelQuickPing() {
   ];
   dbs.forEach(function(db) {
     try {
-      if (db.id) _notionFetch('databases/' + db.id + '/query', { page_size: 1 });
+      if (db.id) _notionFetch_('databases/' + db.id + '/query', { page_size: 1 });
       else issues.push(db.label + ': not configured');
     } catch (e) {
       issues.push(db.label + ': ' + e.message);
@@ -2849,14 +2849,14 @@ function panelQuickPing() {
 /**
  * Internal health check logic — no auth guard so it can be called from
  * time-driven triggers (which have no user session).
- * panelHealthCheck() is the public panel RPC that wraps this with _requireRole.
+ * panelHealthCheck() is the public panel RPC that wraps this with _requireRole_.
  */
-function _runHealthChecks() {
+function _runHealthChecks_() {
   var checks = [];
 
   // ── 1. Notion API token ────────────────────────────────────
   try {
-    var user = _notionGet('users/me');
+    var user = _notionGet_('users/me');
     checks.push({ name: 'Notion API Token', status: 'ok', message: 'Connected as ' + (user.name || 'integration') });
   } catch (e) {
     checks.push({ name: 'Notion API Token', status: 'error', message: e.message });
@@ -2908,7 +2908,7 @@ function _runHealthChecks() {
 
   dbChecks.forEach(function(db) {
     // Database accessible?
-    var props = _getDbProperties(db.id);
+    var props = _getDbProperties_(db.id);
     if (props.error) {
       checks.push({ name: 'DB: ' + db.label, status: 'error', message: props.error });
       checks.push({ name: 'Schema: ' + db.label, status: 'error', message: 'Cannot validate — DB inaccessible' });
@@ -2988,11 +2988,11 @@ function _runHealthChecks() {
   return { checks: checks, timestamp: new Date().toISOString() };
 }
 
-/** Public RPC — requires admin role, clears cache, delegates to _runHealthChecks(). */
+/** Public RPC — requires admin role, clears cache, delegates to _runHealthChecks_(). */
 function panelHealthCheck() {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try { CacheService.getScriptCache().remove('_healthCheckResult'); } catch (_) {}
-  return _runHealthChecks();
+  return _runHealthChecks_();
 }
 
 // ── DAILY HEALTH CHECK EMAIL TRIGGER ──────────────────────────
@@ -3007,7 +3007,7 @@ function dailyHealthCheckEmail() {
     // Invalidate the cached quick ping so next panel load gets fresh data
     try { CacheService.getScriptCache().remove('_healthCheckResult'); } catch (_) {}
 
-    var result = _runHealthChecks();
+    var result = _runHealthChecks_();
     var checks = result.checks || [];
 
     var errors = checks.filter(function(c) { return c.status === 'error'; });
@@ -3054,7 +3054,7 @@ function dailyHealthCheckEmail() {
       + '</div>';
 
     GmailApp.sendEmail(
-      getCompanyInfo().email,
+      getCompanyInfo_().email,
       'RH Ops Health Check — ' + errors.length + ' error(s), ' + warnings.length + ' warning(s)',
       'Health check found issues. View the HTML version of this email for details.',
       { htmlBody: html, name: 'RH Ops Panel' }
@@ -3077,10 +3077,10 @@ function sendInvoiceReminders() {
   var settings = raw ? JSON.parse(raw) : _SETTINGS_DEFAULTS.reminders;
   if (!settings.enabled) { Logger.log('sendInvoiceReminders: disabled.'); return; }
 
-  var invoices = getInvoicesByStatus(['Sent', 'Overdue']);
+  var invoices = getInvoicesByStatus_(['Sent', 'Overdue']);
   if (invoices.error) { Logger.log('sendInvoiceReminders: ' + invoices.error); return; }
 
-  var clients = getClients();
+  var clients = getClients_();
   if (clients.error) clients = [];
   var clientMap = {};
   clients.forEach(function(c) { clientMap[c.id] = c; });
@@ -3131,7 +3131,7 @@ function sendInvoiceReminders() {
 
     if (shouldSend) {
       try {
-        sendInvoiceReminder({
+        sendInvoiceReminder_({
           to: client.billingEmail,
           clientName: client.name,
           invoiceId: inv.invoiceId,
@@ -3166,7 +3166,7 @@ function panelGetRecurringConfig(projectId) {
 }
 
 function panelSaveRecurringConfig(projectId, config) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
     var raw = PropertiesService.getScriptProperties().getProperty('recurring_configs');
     var all = raw ? JSON.parse(raw) : {};
@@ -3218,13 +3218,13 @@ function generateRecurringInvoices() {
     if (!config.amount || !config.description) continue;
 
     try {
-      var project = getProjectById(projectId);
+      var project = getProjectById_(projectId);
       if (!project || project.status !== 'Active') continue;
-      var client = project.clientId ? getClientById(project.clientId) : null;
+      var client = project.clientId ? getClientById_(project.clientId) : null;
       if (!client) continue;
 
       // Check if already generated this month
-      var invoices = getInvoicesByProject(projectId);
+      var invoices = getInvoicesByProject_(projectId);
       if (!invoices.error) {
         var alreadyGenerated = invoices.some(function(inv) {
           return (inv.issuedDate || '').substring(0, 7) === monthKey && inv.type === 'Retainer';
@@ -3233,9 +3233,9 @@ function generateRecurringInvoices() {
       }
 
       var issueISO = today.toISOString().split('T')[0];
-      var dueDate = _addDays(issueISO, config.dueDays || 14);
+      var dueDate = _addDays_(issueISO, config.dueDays || 14);
 
-      var result = generateInvoice({
+      var result = generateInvoice_({
         clientId: client.id,
         clientName: client.name,
         driveFolderId: client.driveFolderId || '',
@@ -3248,8 +3248,8 @@ function generateRecurringInvoices() {
         clientEmail: client.billingEmail || '',
         clientWebsite: client.website || '',
         projectId: projectId,
-        issueDate: _formatDateForDoc(issueISO),
-        dueDate: _formatDateForDoc(dueDate),
+        issueDate: _formatDateForDoc_(issueISO),
+        dueDate: _formatDateForDoc_(dueDate),
         issueDateISO: issueISO,
         dueDateISO: dueDate,
         invoiceType: 'Retainer',
@@ -3272,7 +3272,7 @@ function generateRecurringInvoices() {
     }
   }
 
-  if (generated > 0) _cacheInvalidate(_CACHE_KEYS);
+  if (generated > 0) _cacheInvalidate_(_CACHE_KEYS);
   Logger.log('generateRecurringInvoices: generated ' + generated + ' invoices.');
 
   } finally {
@@ -3283,13 +3283,13 @@ function generateRecurringInvoices() {
 // ── FINANCIAL DATA EXPORT ────────────────────────────────────
 
 function panelExportFinancialData(startDate, endDate) {
-  _requireRole(['admin', 'partner']);
+  _requireRole_(['admin', 'partner']);
   try {
-    var clients = getClients();
-    var projects = getProjects();
+    var clients = getClients_();
+    var projects = getProjects_();
     // Push date filter to Notion instead of fetching all + filtering client-side
-    var filteredInvoices = getInvoicesByDateRange(startDate, endDate);
-    var filteredExpenses = getExpensesByDateRange(startDate, endDate);
+    var filteredInvoices = getInvoicesByDateRange_(startDate, endDate);
+    var filteredExpenses = getExpensesByDateRange_(startDate, endDate);
 
     if (clients.error) clients = [];
     if (projects.error) projects = [];
@@ -3403,7 +3403,7 @@ function panelExportFinancialData(startDate, endDate) {
  * @returns {Object} { frequency, spreadsheetId, lastBackup }
  */
 function panelGetBackupConfig() {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
     var raw = PropertiesService.getScriptProperties().getProperty('backup_config');
     var config = raw ? JSON.parse(raw) : {};
@@ -3431,7 +3431,7 @@ function panelGetBackupConfig() {
  * @returns {Object} { success, folderName? }
  */
 function panelSaveBackupConfig(config) {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   try {
     var allowed = ['daily', 'weekly', 'monthly'];
     var freq = (config && config.frequency) ? config.frequency : 'weekly';
@@ -3482,7 +3482,7 @@ function panelSaveBackupConfig(config) {
  * @returns {Object} { success, sheetUrl, lastBackup, error? }
  */
 function panelRunBackup() {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   return backupNotionData(true);
 }
 
@@ -3560,7 +3560,7 @@ function backupNotionData(forceRun) {
         name: 'Clients',
         headers: ['Page ID', 'Name', 'Shorthand', 'Type', 'Status', 'Primary Contact ID', 'Billing Email', 'Billing Street', 'Billing City', 'Billing State', 'Billing ZIP', 'Billing Country', 'Phone', 'Website', 'Drive Folder ID', 'Notes', 'Notion URL'],
         fetchFn: function() {
-          var data = getClients();
+          var data = getClients_();
           if (!data.error) data.forEach(function(c) { clientMap[c.id] = c.name; });
           return data;
         },
@@ -3572,7 +3572,7 @@ function backupNotionData(forceRun) {
       {
         name: 'Contacts',
         headers: ['Page ID', 'Name', 'Email', 'Phone', 'Role', 'Client IDs', 'Client Names', 'Notes', 'Notion URL'],
-        fetchFn: function() { return getAllContacts(); },
+        fetchFn: function() { return getAllContacts_(); },
         mapFn: function(c) {
           var clientNames = (c.clientIds || []).map(function(cid) { return clientMap[cid] || ''; }).join(', ');
           return [c.id, c.name, c.email, c.phone, c.role, (c.clientIds || []).join(', '), clientNames, c.notes, c.notionUrl];
@@ -3583,7 +3583,7 @@ function backupNotionData(forceRun) {
         name: 'Projects',
         headers: ['Page ID', 'Name', 'Client ID', 'Client Name', 'Type', 'Status', 'Start Date', 'End Date', 'Notes', 'Notion URL'],
         fetchFn: function() {
-          var data = getProjects();
+          var data = getProjects_();
           if (!data.error) data.forEach(function(p) { projectMap[p.id] = p.name; });
           return data;
         },
@@ -3593,42 +3593,42 @@ function backupNotionData(forceRun) {
       {
         name: 'Invoices',
         headers: ['Page ID', 'Invoice ID', 'Client ID', 'Client Name', 'Project ID', 'Project Name', 'Agreement ID', 'Type', 'Status', 'Issued', 'Due', 'Paid', 'Period Month', 'Subtotal', 'Tax', 'Total', 'Line Items', 'Drive Link', 'Notes', 'Notion URL'],
-        fetchFn: function() { return getAllInvoices(); },
+        fetchFn: function() { return getAllInvoices_(); },
         mapFn: function(inv) { return [inv.id, inv.invoiceId, inv.clientId, clientMap[inv.clientId] || '', inv.projectId, projectMap[inv.projectId] || '', inv.agreementId, inv.type, inv.status, inv.issuedDate, inv.dueDate, inv.paidDate, inv.periodMonth, inv.subtotal, inv.tax, inv.total, inv.lineItems, inv.driveLink, inv.notes, inv.notionUrl]; },
         currencyCols: [14, 15, 16]
       },
       {
         name: 'Agreements',
         headers: ['Page ID', 'Agreement ID', 'Title', 'Doc Type', 'Language', 'Status', 'Client ID', 'Client Name', 'Project ID', 'Project Name', 'Parent MSA ID', 'Effective Date', 'Signed Date', 'File URL', 'Notes', 'Notion URL'],
-        fetchFn: function() { return getAllAgreements(); },
+        fetchFn: function() { return getAllAgreements_(); },
         mapFn: function(a) { return [a.id, a.agreementId, a.title, a.docType, a.language, a.status, a.clientId, clientMap[a.clientId] || '', a.projectId, projectMap[a.projectId] || '', a.parentMsaId, a.effectiveDate, a.signedDate, a.fileUrl, a.notes, a.notionUrl]; },
         currencyCols: []
       },
       {
         name: 'Expenses',
         headers: ['Page ID', 'Expense ID', 'Description', 'Type', 'Category', 'Client ID', 'Client Name', 'Project ID', 'Project Name', 'Contractor ID', 'Invoice ID', 'Amount', 'Date', 'Vendor', 'Billable', 'Status', 'Receipt URL', 'Notes', 'Notion URL'],
-        fetchFn: function() { return getAllExpenses(); },
+        fetchFn: function() { return getAllExpenses_(); },
         mapFn: function(ex) { return [ex.id, ex.expenseId, ex.description, ex.type, ex.category, ex.clientId, clientMap[ex.clientId] || '', ex.projectId, projectMap[ex.projectId] || '', ex.contractorId, ex.invoiceId, ex.amount, ex.expenseDate, ex.vendor, ex.billable ? 'Yes' : 'No', ex.status, ex.receiptUrl, ex.notes, ex.notionUrl]; },
         currencyCols: [12]
       },
       {
         name: 'Payments',
         headers: ['Page ID', 'Payment ID', 'Description', 'Invoice ID', 'Client ID', 'Client Name', 'Amount', 'Amount Withheld', 'Method', 'Date', 'Status', 'Receipt URL', 'Notes', 'Notion URL'],
-        fetchFn: function() { return getAllPayments(); },
+        fetchFn: function() { return getAllPayments_(); },
         mapFn: function(pm) { return [pm.id, pm.paymentId, pm.description, pm.invoiceId, pm.clientId, clientMap[pm.clientId] || '', pm.amount, pm.amountWithheld, pm.method, pm.paymentDate, pm.status, pm.receiptUrl, pm.notes, pm.notionUrl]; },
         currencyCols: [7, 8]
       },
       {
         name: 'Quotes',
         headers: ['Page ID', 'Quote ID', 'Status', 'Client ID', 'Client Name', 'Project ID', 'Project Name', 'Converted Invoice ID', 'Issued Date', 'Valid Until', 'Subtotal', 'Tax', 'Total', 'Line Items', 'Drive Link', 'Notes', 'Notion URL'],
-        fetchFn: function() { return getAllQuotes(); },
+        fetchFn: function() { return getAllQuotes_(); },
         mapFn: function(q) { return [q.id, q.quoteId, q.status, q.clientId, clientMap[q.clientId] || '', q.projectId, projectMap[q.projectId] || '', q.convertedInvoiceId, q.issuedDate, q.validUntil, q.subtotal, q.tax, q.total, q.lineItems, q.driveLink, q.notes, q.notionUrl]; },
         currencyCols: [11, 12, 13]
       },
       {
         name: 'Contractors',
         headers: ['Page ID', 'Name', 'Email', 'Phone', 'Type', 'Roles', 'Payment Method', 'Is Partner', 'W-9', 'Notes', 'Notion URL'],
-        fetchFn: function() { return getAllContractors(); },
+        fetchFn: function() { return getAllContractors_(); },
         mapFn: function(c) { return [c.id, c.name, c.email, c.phone, c.type, c.roles.join(', '), c.paymentMethod, c.isPartner ? 'Yes' : 'No', c.w9Url, c.notes, c.notionUrl]; },
         currencyCols: []
       },
@@ -3823,7 +3823,7 @@ function backupNotionData(forceRun) {
  * @returns {{ seeded: boolean, clientId?, contactIds?, projectId?, driveFolderId?, seededAt? }}
  */
 function panelInspectTestData() {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   var sp = PropertiesService.getScriptProperties();
   var clientId = sp.getProperty('TEST_CLIENT_ID');
   if (!clientId) return { seeded: false };
@@ -3846,7 +3846,7 @@ function panelInspectTestData() {
  * @returns {{ success, clientId?, projectId?, driveFolderId?, seededAt?, error? }}
  */
 function panelSeedTestData() {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   var sp = PropertiesService.getScriptProperties();
 
   // Guard: don't double-seed
@@ -3859,7 +3859,7 @@ function panelSeedTestData() {
   }
 
   try {
-    var clientResult = createFullClient({
+    var clientResult = createFullClient_({
       name:           '[TEST] Road Hazards — Sample Co',
       type:           'Business',
       billingEmail:   'test@example.com',
@@ -3918,7 +3918,7 @@ function panelSeedTestData() {
  * @returns {{ success: boolean, errors?: string[] }}
  */
 function panelTeardownTestData() {
-  _requireRole(['admin']);
+  _requireRole_(['admin']);
   var sp = PropertiesService.getScriptProperties();
 
   var clientId    = sp.getProperty('TEST_CLIENT_ID');
@@ -3933,7 +3933,7 @@ function panelTeardownTestData() {
 
   function archiveSafely(id, label) {
     if (!id) return;
-    try { archiveNotionPage(id); }
+    try { archiveNotionPage_(id); }
     catch (e) { errors.push('Archive ' + label + ': ' + e.message); }
   }
 

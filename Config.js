@@ -58,7 +58,7 @@ const CONFIG = {
  * Script Properties keys: company_name, company_email, company_address, company_phone
  * This lets the Settings page update company info without a code deployment.
  */
-function getCompanyInfo() {
+function getCompanyInfo_() {
   var sp = PropertiesService.getScriptProperties();
   return {
     name:    sp.getProperty('company_name')    || CONFIG.COMPANY_NAME,

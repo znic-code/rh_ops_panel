@@ -12,7 +12,7 @@
  * @param {string} [data.notes]
  * @returns {Object} { success, project, error? }
  */
-function createProject(data) {
+function createProject_(data) {
   // Validate required fields (fast-fail before acquiring lock)
   if (!data.name || !data.name.trim()) {
     return { success: false, error: 'Project name is required.' };
@@ -28,7 +28,7 @@ function createProject(data) {
   }
 
   try {
-    const page = createNotionProject({
+    const page = createNotionProject_({
       name:      data.name,
       clientId:  data.clientId,
       type:      data.type || 'One-Off',
@@ -58,14 +58,14 @@ function createProject(data) {
  * @param {string} status     Draft / Active / Paused / Closed
  * @returns {Object} { success, error? }
  */
-function setProjectStatus(projectId, status) {
+function setProjectStatus_(projectId, status) {
   try {
     if (!projectId) return { success: false, error: 'Project ID is required.' };
     var validStatuses = ['Draft', 'Active', 'Paused', 'Closed'];
     if (validStatuses.indexOf(status) === -1) {
       return { success: false, error: 'Invalid status. Must be one of: ' + validStatuses.join(', ') };
     }
-    updateProjectStatus(projectId, status);
+    updateProjectStatus_(projectId, status);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };

@@ -15,7 +15,7 @@
  * Retries up to 3 times on 429 (rate limited) and transient 5xx errors
  * with exponential backoff (500ms, 1s, 2s).
  */
-function _notionRequest(url, options) {
+function _notionRequest_(url, options) {
   var MAX_RETRIES = 3;
   var RETRYABLE = [429, 500, 502, 503, 504];
 
@@ -58,8 +58,8 @@ function _notionRequest(url, options) {
 /**
  * Authenticated POST request to the Notion API. Throws on error.
  */
-function _notionFetch(endpoint, payload) {
-  return _notionRequest('https://api.notion.com/v1/' + endpoint, {
+function _notionFetch_(endpoint, payload) {
+  return _notionRequest_('https://api.notion.com/v1/' + endpoint, {
     method: 'post',
     headers: {
       'Authorization':  'Bearer ' + CONFIG.NOTION_TOKEN,
@@ -73,8 +73,8 @@ function _notionFetch(endpoint, payload) {
 /**
  * Authenticated PATCH request to the Notion API. Throws on error.
  */
-function _notionPatch(endpoint, payload) {
-  return _notionRequest('https://api.notion.com/v1/' + endpoint, {
+function _notionPatch_(endpoint, payload) {
+  return _notionRequest_('https://api.notion.com/v1/' + endpoint, {
     method: 'patch',
     headers: {
       'Authorization':  'Bearer ' + CONFIG.NOTION_TOKEN,
@@ -88,8 +88,8 @@ function _notionPatch(endpoint, payload) {
 /**
  * Authenticated GET request to the Notion API. Throws on error.
  */
-function _notionGet(endpoint) {
-  return _notionRequest('https://api.notion.com/v1/' + endpoint, {
+function _notionGet_(endpoint) {
+  return _notionRequest_('https://api.notion.com/v1/' + endpoint, {
     method: 'get',
     headers: {
       'Authorization':  'Bearer ' + CONFIG.NOTION_TOKEN,
@@ -106,7 +106,7 @@ function _notionGet(endpoint) {
  * @param {Array<Object>} specs  Each: { method, endpoint, payload? }
  * @returns {Array<Object>}
  */
-function _notionBatchRequest(specs) {
+function _notionBatchRequest_(specs) {
   var requests = specs.map(function(spec) {
     var opts = {
       url: 'https://api.notion.com/v1/' + spec.endpoint,
@@ -143,14 +143,14 @@ function _notionBatchRequest(specs) {
  * Map a batch query response through a property mapper.
  * Handles pagination follow-up sequentially if the first page had has_more.
  *
- * @param {Object} batchResult  Raw response from _notionBatchRequest (a database query)
- * @param {Function} mapper     Property mapper (e.g., _mapContactProperties)
+ * @param {Object} batchResult  Raw response from _notionBatchRequest_ (a database query)
+ * @param {Function} mapper     Property mapper (e.g., _mapContactProperties_)
  * @param {string} databaseId   For pagination follow-up
  * @param {Object} filter       Original filter
  * @param {Array} sorts         Original sorts
  * @returns {Array}
  */
-function _parseBatchQueryResult(batchResult, mapper, databaseId, filter, sorts) {
+function _parseBatchQueryResult_(batchResult, mapper, databaseId, filter, sorts) {
   if (!batchResult || batchResult.error) {
     if (batchResult && batchResult.error) Logger.log('Batch query error: ' + batchResult.error);
     return [];
@@ -167,7 +167,7 @@ function _parseBatchQueryResult(batchResult, mapper, databaseId, filter, sorts) 
         var body = { page_size: 100, start_cursor: cursor };
         if (filter) body.filter = filter;
         if (sorts)  body.sorts  = sorts;
-        var data = _notionFetch('databases/' + databaseId + '/query', body);
+        var data = _notionFetch_('databases/' + databaseId + '/query', body);
         if (data.results) mapped.push.apply(mapped, data.results.map(mapper));
         cursor = data.has_more ? data.next_cursor : null;
       } catch (e) {
@@ -190,7 +190,7 @@ function _parseBatchQueryResult(batchResult, mapper, databaseId, filter, sorts) 
  */
 var _QUERY_ALL_CEILING = 2000;
 
-function _queryAll(databaseId, filter, sorts, maxResults) {
+function _queryAll_(databaseId, filter, sorts, maxResults) {
   var limit = maxResults ? Math.min(maxResults, _QUERY_ALL_CEILING) : _QUERY_ALL_CEILING;
   var allResults = [];
   var cursor = undefined;
@@ -201,7 +201,7 @@ function _queryAll(databaseId, filter, sorts, maxResults) {
     if (cursor) body.start_cursor = cursor;
 
     try {
-      var data = _notionFetch('databases/' + databaseId + '/query', body);
+      var data = _notionFetch_('databases/' + databaseId + '/query', body);
       if (!data.results) return { error: 'Unexpected response (no results array)' };
       allResults.push.apply(allResults, data.results);
       if (allResults.length >= limit) {
@@ -223,9 +223,9 @@ function _queryAll(databaseId, filter, sorts, maxResults) {
  * @param {string} dbId  Notion database ID
  * @returns {Array<string>|Object} Array of property names, or { error } on failure.
  */
-function _getDbProperties(dbId) {
+function _getDbProperties_(dbId) {
   try {
-    var data = _notionGet('databases/' + dbId);
+    var data = _notionGet_('databases/' + dbId);
     return Object.keys(data.properties || {});
   } catch (e) {
     return { error: e.message };
@@ -235,8 +235,8 @@ function _getDbProperties(dbId) {
 /**
  * Create a Notion page. Throws on error. Returns raw page object.
  */
-function _notionCreatePage(databaseId, properties) {
-  return _notionFetch('pages', {
+function _notionCreatePage_(databaseId, properties) {
+  return _notionFetch_('pages', {
     parent: { database_id: databaseId },
     properties: properties,
   });
@@ -245,14 +245,14 @@ function _notionCreatePage(databaseId, properties) {
 /**
  * Update a Notion page's properties. Throws on error. Returns raw page object.
  */
-function _notionUpdatePage(pageId, properties) {
-  return _notionPatch('pages/' + pageId, { properties: properties });
+function _notionUpdatePage_(pageId, properties) {
+  return _notionPatch_('pages/' + pageId, { properties: properties });
 }
 
 
 // ── Property Mappers ─────────────────────────────────────────
 
-function _mapClientProperties(page, fallbackName) {
+function _mapClientProperties_(page, fallbackName) {
   const p  = page.properties;
   const C  = NP.CLIENTS;
   const primaryContactRel = p[C.PRIMARY_CONTACT]?.relation || [];
@@ -279,7 +279,7 @@ function _mapClientProperties(page, fallbackName) {
   };
 }
 
-function _mapContactProperties(page) {
+function _mapContactProperties_(page) {
   const p = page.properties;
   const C = NP.CONTACTS;
   const clientRel = p[C.CLIENT]?.relation || [];
@@ -296,7 +296,7 @@ function _mapContactProperties(page) {
   };
 }
 
-function _mapProjectProperties(page) {
+function _mapProjectProperties_(page) {
   const p = page.properties;
   const C = NP.PROJECTS;
   const clientRel = p[C.CLIENT]?.relation || [];
@@ -313,7 +313,7 @@ function _mapProjectProperties(page) {
   };
 }
 
-function _mapAgreementProperties(page) {
+function _mapAgreementProperties_(page) {
   const p = page.properties;
   const C = NP.AGREEMENTS;
   const clientRel    = p[C.CLIENT]?.relation    || [];
@@ -337,7 +337,7 @@ function _mapAgreementProperties(page) {
   };
 }
 
-function _mapInvoiceProperties(page) {
+function _mapInvoiceProperties_(page) {
   const p = page.properties;
   const C = NP.INVOICES;
   const clientRel    = p[C.CLIENT]?.relation    || [];
@@ -365,7 +365,7 @@ function _mapInvoiceProperties(page) {
   };
 }
 
-function _mapExpenseProperties(page) {
+function _mapExpenseProperties_(page) {
   const p = page.properties;
   const C = NP.EXPENSES;
   const projectRel    = p[C.PROJECT]?.relation    || [];
@@ -393,7 +393,7 @@ function _mapExpenseProperties(page) {
   };
 }
 
-function _mapPaymentProperties(page) {
+function _mapPaymentProperties_(page) {
   const p = page.properties;
   const C = NP.PAYMENTS;
   const invoiceRel = p[C.INVOICE]?.relation || [];
@@ -418,9 +418,9 @@ function _mapPaymentProperties(page) {
 
 // ── Client Queries ───────────────────────────────────────────
 
-function lookupClientByName(name) {
+function lookupClientByName_(name) {
   try {
-    const data = _notionFetch('databases/' + CONFIG.NOTION_CLIENTS_DB + '/query', {
+    const data = _notionFetch_('databases/' + CONFIG.NOTION_CLIENTS_DB + '/query', {
       filter: {
         and: [
           { property: NP.CLIENTS.NAME,   title:  { equals: name } },
@@ -430,33 +430,33 @@ function lookupClientByName(name) {
       page_size: 1,
     });
     if (!data.results || !data.results.length) return null;
-    return _mapClientProperties(data.results[0], name);
+    return _mapClientProperties_(data.results[0], name);
   } catch (e) {
     Logger.log('lookupClientByName error: ' + e.message);
     return null;
   }
 }
 
-function getClients() {
-  const raw = _queryAll(CONFIG.NOTION_CLIENTS_DB,
+function getClients_() {
+  const raw = _queryAll_(CONFIG.NOTION_CLIENTS_DB,
     { property: NP.CLIENTS.STATUS, select: { equals: 'Active' } },
     [{ property: NP.CLIENTS.NAME, direction: 'ascending' }]
   );
   if (raw.error) return raw;
-  return raw.map(r => _mapClientProperties(r));
+  return raw.map(r => _mapClientProperties_(r));
 }
 
-function getClientById(clientId) {
+function getClientById_(clientId) {
   try {
-    const data = _notionGet('pages/' + clientId);
-    return _mapClientProperties(data);
+    const data = _notionGet_('pages/' + clientId);
+    return _mapClientProperties_(data);
   } catch (e) {
     Logger.log('getClientById error: ' + e.message);
     return null;
   }
 }
 
-function createNotionClient(props) {
+function createNotionClient_(props) {
   const C = NP.CLIENTS;
   const properties = {};
   properties[C.NAME]   = { title: [{ text: { content: props.name } }] };
@@ -474,16 +474,16 @@ function createNotionClient(props) {
   if (props.shorthand) properties[C.SHORTHAND] = { rich_text: [{ text: { content: props.shorthand } }] };
   if (props.withholdingAgent !== undefined) properties[C.WITHHOLDING_AGENT] = { checkbox: !!props.withholdingAgent };
   if (props.withholdingRate  !== undefined) properties[C.WITHHOLDING_RATE]  = { number: parseFloat(props.withholdingRate) || 0 };
-  return _notionCreatePage(CONFIG.NOTION_CLIENTS_DB, properties);
+  return _notionCreatePage_(CONFIG.NOTION_CLIENTS_DB, properties);
 }
 
-function updateClientDriveFolderId(clientPageId, folderId) {
+function updateClientDriveFolderId_(clientPageId, folderId) {
   const properties = {};
   properties[NP.CLIENTS.DRIVE_FOLDER_ID] = { rich_text: [{ text: { content: folderId } }] };
-  return _notionUpdatePage(clientPageId, properties);
+  return _notionUpdatePage_(clientPageId, properties);
 }
 
-function updateClientInfo(clientId, props) {
+function updateClientInfo_(clientId, props) {
   const C = NP.CLIENTS;
   const properties = {};
   if (props.name !== undefined)           properties[C.NAME]            = { title: [{ text: { content: props.name } }] };
@@ -501,7 +501,7 @@ function updateClientInfo(clientId, props) {
   if (props.shorthand !== undefined) properties[C.SHORTHAND] = { rich_text: [{ text: { content: props.shorthand || '' } }] };
   if (props.withholdingAgent !== undefined) properties[C.WITHHOLDING_AGENT] = { checkbox: !!props.withholdingAgent };
   if (props.withholdingRate  !== undefined) properties[C.WITHHOLDING_RATE]  = { number: parseFloat(props.withholdingRate) || 0 };
-  return _notionUpdatePage(clientId, properties);
+  return _notionUpdatePage_(clientId, properties);
 }
 
 
@@ -512,21 +512,21 @@ function updateClientInfo(clientId, props) {
  * Used by the data backup feature.
  * @returns {Array}
  */
-function getAllContacts() {
-  const raw = _queryAll(CONFIG.NOTION_CONTACTS_DB, null,
+function getAllContacts_() {
+  const raw = _queryAll_(CONFIG.NOTION_CONTACTS_DB, null,
     [{ property: NP.CONTACTS.NAME, direction: 'ascending' }]
   );
   if (raw.error) return raw;
-  return raw.map(r => _mapContactProperties(r));
+  return raw.map(r => _mapContactProperties_(r));
 }
 
-function getContactsByClient(clientId) {
-  const raw = _queryAll(CONFIG.NOTION_CONTACTS_DB,
+function getContactsByClient_(clientId) {
+  const raw = _queryAll_(CONFIG.NOTION_CONTACTS_DB,
     { property: NP.CONTACTS.CLIENT, relation: { contains: clientId } },
     [{ property: NP.CONTACTS.NAME, direction: 'ascending' }]
   );
   if (raw.error) return raw;
-  return raw.map(r => _mapContactProperties(r));
+  return raw.map(r => _mapContactProperties_(r));
 }
 
 /**
@@ -534,15 +534,15 @@ function getContactsByClient(clientId) {
  * Reads the "Primary Contact" relation from the Client record.
  * Falls back to the first contact if no primary is set.
  */
-function getPrimaryContact(clientId) {
+function getPrimaryContact_(clientId) {
   try {
-    var client = _notionGet('pages/' + clientId);
-    var mapped = _mapClientProperties(client);
+    var client = _notionGet_('pages/' + clientId);
+    var mapped = _mapClientProperties_(client);
     if (mapped.primaryContactId) {
-      return getContactById(mapped.primaryContactId);
+      return getContactById_(mapped.primaryContactId);
     }
     // Fallback: first contact linked to this client
-    var contacts = getContactsByClient(clientId);
+    var contacts = getContactsByClient_(clientId);
     if (contacts.error || !contacts.length) return null;
     return contacts[0];
   } catch (e) {
@@ -551,17 +551,17 @@ function getPrimaryContact(clientId) {
   }
 }
 
-function getContactById(contactId) {
+function getContactById_(contactId) {
   try {
-    var data = _notionGet('pages/' + contactId);
-    return _mapContactProperties(data);
+    var data = _notionGet_('pages/' + contactId);
+    return _mapContactProperties_(data);
   } catch (e) {
     Logger.log('getContactById error: ' + e.message);
     return null;
   }
 }
 
-function updateContactInfo(contactId, props) {
+function updateContactInfo_(contactId, props) {
   const C = NP.CONTACTS;
   const properties = {};
   if (props.name !== undefined)  properties[C.NAME]  = { title: [{ text: { content: props.name } }] };
@@ -569,14 +569,14 @@ function updateContactInfo(contactId, props) {
   if (props.email !== undefined) properties[C.EMAIL] = props.email ? { email: props.email } : { email: null };
   if (props.phone !== undefined) properties[C.PHONE] = props.phone ? { phone_number: props.phone } : { phone_number: null };
   if (props.notes !== undefined) properties[C.NOTES] = { rich_text: [{ text: { content: props.notes || '' } }] };
-  return _notionUpdatePage(contactId, properties);
+  return _notionUpdatePage_(contactId, properties);
 }
 
-function archiveNotionPage(pageId) {
-  return _notionPatch('pages/' + pageId, { archived: true });
+function archiveNotionPage_(pageId) {
+  return _notionPatch_('pages/' + pageId, { archived: true });
 }
 
-function createNotionContact(props) {
+function createNotionContact_(props) {
   const C = NP.CONTACTS;
   const properties = {};
   properties[C.NAME] = { title: [{ text: { content: props.name } }] };
@@ -585,15 +585,15 @@ function createNotionContact(props) {
   if (props.email)    properties[C.EMAIL]  = { email: props.email };
   if (props.phone)    properties[C.PHONE]  = { phone_number: props.phone };
   if (props.notes)    properties[C.NOTES]  = { rich_text: [{ text: { content: props.notes } }] };
-  return _notionCreatePage(CONFIG.NOTION_CONTACTS_DB, properties);
+  return _notionCreatePage_(CONFIG.NOTION_CONTACTS_DB, properties);
 }
 
 
 // ── Project Queries ──────────────────────────────────────────
 
-function getProjects() {
+function getProjects_() {
   const C = NP.PROJECTS;
-  const raw = _queryAll(CONFIG.NOTION_PROJECTS_DB,
+  const raw = _queryAll_(CONFIG.NOTION_PROJECTS_DB,
     { or: [
       { property: C.STATUS, select: { equals: 'Active' } },
       { property: C.STATUS, select: { equals: 'Draft' } },
@@ -603,12 +603,12 @@ function getProjects() {
     [{ property: C.NAME, direction: 'ascending' }]
   );
   if (raw.error) return raw;
-  return raw.map(r => _mapProjectProperties(r));
+  return raw.map(r => _mapProjectProperties_(r));
 }
 
-function getProjectsByClient(clientId) {
+function getProjectsByClient_(clientId) {
   const C = NP.PROJECTS;
-  const raw = _queryAll(CONFIG.NOTION_PROJECTS_DB,
+  const raw = _queryAll_(CONFIG.NOTION_PROJECTS_DB,
     { and: [
       { property: C.CLIENT, relation: { contains: clientId } },
       { or: [
@@ -621,23 +621,23 @@ function getProjectsByClient(clientId) {
     [{ property: C.NAME, direction: 'ascending' }]
   );
   if (raw.error) return raw;
-  return raw.map(r => _mapProjectProperties(r));
+  return raw.map(r => _mapProjectProperties_(r));
 }
 
-function getProjectById(projectId) {
+function getProjectById_(projectId) {
   try {
-    const data = _notionGet('pages/' + projectId);
-    return _mapProjectProperties(data);
+    const data = _notionGet_('pages/' + projectId);
+    return _mapProjectProperties_(data);
   } catch (e) {
     Logger.log('getProjectById error: ' + e.message);
     return null;
   }
 }
 
-function lookupProjectByName(name) {
+function lookupProjectByName_(name) {
   try {
     const C = NP.PROJECTS;
-    const data = _notionFetch('databases/' + CONFIG.NOTION_PROJECTS_DB + '/query', {
+    const data = _notionFetch_('databases/' + CONFIG.NOTION_PROJECTS_DB + '/query', {
       filter: {
         and: [
           { property: C.NAME, title: { equals: name } },
@@ -650,14 +650,14 @@ function lookupProjectByName(name) {
       page_size: 1,
     });
     if (!data.results || !data.results.length) return null;
-    return _mapProjectProperties(data.results[0]);
+    return _mapProjectProperties_(data.results[0]);
   } catch (e) {
     Logger.log('lookupProjectByName error: ' + e.message);
     return null;
   }
 }
 
-function createNotionProject(props) {
+function createNotionProject_(props) {
   const C = NP.PROJECTS;
   const properties = {};
   properties[C.NAME]   = { title: [{ text: { content: props.name } }] };
@@ -667,16 +667,16 @@ function createNotionProject(props) {
   if (props.startDate) properties[C.START_DATE] = { date: { start: props.startDate } };
   if (props.endDate)   properties[C.END_DATE]   = { date: { start: props.endDate } };
   if (props.notes)     properties[C.NOTES]      = { rich_text: [{ text: { content: props.notes } }] };
-  return _notionCreatePage(CONFIG.NOTION_PROJECTS_DB, properties);
+  return _notionCreatePage_(CONFIG.NOTION_PROJECTS_DB, properties);
 }
 
-function updateProjectStatus(projectId, status) {
+function updateProjectStatus_(projectId, status) {
   const properties = {};
   properties[NP.PROJECTS.STATUS] = { select: { name: status } };
-  return _notionUpdatePage(projectId, properties);
+  return _notionUpdatePage_(projectId, properties);
 }
 
-function updateProjectInfo(projectId, props) {
+function updateProjectInfo_(projectId, props) {
   const C = NP.PROJECTS;
   const properties = {};
   if (props.name !== undefined)      properties[C.NAME]       = { title: [{ text: { content: props.name } }] };
@@ -685,19 +685,19 @@ function updateProjectInfo(projectId, props) {
   if (props.startDate !== undefined) properties[C.START_DATE] = props.startDate ? { date: { start: props.startDate } } : { date: null };
   if (props.endDate !== undefined)   properties[C.END_DATE]   = props.endDate   ? { date: { start: props.endDate } }   : { date: null };
   if (props.notes !== undefined)     properties[C.NOTES]      = { rich_text: [{ text: { content: props.notes || '' } }] };
-  return _notionUpdatePage(projectId, properties);
+  return _notionUpdatePage_(projectId, properties);
 }
 
 
 // ── Agreement Queries ────────────────────────────────────────
 
-function getAgreementsByProject(projectId) {
-  const raw = _queryAll(CONFIG.NOTION_AGREEMENTS_DB,
+function getAgreementsByProject_(projectId) {
+  const raw = _queryAll_(CONFIG.NOTION_AGREEMENTS_DB,
     { property: NP.AGREEMENTS.PROJECT, relation: { contains: projectId } },
     [{ property: NP.AGREEMENTS.EFFECTIVE_DATE, direction: 'descending' }]
   );
   if (raw.error) return raw;
-  return raw.map(r => _mapAgreementProperties(r));
+  return raw.map(r => _mapAgreementProperties_(r));
 }
 
 /**
@@ -705,15 +705,15 @@ function getAgreementsByProject(projectId) {
  * Used by the data backup feature.
  * @returns {Array}
  */
-function getAllAgreements() {
-  const raw = _queryAll(CONFIG.NOTION_AGREEMENTS_DB, null,
+function getAllAgreements_() {
+  const raw = _queryAll_(CONFIG.NOTION_AGREEMENTS_DB, null,
     [{ property: NP.AGREEMENTS.EFFECTIVE_DATE, direction: 'descending' }]
   );
   if (raw.error) return raw;
-  return raw.map(r => _mapAgreementProperties(r));
+  return raw.map(r => _mapAgreementProperties_(r));
 }
 
-function createNotionAgreement(props) {
+function createNotionAgreement_(props) {
   const C = NP.AGREEMENTS;
   const properties = {};
   properties[C.TITLE]    = { title: [{ text: { content: props.title } }] };
@@ -728,7 +728,7 @@ function createNotionAgreement(props) {
   if (props.agreementId)   properties[C.AGREEMENT_ID]  = { rich_text: [{ text: { content: props.agreementId } }] };
   if (props.language)      properties[C.LANGUAGE]       = { select: { name: props.language } };
   if (props.parentMsaId)   properties[C.PARENT_MSA]    = { relation: [{ id: props.parentMsaId }] };
-  return _notionCreatePage(CONFIG.NOTION_AGREEMENTS_DB, properties);
+  return _notionCreatePage_(CONFIG.NOTION_AGREEMENTS_DB, properties);
 }
 
 /**
@@ -737,13 +737,13 @@ function createNotionAgreement(props) {
  * @param {string} signedDate   ISO date
  * @param {string} fileUrl      New Drive URL of the signed PDF
  */
-function logSignedCopyToAgreement(agreementId, signedDate, fileUrl) {
+function logSignedCopyToAgreement_(agreementId, signedDate, fileUrl) {
   const C = NP.AGREEMENTS;
   const properties = {};
   properties[C.STATUS]      = { select: { name: 'Signed' } };
   properties[C.SIGNED_DATE] = { date: { start: signedDate } };
   if (fileUrl) properties[C.FILE_URL] = { url: fileUrl };
-  return _notionUpdatePage(agreementId, properties);
+  return _notionUpdatePage_(agreementId, properties);
 }
 
 /**
@@ -752,7 +752,7 @@ function logSignedCopyToAgreement(agreementId, signedDate, fileUrl) {
  * @param {string|null} docType   e.g. 'MSA'; null = all doc types
  * @returns {Array}
  */
-function getAgreementsByClient(clientId, docType) {
+function getAgreementsByClient_(clientId, docType) {
   var filter;
   if (docType) {
     filter = { and: [
@@ -762,20 +762,20 @@ function getAgreementsByClient(clientId, docType) {
   } else {
     filter = { property: NP.AGREEMENTS.CLIENT, relation: { contains: clientId } };
   }
-  const raw = _queryAll(CONFIG.NOTION_AGREEMENTS_DB, filter,
+  const raw = _queryAll_(CONFIG.NOTION_AGREEMENTS_DB, filter,
     [{ property: NP.AGREEMENTS.EFFECTIVE_DATE, direction: 'descending' }]
   );
   if (raw.error) return raw;
-  return raw.map(r => _mapAgreementProperties(r));
+  return raw.map(r => _mapAgreementProperties_(r));
 }
 
-function updateAgreementStatus(agreementId, status) {
+function updateAgreementStatus_(agreementId, status) {
   const properties = {};
   properties[NP.AGREEMENTS.STATUS] = { select: { name: status } };
-  return _notionUpdatePage(agreementId, properties);
+  return _notionUpdatePage_(agreementId, properties);
 }
 
-function updateAgreementInfo(agreementId, props) {
+function updateAgreementInfo_(agreementId, props) {
   const C = NP.AGREEMENTS;
   const properties = {};
   if (props.title !== undefined)         properties[C.TITLE]          = { title: [{ text: { content: props.title } }] };
@@ -783,27 +783,27 @@ function updateAgreementInfo(agreementId, props) {
   if (props.effectiveDate !== undefined) properties[C.EFFECTIVE_DATE] = props.effectiveDate ? { date: { start: props.effectiveDate } } : { date: null };
   if (props.fileUrl !== undefined)       properties[C.FILE_URL]       = props.fileUrl ? { url: props.fileUrl } : { url: null };
   if (props.notes !== undefined)         properties[C.NOTES]          = { rich_text: [{ text: { content: props.notes || '' } }] };
-  return _notionUpdatePage(agreementId, properties);
+  return _notionUpdatePage_(agreementId, properties);
 }
 
 
 // ── Invoice Queries ──────────────────────────────────────────
 
-function getInvoicesByProject(projectId) {
-  const raw = _queryAll(CONFIG.NOTION_INVOICES_DB,
+function getInvoicesByProject_(projectId) {
+  const raw = _queryAll_(CONFIG.NOTION_INVOICES_DB,
     { property: NP.INVOICES.PROJECT, relation: { contains: projectId } },
     [{ property: NP.INVOICES.ISSUED_DATE, direction: 'descending' }]
   );
   if (raw.error) return raw;
-  return raw.map(r => _mapInvoiceProperties(r));
+  return raw.map(r => _mapInvoiceProperties_(r));
 }
 
-function getAllInvoices() {
-  const raw = _queryAll(CONFIG.NOTION_INVOICES_DB, null,
+function getAllInvoices_() {
+  const raw = _queryAll_(CONFIG.NOTION_INVOICES_DB, null,
     [{ property: NP.INVOICES.ISSUED_DATE, direction: 'descending' }]
   );
   if (raw.error) return raw;
-  return raw.map(r => _mapInvoiceProperties(r));
+  return raw.map(r => _mapInvoiceProperties_(r));
 }
 
 /**
@@ -811,15 +811,15 @@ function getAllInvoices() {
  * @param {Array<string>} statuses  e.g., ['Sent'] or ['Sent', 'Overdue']
  * @returns {Array}
  */
-function getInvoicesByStatus(statuses) {
+function getInvoicesByStatus_(statuses) {
   var conditions = statuses.map(function(s) {
     return { property: NP.INVOICES.STATUS, select: { equals: s } };
   });
   var filter = conditions.length === 1 ? conditions[0] : { or: conditions };
-  var raw = _queryAll(CONFIG.NOTION_INVOICES_DB, filter,
+  var raw = _queryAll_(CONFIG.NOTION_INVOICES_DB, filter,
     [{ property: NP.INVOICES.ISSUED_DATE, direction: 'descending' }]);
   if (raw.error) return raw;
-  return raw.map(function(r) { return _mapInvoiceProperties(r); });
+  return raw.map(function(r) { return _mapInvoiceProperties_(r); });
 }
 
 /**
@@ -828,15 +828,15 @@ function getInvoicesByStatus(statuses) {
  * @param {string} beforeDateISO  ISO date string (exclusive upper bound)
  * @returns {Array}
  */
-function getSentInvoicesDueBefore(beforeDateISO) {
-  var raw = _queryAll(CONFIG.NOTION_INVOICES_DB, {
+function getSentInvoicesDueBefore_(beforeDateISO) {
+  var raw = _queryAll_(CONFIG.NOTION_INVOICES_DB, {
     and: [
       { property: NP.INVOICES.STATUS,   select: { equals: 'Sent' } },
       { property: NP.INVOICES.DUE_DATE, date:   { before: beforeDateISO } },
     ]
   }, [{ property: NP.INVOICES.DUE_DATE, direction: 'ascending' }]);
   if (raw.error) return raw;
-  return raw.map(function(r) { return _mapInvoiceProperties(r); });
+  return raw.map(function(r) { return _mapInvoiceProperties_(r); });
 }
 
 /**
@@ -846,23 +846,23 @@ function getSentInvoicesDueBefore(beforeDateISO) {
  * @param {string} endDate    ISO date (inclusive upper bound)
  * @returns {Array}
  */
-function getInvoicesByDateRange(startDate, endDate) {
-  var raw = _queryAll(CONFIG.NOTION_INVOICES_DB, {
+function getInvoicesByDateRange_(startDate, endDate) {
+  var raw = _queryAll_(CONFIG.NOTION_INVOICES_DB, {
     and: [
       { property: NP.INVOICES.ISSUED_DATE, date: { on_or_after:  startDate } },
       { property: NP.INVOICES.ISSUED_DATE, date: { on_or_before: endDate } },
     ]
   }, [{ property: NP.INVOICES.ISSUED_DATE, direction: 'descending' }]);
   if (raw.error) return raw;
-  return raw.map(function(r) { return _mapInvoiceProperties(r); });
+  return raw.map(function(r) { return _mapInvoiceProperties_(r); });
 }
 
-function getAllExpenses() {
-  const raw = _queryAll(CONFIG.NOTION_EXPENSES_DB, null,
+function getAllExpenses_() {
+  const raw = _queryAll_(CONFIG.NOTION_EXPENSES_DB, null,
     [{ property: NP.EXPENSES.EXPENSE_DATE, direction: 'descending' }]
   );
   if (raw.error) return raw;
-  return raw.map(r => _mapExpenseProperties(r));
+  return raw.map(r => _mapExpenseProperties_(r));
 }
 
 /**
@@ -872,40 +872,40 @@ function getAllExpenses() {
  * @param {string} endDate    ISO date (inclusive upper bound)
  * @returns {Array}
  */
-function getExpensesByDateRange(startDate, endDate) {
-  var raw = _queryAll(CONFIG.NOTION_EXPENSES_DB, {
+function getExpensesByDateRange_(startDate, endDate) {
+  var raw = _queryAll_(CONFIG.NOTION_EXPENSES_DB, {
     and: [
       { property: NP.EXPENSES.EXPENSE_DATE, date: { on_or_after:  startDate } },
       { property: NP.EXPENSES.EXPENSE_DATE, date: { on_or_before: endDate } },
     ]
   }, [{ property: NP.EXPENSES.EXPENSE_DATE, direction: 'descending' }]);
   if (raw.error) return raw;
-  return raw.map(function(r) { return _mapExpenseProperties(r); });
+  return raw.map(function(r) { return _mapExpenseProperties_(r); });
 }
 
-function getInvoiceById(invoicePageId) {
+function getInvoiceById_(invoicePageId) {
   try {
-    const data = _notionGet('pages/' + invoicePageId);
-    return _mapInvoiceProperties(data);
+    const data = _notionGet_('pages/' + invoicePageId);
+    return _mapInvoiceProperties_(data);
   } catch (e) {
     Logger.log('getInvoiceById error: ' + e.message);
     return null;
   }
 }
 
-function updateInvoiceStatus(invoicePageId, status, paidDate) {
+function updateInvoiceStatus_(invoicePageId, status, paidDate) {
   const C = NP.INVOICES;
   const props = {};
   props[C.STATUS] = { select: { name: status } };
   if (paidDate) props[C.PAID_DATE] = { date: { start: paidDate } };
-  return _notionUpdatePage(invoicePageId, props);
+  return _notionUpdatePage_(invoicePageId, props);
 }
 
-/** Original logToNotion — kept for backward compatibility with InvoiceService. */
-function logToNotion(invoiceId, data, driveUrl) {
+/** Original logToNotion_ — kept for backward compatibility with InvoiceService. */
+function logToNotion_(invoiceId, data, driveUrl) {
   const C = NP.INVOICES;
   const lineItemsSummary = data.lineItems
-    .map(i => `${i.name} (x${i.qty}) — $${formatCurrency(i.qty * i.price)}`)
+    .map(i => `${i.name} (x${i.qty}) — $${formatCurrency_(i.qty * i.price)}`)
     .join('\n');
 
   const properties = {};
@@ -923,7 +923,7 @@ function logToNotion(invoiceId, data, driveUrl) {
   if (data.projectId) properties[C.PROJECT] = { relation: [{ id: data.projectId }] };
 
   try {
-    var page = _notionCreatePage(CONFIG.NOTION_INVOICES_DB, properties);
+    var page = _notionCreatePage_(CONFIG.NOTION_INVOICES_DB, properties);
     return { success: true, pageId: page.id };
   } catch (e) {
     Logger.log('logToNotion error: ' + e.message);
@@ -934,10 +934,10 @@ function logToNotion(invoiceId, data, driveUrl) {
 
 // ── Quote Queries ────────────────────────────────────────────
 
-function logQuoteToNotion(quoteId, data, driveUrl) {
+function logQuoteToNotion_(quoteId, data, driveUrl) {
   const C = NP.QUOTES;
   var lineItemsSummary = data.lineItems
-    .map(function(i) { return i.name + ' (x' + i.qty + ') — $' + formatCurrency(i.qty * i.price); })
+    .map(function(i) { return i.name + ' (x' + i.qty + ') — $' + formatCurrency_(i.qty * i.price); })
     .join('\n');
 
   var properties = {};
@@ -954,7 +954,7 @@ function logQuoteToNotion(quoteId, data, driveUrl) {
   if (data.projectId) properties[C.PROJECT] = { relation: [{ id: data.projectId }] };
 
   try {
-    var page = _notionCreatePage(CONFIG.NOTION_QUOTES_DB, properties);
+    var page = _notionCreatePage_(CONFIG.NOTION_QUOTES_DB, properties);
     return { success: true, pageId: page.id };
   } catch (e) {
     Logger.log('logQuoteToNotion error: ' + e.message);
@@ -962,7 +962,7 @@ function logQuoteToNotion(quoteId, data, driveUrl) {
   }
 }
 
-function _mapQuoteProperties(page) {
+function _mapQuoteProperties_(page) {
   const p = page.properties;
   const C = NP.QUOTES;
   const clientRel  = p[C.CLIENT]?.relation  || [];
@@ -987,49 +987,49 @@ function _mapQuoteProperties(page) {
   };
 }
 
-function getAllQuotes() {
-  var raw = _queryAll(CONFIG.NOTION_QUOTES_DB, null,
+function getAllQuotes_() {
+  var raw = _queryAll_(CONFIG.NOTION_QUOTES_DB, null,
     [{ property: NP.QUOTES.ISSUED_DATE, direction: 'descending' }]);
   if (raw.error) return raw;
-  return raw.map(function(r) { return _mapQuoteProperties(r); });
+  return raw.map(function(r) { return _mapQuoteProperties_(r); });
 }
 
-function getQuoteById(quotePageId) {
+function getQuoteById_(quotePageId) {
   try {
-    var data = _notionGet('pages/' + quotePageId);
-    return _mapQuoteProperties(data);
+    var data = _notionGet_('pages/' + quotePageId);
+    return _mapQuoteProperties_(data);
   } catch (e) {
     Logger.log('getQuoteById error: ' + e.message);
     return null;
   }
 }
 
-function getQuotesByClient(clientId) {
-  var raw = _queryAll(CONFIG.NOTION_QUOTES_DB,
+function getQuotesByClient_(clientId) {
+  var raw = _queryAll_(CONFIG.NOTION_QUOTES_DB,
     { property: NP.QUOTES.CLIENT, relation: { contains: clientId } },
     [{ property: NP.QUOTES.ISSUED_DATE, direction: 'descending' }]);
   if (raw.error) return raw;
-  return raw.map(function(r) { return _mapQuoteProperties(r); });
+  return raw.map(function(r) { return _mapQuoteProperties_(r); });
 }
 
-function updateQuoteStatus(quotePageId, status) {
+function updateQuoteStatus_(quotePageId, status) {
   const properties = {};
   properties[NP.QUOTES.STATUS] = { select: { name: status } };
-  return _notionPatch('pages/' + quotePageId, { properties: properties });
+  return _notionPatch_('pages/' + quotePageId, { properties: properties });
 }
 
-function linkQuoteToInvoice(quotePageId, invoicePageId) {
+function linkQuoteToInvoice_(quotePageId, invoicePageId) {
   const C = NP.QUOTES;
   const props = {};
   props[C.STATUS] = { select: { name: 'Accepted' } };
   if (invoicePageId) props[C.CONVERTED_INVOICE] = { relation: [{ id: invoicePageId }] };
-  return _notionPatch('pages/' + quotePageId, { properties: props });
+  return _notionPatch_('pages/' + quotePageId, { properties: props });
 }
 
-function updateQuoteRecord(quotePageId, data) {
+function updateQuoteRecord_(quotePageId, data) {
   const C = NP.QUOTES;
   var lineItemsSummary = data.lineItems
-    .map(function(i) { return i.name + ' (x' + i.qty + ') \u2014 $' + formatCurrency(i.qty * i.price); })
+    .map(function(i) { return i.name + ' (x' + i.qty + ') \u2014 $' + formatCurrency_(i.qty * i.price); })
     .join('\n');
   var props = {};
   props[C.ISSUED_DATE] = { date: { start: data.issueDateISO } };
@@ -1041,21 +1041,21 @@ function updateQuoteRecord(quotePageId, data) {
   if (data.driveUrl)            props[C.DRIVE_LINK] = { url: data.driveUrl };
   if (data.notes !== undefined) props[C.NOTES]      = { rich_text: [{ text: { content: data.notes || '' } }] };
   if (data.projectId)           props[C.PROJECT]    = { relation: [{ id: data.projectId }] };
-  return _notionUpdatePage(quotePageId, props);
+  return _notionUpdatePage_(quotePageId, props);
 }
 
 // ── Expense Queries ──────────────────────────────────────────
 
-function getExpensesByProject(projectId) {
-  const raw = _queryAll(CONFIG.NOTION_EXPENSES_DB,
+function getExpensesByProject_(projectId) {
+  const raw = _queryAll_(CONFIG.NOTION_EXPENSES_DB,
     { property: NP.EXPENSES.PROJECT, relation: { contains: projectId } },
     [{ property: NP.EXPENSES.EXPENSE_DATE, direction: 'descending' }]
   );
   if (raw.error) return raw;
-  return raw.map(r => _mapExpenseProperties(r));
+  return raw.map(r => _mapExpenseProperties_(r));
 }
 
-function createNotionExpense(props) {
+function createNotionExpense_(props) {
   const C = NP.EXPENSES;
   const properties = {};
   properties[C.EXPENSE_ID] = { title: [{ text: { content: props.expenseId || '' } }] };
@@ -1072,20 +1072,20 @@ function createNotionExpense(props) {
   if (props.billable !== undefined) properties[C.BILLABLE] = { checkbox: !!props.billable };
   if (props.receiptUrl)    properties[C.RECEIPT_URL]   = { url: props.receiptUrl };
   if (props.notes)         properties[C.NOTES]         = { rich_text: [{ text: { content: props.notes } }] };
-  return _notionCreatePage(CONFIG.NOTION_EXPENSES_DB, properties);
+  return _notionCreatePage_(CONFIG.NOTION_EXPENSES_DB, properties);
 }
 
-function getExpenseById(expensePageId) {
+function getExpenseById_(expensePageId) {
   try {
-    var data = _notionGet('pages/' + expensePageId);
-    return _mapExpenseProperties(data);
+    var data = _notionGet_('pages/' + expensePageId);
+    return _mapExpenseProperties_(data);
   } catch (e) {
     Logger.log('getExpenseById error: ' + e.message);
     return null;
   }
 }
 
-function updateExpenseInfo(expensePageId, props) {
+function updateExpenseInfo_(expensePageId, props) {
   const C = NP.EXPENSES;
   const properties = {};
   if (props.description !== undefined)  properties[C.DESCRIPTION]  = { rich_text: [{ text: { content: props.description || '' } }] };
@@ -1101,14 +1101,14 @@ function updateExpenseInfo(expensePageId, props) {
   if (props.projectId !== undefined)    properties[C.PROJECT]      = props.projectId ? { relation: [{ id: props.projectId }] } : { relation: [] };
   if (props.clientId !== undefined)     properties[C.CLIENT]       = props.clientId ? { relation: [{ id: props.clientId }] } : { relation: [] };
   if (props.contractorId !== undefined) properties[C.CONTRACTOR]   = props.contractorId ? { relation: [{ id: props.contractorId }] } : { relation: [] };
-  return _notionUpdatePage(expensePageId, properties);
+  return _notionUpdatePage_(expensePageId, properties);
 }
 
 /**
  * Get billable expenses for a client that haven't been linked to an invoice yet.
  * Used by the invoice generator to import billable expenses as line items.
  */
-function getUnInvoicedBillableExpenses(clientId) {
+function getUnInvoicedBillableExpenses_(clientId) {
   if (!clientId) return [];
   const C = NP.EXPENSES;
   var filter = {
@@ -1118,24 +1118,24 @@ function getUnInvoicedBillableExpenses(clientId) {
       { property: C.INVOICE,  relation: { is_empty: true } },
     ]
   };
-  var raw = _queryAll(CONFIG.NOTION_EXPENSES_DB, filter,
+  var raw = _queryAll_(CONFIG.NOTION_EXPENSES_DB, filter,
     [{ property: C.EXPENSE_DATE, direction: 'descending' }]
   );
   if (raw.error) return [];
-  return raw.map(function(r) { return _mapExpenseProperties(r); });
+  return raw.map(function(r) { return _mapExpenseProperties_(r); });
 }
 
 /**
  * Mark expenses as invoiced by setting their Invoice relation to the given invoice page ID.
  * Called after invoice generation to link the imported expenses.
  */
-function markExpensesAsInvoiced(expensePageIds, invoicePageId) {
+function markExpensesAsInvoiced_(expensePageIds, invoicePageId) {
   if (!expensePageIds || !expensePageIds.length || !invoicePageId) return;
   expensePageIds.forEach(function(expenseId) {
     try {
       const properties = {};
       properties[NP.EXPENSES.INVOICE] = { relation: [{ id: invoicePageId }] };
-      _notionUpdatePage(expenseId, properties);
+      _notionUpdatePage_(expenseId, properties);
     } catch (e) {
       Logger.log('markExpensesAsInvoiced error for ' + expenseId + ': ' + e.message);
     }
@@ -1144,13 +1144,13 @@ function markExpensesAsInvoiced(expensePageIds, invoicePageId) {
 
 // ── Payment Queries ──────────────────────────────────────────
 
-function getPaymentsByInvoice(invoicePageId) {
-  const raw = _queryAll(CONFIG.NOTION_PAYMENTS_DB,
+function getPaymentsByInvoice_(invoicePageId) {
+  const raw = _queryAll_(CONFIG.NOTION_PAYMENTS_DB,
     { property: NP.PAYMENTS.INVOICE, relation: { contains: invoicePageId } },
     [{ property: NP.PAYMENTS.PAYMENT_DATE, direction: 'descending' }]
   );
   if (raw.error) return raw;
-  return raw.map(r => _mapPaymentProperties(r));
+  return raw.map(r => _mapPaymentProperties_(r));
 }
 
 /**
@@ -1158,15 +1158,15 @@ function getPaymentsByInvoice(invoicePageId) {
  * Used by the data backup feature.
  * @returns {Array}
  */
-function getAllPayments() {
-  const raw = _queryAll(CONFIG.NOTION_PAYMENTS_DB, null,
+function getAllPayments_() {
+  const raw = _queryAll_(CONFIG.NOTION_PAYMENTS_DB, null,
     [{ property: NP.PAYMENTS.PAYMENT_DATE, direction: 'descending' }]
   );
   if (raw.error) return raw;
-  return raw.map(r => _mapPaymentProperties(r));
+  return raw.map(r => _mapPaymentProperties_(r));
 }
 
-function createNotionPayment(props) {
+function createNotionPayment_(props) {
   const C = NP.PAYMENTS;
   const properties = {};
   properties[C.PAYMENT_ID] = { title: [{ text: { content: props.paymentId || '' } }] };
@@ -1180,20 +1180,20 @@ function createNotionPayment(props) {
   if (props.receiptUrl)     properties[C.RECEIPT_URL]     = { url: props.receiptUrl };
   if (props.notes)          properties[C.NOTES]           = { rich_text: [{ text: { content: props.notes } }] };
   if (props.amountWithheld) properties[C.AMOUNT_WITHHELD] = { number: parseFloat(props.amountWithheld) || 0 };
-  return _notionCreatePage(CONFIG.NOTION_PAYMENTS_DB, properties);
+  return _notionCreatePage_(CONFIG.NOTION_PAYMENTS_DB, properties);
 }
 
-function getPaymentById(paymentPageId) {
+function getPaymentById_(paymentPageId) {
   try {
-    var data = _notionGet('pages/' + paymentPageId);
-    return _mapPaymentProperties(data);
+    var data = _notionGet_('pages/' + paymentPageId);
+    return _mapPaymentProperties_(data);
   } catch (e) {
     Logger.log('getPaymentById error: ' + e.message);
     return null;
   }
 }
 
-function updatePaymentInfo(paymentPageId, props) {
+function updatePaymentInfo_(paymentPageId, props) {
   const C = NP.PAYMENTS;
   const properties = {};
   if (props.description !== undefined)  properties[C.DESCRIPTION]     = { rich_text: [{ text: { content: props.description || '' } }] };
@@ -1206,12 +1206,12 @@ function updatePaymentInfo(paymentPageId, props) {
   if (props.invoiceId !== undefined)    properties[C.INVOICE]         = props.invoiceId ? { relation: [{ id: props.invoiceId }] } : { relation: [] };
   if (props.clientId !== undefined)     properties[C.CLIENT]          = props.clientId ? { relation: [{ id: props.clientId }] } : { relation: [] };
   if (props.amountWithheld !== undefined) properties[C.AMOUNT_WITHHELD] = { number: parseFloat(props.amountWithheld) || 0 };
-  return _notionUpdatePage(paymentPageId, properties);
+  return _notionUpdatePage_(paymentPageId, properties);
 }
 
 // ── Contractor Queries ───────────────────────────────────────
 
-function _mapContractorProperties(page) {
+function _mapContractorProperties_(page) {
   const p = page.properties;
   const C = NP.CONTRACTORS;
   const roles = (p[C.ROLES]?.multi_select || []).map(r => r.name);
@@ -1230,34 +1230,34 @@ function _mapContractorProperties(page) {
   };
 }
 
-function getAllContractors() {
-  const raw = _queryAll(CONFIG.NOTION_CONTRACTORS_DB, null,
+function getAllContractors_() {
+  const raw = _queryAll_(CONFIG.NOTION_CONTRACTORS_DB, null,
     [{ property: NP.CONTRACTORS.NAME, direction: 'ascending' }]
   );
   if (raw.error) return raw;
-  return raw.map(r => _mapContractorProperties(r));
+  return raw.map(r => _mapContractorProperties_(r));
 }
 
-function getContractorById(contractorId) {
+function getContractorById_(contractorId) {
   try {
-    var data = _notionGet('pages/' + contractorId);
-    return _mapContractorProperties(data);
+    var data = _notionGet_('pages/' + contractorId);
+    return _mapContractorProperties_(data);
   } catch (e) {
     Logger.log('getContractorById error: ' + e.message);
     return null;
   }
 }
 
-function getExpensesByContractor(contractorId) {
-  const raw = _queryAll(CONFIG.NOTION_EXPENSES_DB,
+function getExpensesByContractor_(contractorId) {
+  const raw = _queryAll_(CONFIG.NOTION_EXPENSES_DB,
     { property: NP.EXPENSES.CONTRACTOR, relation: { contains: contractorId } },
     [{ property: NP.EXPENSES.EXPENSE_DATE, direction: 'descending' }]
   );
   if (raw.error) return raw;
-  return raw.map(r => _mapExpenseProperties(r));
+  return raw.map(r => _mapExpenseProperties_(r));
 }
 
-function createNotionContractor(props) {
+function createNotionContractor_(props) {
   const C = NP.CONTRACTORS;
   const properties = {};
   properties[C.NAME] = { title: [{ text: { content: props.name } }] };
@@ -1271,10 +1271,10 @@ function createNotionContractor(props) {
   if (props.isPartner !== undefined) properties[C.IS_PARTNER] = { checkbox: !!props.isPartner };
   if (props.w9Url) properties[C.W9]    = { url: props.w9Url };
   if (props.notes) properties[C.NOTES] = { rich_text: [{ text: { content: props.notes } }] };
-  return _notionCreatePage(CONFIG.NOTION_CONTRACTORS_DB, properties);
+  return _notionCreatePage_(CONFIG.NOTION_CONTRACTORS_DB, properties);
 }
 
-function updateContractorInfo(contractorId, props) {
+function updateContractorInfo_(contractorId, props) {
   const C = NP.CONTRACTORS;
   const properties = {};
   if (props.name !== undefined)          properties[C.NAME]           = { title: [{ text: { content: props.name } }] };
@@ -1286,18 +1286,18 @@ function updateContractorInfo(contractorId, props) {
   if (props.isPartner !== undefined)     properties[C.IS_PARTNER]     = { checkbox: !!props.isPartner };
   if (props.w9Url !== undefined)         properties[C.W9]             = props.w9Url ? { url: props.w9Url } : { url: null };
   if (props.notes !== undefined)         properties[C.NOTES]          = { rich_text: [{ text: { content: props.notes || '' } }] };
-  return _notionUpdatePage(contractorId, properties);
+  return _notionUpdatePage_(contractorId, properties);
 }
 
 /**
  * Fetch contractor + linked expenses in two phases.
  * Phase 1: GET contractor. Phase 2: Batch expenses query.
  */
-function _batchGetContractorDetails(contractorId) {
+function _batchGetContractorDetails_(contractorId) {
   var contractor = null;
   try {
-    var raw = _notionGet('pages/' + contractorId);
-    contractor = _mapContractorProperties(raw);
+    var raw = _notionGet_('pages/' + contractorId);
+    contractor = _mapContractorProperties_(raw);
   } catch (e) {
     Logger.log('_batchGetContractorDetails: fetch error: ' + e.message);
     return { contractor: null, expenses: [] };
@@ -1306,12 +1306,12 @@ function _batchGetContractorDetails(contractorId) {
   var expensesFilter = { property: NP.EXPENSES.CONTRACTOR, relation: { contains: contractorId } };
   var expensesSorts  = [{ property: NP.EXPENSES.EXPENSE_DATE, direction: 'descending' }];
 
-  var results = _notionBatchRequest([
+  var results = _notionBatchRequest_([
     { method: 'post', endpoint: 'databases/' + CONFIG.NOTION_EXPENSES_DB + '/query',
       payload: { filter: expensesFilter, sorts: expensesSorts, page_size: 100 } },
   ]);
 
-  var expenses = _parseBatchQueryResult(results[0], _mapExpenseProperties,
+  var expenses = _parseBatchQueryResult_(results[0], _mapExpenseProperties_,
     CONFIG.NOTION_EXPENSES_DB, expensesFilter, expensesSorts);
 
   return { contractor: contractor, expenses: expenses };
@@ -1324,7 +1324,7 @@ function _batchGetContractorDetails(contractorId) {
  * Fetch client + contacts + projects + invoices in a single parallel batch.
  * Returns { client, contacts, projects, invoices } with mapped properties.
  */
-function _batchGetClientDetails(clientId) {
+function _batchGetClientDetails_(clientId) {
   var contactsFilter = { property: NP.CONTACTS.CLIENT, relation: { contains: clientId } };
   var contactsSorts  = [{ property: NP.CONTACTS.NAME, direction: 'ascending' }];
   var projectsFilter = { and: [
@@ -1339,7 +1339,7 @@ function _batchGetClientDetails(clientId) {
   var invoicesFilter = { property: NP.INVOICES.CLIENT, relation: { contains: clientId } };
   var invoicesSorts  = [{ property: NP.INVOICES.ISSUED_DATE, direction: 'descending' }];
 
-  var results = _notionBatchRequest([
+  var results = _notionBatchRequest_([
     { method: 'get', endpoint: 'pages/' + clientId },
     { method: 'post', endpoint: 'databases/' + CONFIG.NOTION_CONTACTS_DB + '/query',
       payload: { filter: contactsFilter, sorts: contactsSorts, page_size: 100 } },
@@ -1351,16 +1351,16 @@ function _batchGetClientDetails(clientId) {
 
   var client = null;
   if (results[0] && !results[0].error) {
-    try { client = _mapClientProperties(results[0]); } catch (e) {
+    try { client = _mapClientProperties_(results[0]); } catch (e) {
       Logger.log('_batchGetClientDetails: client map error: ' + e.message);
     }
   }
 
-  var contacts = _parseBatchQueryResult(results[1], _mapContactProperties,
+  var contacts = _parseBatchQueryResult_(results[1], _mapContactProperties_,
     CONFIG.NOTION_CONTACTS_DB, contactsFilter, contactsSorts);
-  var projects = _parseBatchQueryResult(results[2], _mapProjectProperties,
+  var projects = _parseBatchQueryResult_(results[2], _mapProjectProperties_,
     CONFIG.NOTION_PROJECTS_DB, projectsFilter, projectsSorts);
-  var invoices = _parseBatchQueryResult(results[3], _mapInvoiceProperties,
+  var invoices = _parseBatchQueryResult_(results[3], _mapInvoiceProperties_,
     CONFIG.NOTION_INVOICES_DB, invoicesFilter, invoicesSorts);
 
   return { client: client, contacts: contacts, projects: projects, invoices: invoices };
@@ -1371,12 +1371,12 @@ function _batchGetClientDetails(clientId) {
  * Phase 1: GET project (sequential — needed to extract clientId).
  * Phase 2: Batch invoices + agreements + client page in parallel.
  */
-function _batchGetProjectDetails(projectId) {
+function _batchGetProjectDetails_(projectId) {
   // Phase 1: get project
   var project = null;
   try {
-    var raw = _notionGet('pages/' + projectId);
-    project = _mapProjectProperties(raw);
+    var raw = _notionGet_('pages/' + projectId);
+    project = _mapProjectProperties_(raw);
   } catch (e) {
     Logger.log('_batchGetProjectDetails: project fetch error: ' + e.message);
     return { project: null, invoices: [], agreements: [], clientName: '' };
@@ -1398,18 +1398,18 @@ function _batchGetProjectDetails(projectId) {
     specs.push({ method: 'get', endpoint: 'pages/' + project.clientId });
   }
 
-  var results = _notionBatchRequest(specs);
+  var results = _notionBatchRequest_(specs);
 
-  var invoices = _parseBatchQueryResult(results[0], _mapInvoiceProperties,
+  var invoices = _parseBatchQueryResult_(results[0], _mapInvoiceProperties_,
     CONFIG.NOTION_INVOICES_DB, invoicesFilter, invoicesSorts);
-  var agreements = _parseBatchQueryResult(results[1], _mapAgreementProperties,
+  var agreements = _parseBatchQueryResult_(results[1], _mapAgreementProperties_,
     CONFIG.NOTION_AGREEMENTS_DB, agreementsFilter, agreementsSorts);
 
   var client = null;
   var clientName = '';
   if (project.clientId && results[2] && !results[2].error) {
     try {
-      client = _mapClientProperties(results[2]);
+      client = _mapClientProperties_(results[2]);
       clientName = client.name || '';
     } catch (e) {
       Logger.log('_batchGetProjectDetails: client map error: ' + e.message);

@@ -18,7 +18,7 @@
  * @param {string} [data.notes]
  * @returns {Object} { success, payment, invoiceUpdated?, error? }
  */
-function logPayment(data) {
+function logPayment_(data) {
   try {
     // Relaxed validation for "Review" status (iOS Shortcut drafts)
     var isReview = data.status === 'Review';
@@ -29,9 +29,9 @@ function logPayment(data) {
     // Auto-generate payment ID if not provided
     var paymentId = data.paymentId && data.paymentId.trim()
       ? data.paymentId.trim()
-      : _generatePaymentId(data.paymentDate);
+      : _generatePaymentId_(data.paymentDate);
 
-    const page = createNotionPayment({
+    const page = createNotionPayment_({
       paymentId:      paymentId,
       description:    data.description || '',
       invoiceId:      data.invoiceId || '',
@@ -47,21 +47,21 @@ function logPayment(data) {
 
     var invoiceUpdated = false;
     if (data.markPaid && data.invoiceId) {
-      updateInvoiceStatus(data.invoiceId, 'Paid', data.paymentDate || new Date().toISOString().split('T')[0]);
+      updateInvoiceStatus_(data.invoiceId, 'Paid', data.paymentDate || new Date().toISOString().split('T')[0]);
       invoiceUpdated = true;
     } else if (data.invoiceId) {
       // Auto-check: if received + withheld covers the invoice total (within $1 rounding), mark Paid
       var withheld = parseFloat(data.amountWithheld) || 0;
       if (withheld > 0) {
-        var invoice = getInvoiceById(data.invoiceId);
+        var invoice = getInvoiceById_(data.invoiceId);
         if (invoice && invoice.total > 0) {
-          var existingPayments = getPaymentsByInvoice(data.invoiceId);
+          var existingPayments = getPaymentsByInvoice_(data.invoiceId);
           var previousSettled = (existingPayments && !existingPayments.error)
             ? existingPayments.reduce(function(s, p) { return s + (p.amount || 0) + (p.amountWithheld || 0); }, 0)
             : 0;
           var totalSettled = previousSettled + parseFloat(data.amount) + withheld;
           if (invoice.total - totalSettled <= 1.00) {
-            updateInvoiceStatus(data.invoiceId, 'Paid', data.paymentDate || new Date().toISOString().split('T')[0]);
+            updateInvoiceStatus_(data.invoiceId, 'Paid', data.paymentDate || new Date().toISOString().split('T')[0]);
             invoiceUpdated = true;
           }
         }
@@ -89,7 +89,7 @@ function logPayment(data) {
  * @param {string} [dateStr]  ISO date to use (defaults to today)
  * @returns {string} e.g., "RH-PAY-26-0319-01"
  */
-function _generatePaymentId(dateStr) {
+function _generatePaymentId_(dateStr) {
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(5000);
@@ -118,6 +118,6 @@ function _generatePaymentId(dateStr) {
 }
 
 // NOTE: processPaymentReceipt() removed — both expense and payment uploads
-// now use processReceiptStaged() in ReceiptService.js, which uploads to a
+// now use processReceiptStaged_() in ReceiptService.js, which uploads to a
 // staging folder. Files are moved to their final folder at submit time via
-// _moveReceiptToFinalFolder().
+// _moveReceiptToFinalFolder_().

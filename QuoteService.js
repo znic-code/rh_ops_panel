@@ -16,17 +16,17 @@
  * Copy the quote template, fill all placeholders, build the line item table,
  * export as PDF, and return { driveUrl, fileId }.
  *
- * Shared by generateQuote() (new quote) and regenerateQuotePdf() (edit flow)
+ * Shared by generateQuote_() (new quote) and regenerateQuotePdf_() (edit flow)
  * so the 100-line document-building block only exists once.
  *
  * Throws on any failure — callers are responsible for catching.
  *
  * @param {string} quoteId  The quote ID string (e.g. "RH-QTE-26-0511-01")
- * @param {Object} data     Same shape as generateQuote data
+ * @param {Object} data     Same shape as generateQuote_ data
  * @param {string} folderId Drive folder ID to save the PDF into
  * @returns {{ driveUrl: string, fileId: string }}
  */
-function _buildQuoteDoc(quoteId, data, folderId) {
+function _buildQuoteDoc_(quoteId, data, folderId) {
   // Copy template via Drive API (avoids carrying bound scripts)
   var copied = Drive.Files.copy(
     { name: 'Quote ' + quoteId, parents: [folderId] },
@@ -39,7 +39,7 @@ function _buildQuoteDoc(quoteId, data, folderId) {
     var body = doc.getBody();
 
     // ── Step 1: Replace scalar placeholders ────────────────────
-    var clientAddress = formatBillingAddress(data);
+    var clientAddress = formatBillingAddress_(data);
     var replacements = {
       '{{QUOTE_ID}}':          quoteId,
       '{{QUOTE_ISSUE_DATE}}':  data.issueDate,
@@ -49,17 +49,17 @@ function _buildQuoteDoc(quoteId, data, folderId) {
       '{{CLIENT_PHONE}}':      data.clientPhone   || '',
       '{{CLIENT_EMAIL}}':      data.clientEmail   || '',
       '{{CLIENT_WEBSITE}}':    data.clientWebsite || '',
-      '{{QUOTE_SUBTOTAL}}':    formatCurrency(data.subtotal),
-      '{{QUOTE_TAXES}}':       formatCurrency(data.taxes),
-      '{{QUOTE_TOTAL}}':       formatCurrency(data.total),
+      '{{QUOTE_SUBTOTAL}}':    formatCurrency_(data.subtotal),
+      '{{QUOTE_TAXES}}':       formatCurrency_(data.taxes),
+      '{{QUOTE_TOTAL}}':       formatCurrency_(data.total),
     };
     for (var find in replacements) {
-      body.replaceText(escapeRegex(find), replacements[find]);
+      body.replaceText(escapeRegex_(find), replacements[find]);
     }
 
     // ── Step 2: Remove blank optional client rows ──────────────
     var tables = body.getTables();
-    removeBlankClientRows(tables[0]);
+    removeBlankClientRows_(tables[0]);
 
     // ── Step 3: Fill line items (Table 1) ──────────────────────
     var lineTable = tables[1];
@@ -78,13 +78,13 @@ function _buildQuoteDoc(quoteId, data, folderId) {
     lineTable.getRow(1).getCell(0).clear();
 
     // Fill item 1 into the existing template row
-    fillLineItemRow(lineTable, 1, data.lineItems[0]);
+    fillLineItemRow_(lineTable, 1, data.lineItems[0]);
 
     // Append rows for items 2+
     for (var i = 1; i < data.lineItems.length; i++) {
       var newRow = lineTable.appendTableRow();
       while (newRow.getNumCells() < 4) newRow.appendTableCell('');
-      fillLineItemRow(lineTable, lineTable.getNumRows() - 1, data.lineItems[i]);
+      fillLineItemRow_(lineTable, lineTable.getNumRows() - 1, data.lineItems[i]);
     }
 
     // Re-add spacer row at the bottom
@@ -119,24 +119,24 @@ function _buildQuoteDoc(quoteId, data, folderId) {
   return { driveUrl: driveUrl, fileId: fileId };
 }
 
-function generateQuote(data) {
+function generateQuote_(data) {
   try {
-    var quoteId = getNextQuoteId();
+    var quoteId = getNextQuoteId_();
 
     // Resolve the client's Quotes folder
-    var folderId = resolveClientQuotesFolder(data.driveFolderId);
+    var folderId = resolveClientQuotesFolder_(data.driveFolderId);
     if (!folderId) folderId = CONFIG.CLIENTS_DRIVE_ROOT;
-    var yearFolderId = resolveOrCreateSubfolder(folderId, new Date().getFullYear().toString());
+    var yearFolderId = resolveOrCreateSubfolder_(folderId, new Date().getFullYear().toString());
     if (yearFolderId) folderId = yearFolderId;
 
-    var doc = _buildQuoteDoc(quoteId, data, folderId);
+    var doc = _buildQuoteDoc_(quoteId, data, folderId);
 
     // ── Log to Notion (isolated, non-fatal) ────────────────────
     var notionError = null;
     var quotePageId = null;
     if (data.logToNotion) {
       try {
-        var notionResult = logQuoteToNotion(quoteId, data, doc.driveUrl);
+        var notionResult = logQuoteToNotion_(quoteId, data, doc.driveUrl);
         if (notionResult && notionResult.success) {
           quotePageId = notionResult.pageId;
         } else {
@@ -158,19 +158,19 @@ function generateQuote(data) {
 /**
  * Regenerate the PDF for an existing quote (edit flow).
  * Uses the existing quoteId — does not create a new Notion page.
- * @param {Object} data - Same shape as generateQuote data, must include quoteId.
+ * @param {Object} data - Same shape as generateQuote_ data, must include quoteId.
  * @returns {{ success, driveUrl, fileId } | { success: false, error }}
  */
-function regenerateQuotePdf(data) {
+function regenerateQuotePdf_(data) {
   try {
     var quoteId = data.quoteId;
 
-    var folderId = resolveClientQuotesFolder(data.driveFolderId);
+    var folderId = resolveClientQuotesFolder_(data.driveFolderId);
     if (!folderId) folderId = CONFIG.CLIENTS_DRIVE_ROOT;
-    var yearFolderId = resolveOrCreateSubfolder(folderId, new Date().getFullYear().toString());
+    var yearFolderId = resolveOrCreateSubfolder_(folderId, new Date().getFullYear().toString());
     if (yearFolderId) folderId = yearFolderId;
 
-    var doc = _buildQuoteDoc(quoteId, data, folderId);
+    var doc = _buildQuoteDoc_(quoteId, data, folderId);
     return { success: true, driveUrl: doc.driveUrl, fileId: doc.fileId };
   } catch (e) {
     return { success: false, error: e.message + '\n' + e.stack };
@@ -181,7 +181,7 @@ function regenerateQuotePdf(data) {
  * Generate a sequential quote ID for today: RH-QT-YY-MMDD-NN
  * Uses LockService to prevent duplicate IDs under concurrent requests.
  */
-function getNextQuoteId() {
+function getNextQuoteId_() {
   var lock = LockService.getScriptLock();
   lock.waitLock(15000);
   try {

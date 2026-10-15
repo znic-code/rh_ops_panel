@@ -19,9 +19,9 @@
  * @param {string} [context='expense']  'expense' or 'payment' — determines the extraction prompt
  * @returns {{ success, data?, error? }}
  */
-function extractReceiptData(fileId, context) {
+function extractReceiptData_(fileId, context) {
   try {
-    var fileInfo = getFileAsBase64(fileId);
+    var fileInfo = getFileAsBase64_(fileId);
     var mimeType = fileInfo.mimeType;
 
     // Convert HEIC/HEIF to JPEG via Drive thumbnail API (iPhone camera format)
@@ -49,7 +49,7 @@ function extractReceiptData(fileId, context) {
       return { success: false, error: 'Unsupported file type: ' + mimeType + '. Use JPEG, PNG, WebP, GIF, or PDF.' };
     }
 
-    var extracted = _callClaudeVision(fileInfo.base64, mimeType, context || 'expense');
+    var extracted = _callClaudeVision_(fileInfo.base64, mimeType, context || 'expense');
 
     if (!extracted || extracted.error) {
       return { success: false, error: extracted ? extracted.error : 'No response from Claude.' };
@@ -57,7 +57,7 @@ function extractReceiptData(fileId, context) {
 
     // Suggest category based on vendor/description if AI didn't assign one (expenses only)
     if ((context || 'expense') === 'expense' && !extracted.category) {
-      extracted.category = _suggestCategory(extracted.vendor, extracted.description);
+      extracted.category = _suggestCategory_(extracted.vendor, extracted.description);
     }
 
     return { success: true, data: extracted };
@@ -76,7 +76,7 @@ function extractReceiptData(fileId, context) {
  * @param {string} context     'expense' or 'payment'
  * @returns {Object} Parsed receipt data or { error: string }
  */
-function _callClaudeVision(base64Data, mimeType, context) {
+function _callClaudeVision_(base64Data, mimeType, context) {
   var apiKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
   if (!apiKey) {
     return { error: 'ANTHROPIC_API_KEY not set in Script Properties.' };
@@ -192,7 +192,7 @@ function _callClaudeVision(base64Data, mimeType, context) {
   };
 
   // Retry on 429 (rate limit) and 5xx (transient server errors) — same
-  // backoff pattern used by _notionRequest in NotionService.js.
+  // backoff pattern used by _notionRequest_ in NotionService.js.
   var MAX_RETRIES = 3;
   var RETRYABLE   = [429, 500, 502, 503, 504];
   var response, code;
@@ -268,7 +268,7 @@ function _callClaudeVision(base64Data, mimeType, context) {
  * @param {string} description
  * @returns {string} Category name
  */
-function _suggestCategory(vendor, description) {
+function _suggestCategory_(vendor, description) {
   var text = ((vendor || '') + ' ' + (description || '')).toLowerCase();
 
   // Software & Subscriptions
@@ -314,20 +314,20 @@ function _suggestCategory(vendor, description) {
 /**
  * Upload receipt to a staging folder and run AI extraction.
  * The file is placed in 01_Admin/Financials/_Staging/ temporarily.
- * At submit time, _moveReceiptToFinalFolder() moves it to the correct location.
+ * At submit time, _moveReceiptToFinalFolder_() moves it to the correct location.
  */
-function processReceiptStaged(base64Data, fileName, mimeType, context) {
+function processReceiptStaged_(base64Data, fileName, mimeType, context) {
   try {
     // 1. Upload to staging folder
-    var stagingId = resolveOrCreateSubfolder(CONFIG.FINANCIALS_DRIVE_DIR, '_Staging');
+    var stagingId = resolveOrCreateSubfolder_(CONFIG.FINANCIALS_DRIVE_DIR, '_Staging');
     if (!stagingId) {
       return { success: false, error: 'Could not resolve or create the staging folder in Drive.' };
     }
 
-    var upload = uploadFileToDrive(base64Data, fileName, mimeType, stagingId);
+    var upload = uploadFileToDrive_(base64Data, fileName, mimeType, stagingId);
 
     // 2. Extract data via AI
-    var extraction = extractReceiptData(upload.fileId, context || 'expense');
+    var extraction = extractReceiptData_(upload.fileId, context || 'expense');
 
     return {
       success:         true,
@@ -355,11 +355,11 @@ function processReceiptStaged(base64Data, fileName, mimeType, context) {
  * @param {string} [recordId]      Optional record ID to rename the file (e.g., RH-EXP-26-0320-01)
  * @returns {{ fileId: string, fileUrl: string }} The final file's ID and URL
  */
-function _moveReceiptToFinalFolder(fileId, clientId, folderType, isPickerSource, recordId) {
+function _moveReceiptToFinalFolder_(fileId, clientId, folderType, isPickerSource, recordId) {
   // Resolve the correct destination folder
   var clientDriveFolderId = null;
   if (clientId) {
-    var client = getClientById(clientId);
+    var client = getClientById_(clientId);
     if (client && client.driveFolderId) {
       clientDriveFolderId = client.driveFolderId;
     }
@@ -367,9 +367,9 @@ function _moveReceiptToFinalFolder(fileId, clientId, folderType, isPickerSource,
 
   var folderId;
   if (folderType === 'Payments') {
-    folderId = resolvePaymentFolder(clientDriveFolderId, null);
+    folderId = resolvePaymentFolder_(clientDriveFolderId, null);
   } else {
-    folderId = resolveExpenseFolder(clientDriveFolderId, null);
+    folderId = resolveExpenseFolder_(clientDriveFolderId, null);
   }
 
   if (!folderId) {
