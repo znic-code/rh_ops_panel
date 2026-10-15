@@ -241,6 +241,7 @@ function getFileAsBase64_(fileId) {
  * @returns {{ deleted: number, errors: number }}
  */
 function cleanupStagingFolder(maxAgeHours) {
+  _requireTriggerOrRole_(maxAgeHours, ['admin']);  // maxAgeHours is the event object on trigger runs
   var hours = maxAgeHours || 24;
   var cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
   var deleted = 0;

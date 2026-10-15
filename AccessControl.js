@@ -4,10 +4,23 @@
 // Roles:
 //   'admin'   — full access (create, edit, delete, settings, backup)
 //   'partner' — full operational access; no settings, no deletes
-//   'staff'   — clients, projects, contacts, agreements only; no financials
+//   'staff'   — read-only clients, projects, contacts; no financials
+//               (no invoices, quotes, agreements, expenses, payments,
+//               contractors, dashboard or reports)
 //
 // The bootstrap admin email is always 'admin' regardless of the role table,
 // so the owner can never be locked out.
+//
+// WHAT IS CALLABLE FROM THE BROWSER:
+//   google.script.run can call any top-level function whose name does NOT
+//   end in "_" (a leading underscore does not hide it). So:
+//     - every helper ends in "_" (private);
+//     - every public function is an entry point and checks access itself:
+//       panel* RPCs and the legacy invoice-form RPCs call _requireRole_();
+//       trigger handlers call _requireTriggerOrRole_();
+//       panelGetCurrentUser, doGet, doPost, onOpen and include are the only
+//       ungated ones (doPost and doGet ?page=api check API_SECRET).
+//   A new server function must either end in "_" or start with a gate.
 //
 // DEPLOYMENT NOTE:
 //   Session.getActiveUser().getEmail() returns the accessing user's email
@@ -60,6 +73,28 @@ function _requireRole_(allowed) {
   if (!role || allowed.indexOf(role) === -1) {
     throw new Error('Access denied.');
   }
+}
+
+/**
+ * Gate for time-driven trigger handlers. They stay public so their triggers
+ * keep working, and a trigger run has no user session, so it skips
+ * _requireRole_(): Apps Script passes an event whose triggerUid matches one
+ * of the effective user's triggers on this project. Anything else
+ * (google.script.run, the editor's Run button) must come from an allowed role.
+ * A browser caller can't fake this: getProjectTriggers() only returns the
+ * caller's own triggers, and outside users have none.
+ * @param {*} e               the handler's first argument (event object on trigger runs)
+ * @param {string[]} allowed  roles allowed to run the handler manually
+ */
+function _requireTriggerOrRole_(e, allowed) {
+  var uid = e && e.triggerUid ? String(e.triggerUid) : '';
+  if (uid) {
+    var isOwnTrigger = ScriptApp.getProjectTriggers().some(function(t) {
+      return t.getUniqueId() === uid;
+    });
+    if (isOwnTrigger) return;
+  }
+  _requireRole_(allowed);
 }
 
 /**

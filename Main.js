@@ -151,6 +151,7 @@ function onOpen() {
 // ── SIDEBAR (Invoice v2 template) ────────────────────────────
 
 function showSidebar() {
+  _requireRole_(['admin', 'partner']);
   const html = HtmlService.createTemplateFromFile('sidebar')
     .evaluate()
     .setTitle('Generate Invoice')
@@ -180,6 +181,7 @@ function doGet(e) {
 
   // If ?page=invoice, serve the original invoice generator webapp
   if (page === 'invoice') {
+    _requireRole_(['admin', 'partner']);
     var faviconUrlInv = 'https://drive.google.com/uc?id=1ReOAGhNBh5l4abfWLhTfaLEnrYhO9a-V&export=download&format=png';
     return HtmlService.createTemplateFromFile('webapp')
       .evaluate()
@@ -511,6 +513,7 @@ function _jsonResponse_(obj) {
 // ── DRAFT EMAIL (backward-compatible for sidebar/webapp) ─────
 
 function createInvoiceDraft(params) {
+  _requireRole_(['admin', 'partner']);
   return createDocumentDraft_({
     fileId:       params.fileId,
     clientEmail:  params.clientEmail,
@@ -527,6 +530,7 @@ function createInvoiceDraft(params) {
 
 /** Get all active clients for the list view. */
 function panelGetClients() {
+  _requireRole_(['admin', 'partner', 'staff']);
   var cached = _cacheGet_('clients');
   if (cached) return cached;
   var data = getClients_();
@@ -536,8 +540,13 @@ function panelGetClients() {
 
 /** Get full client details + contacts + projects for client view. */
 function panelGetClientDetails(clientId) {
+  _requireRole_(['admin', 'partner', 'staff']);
   var data = _batchGetClientDetails_(clientId);
   if (!data.client) return { error: 'Client not found' };
+  // Staff get no financials: omit the invoice totals.
+  if (_getCallerRole_() === 'staff') {
+    return { client: data.client, contacts: data.contacts, projects: data.projects };
+  }
 
   var totalRevenue = 0, outstanding = 0;
   data.invoices.forEach(function(inv) {
@@ -550,9 +559,12 @@ function panelGetClientDetails(clientId) {
 
 /** Get project details + invoices + agreements for project dashboard. */
 function panelGetProjectDetails(projectId) {
+  _requireRole_(['admin', 'partner', 'staff']);
   var data = _batchGetProjectDetails_(projectId);
   if (!data.project) return { error: 'Project not found' };
-  return { project: data.project, invoices: data.invoices, agreements: data.agreements, clientName: data.clientName, client: data.client };
+  // Staff get no financials: invoices and agreements are partner-level.
+  var isStaff = _getCallerRole_() === 'staff';
+  return { project: data.project, invoices: isStaff ? [] : data.invoices, agreements: isStaff ? [] : data.agreements, clientName: data.clientName, client: data.client };
 }
 
 /** Create a new client (full flow). */
@@ -580,6 +592,7 @@ function panelAddContact(data) {
 
 /** Get a single contact by ID (for edit form). */
 function panelGetContactById(contactId) {
+  _requireRole_(['admin', 'partner', 'staff']);
   try {
     return getContactById_(contactId);
   } catch (e) {
@@ -868,6 +881,7 @@ function panelLogExpense(data) {
 
 /** Get a single expense by Notion page ID. */
 function panelGetExpenseById(expensePageId) {
+  _requireRole_(['admin', 'partner']);
   try {
     var expense = getExpenseById_(expensePageId);
     if (!expense) return { success: false, error: 'Expense not found.' };
@@ -973,6 +987,7 @@ function panelArchiveExpense(expensePageId) {
  * call _moveReceiptToFinalFolder_() to place it correctly.
  */
 function panelUploadAndExtractReceipt(data) {
+  _requireRole_(['admin', 'partner']);
   try {
     return processReceiptStaged_(data.base64, data.fileName, data.mimeType);
   } catch (e) {
@@ -989,6 +1004,7 @@ function panelUploadAndExtractReceipt(data) {
  * @returns {{ success, data?, error? }}
  */
 function panelReExtractReceipt(fileId, context) {
+  _requireRole_(['admin', 'partner']);
   try {
     return extractReceiptData_(fileId, context || 'expense');
   } catch (e) {
@@ -1083,6 +1099,7 @@ function panelGetAllPayments() {
 
 /** Get a single payment by Notion page ID. */
 function panelGetPaymentById(paymentPageId) {
+  _requireRole_(['admin', 'partner']);
   try {
     var payment = getPaymentById_(paymentPageId);
     if (!payment) return { success: false, error: 'Payment not found.' };
@@ -1169,6 +1186,7 @@ function panelArchivePayment(paymentPageId) {
  * File is placed in final folder at submit time via panelLogPaymentFromReceipt.
  */
 function panelUploadAndExtractPaymentReceipt(data) {
+  _requireRole_(['admin', 'partner']);
   try {
     return processReceiptStaged_(data.base64, data.fileName, data.mimeType);
   } catch (e) {
@@ -1186,6 +1204,7 @@ function panelUploadAndExtractPaymentReceipt(data) {
  * Extracts from the original file directly.
  */
 function panelPickerExtractPaymentReceipt(data) {
+  _requireRole_(['admin', 'partner']);
   try {
     var originalFile = DriveApp.getFileById(data.fileId);
     var extraction = extractReceiptData_(data.fileId, 'payment');
@@ -1255,6 +1274,7 @@ function panelLogPaymentFromReceipt(data) {
  * PICKER_API_KEY and PICKER_APP_ID must be set in Script Properties.
  */
 function panelGetPickerConfig() {
+  _requireRole_(['admin', 'partner']);
   var props = PropertiesService.getScriptProperties();
   return {
     token:  ScriptApp.getOAuthToken(),
@@ -1280,6 +1300,7 @@ function panelGetPickerConfig() {
  * Extracts from the original file directly.
  */
 function panelPickerExtractReceipt(data) {
+  _requireRole_(['admin', 'partner']);
   try {
     var originalFile = DriveApp.getFileById(data.fileId);
     var extraction = extractReceiptData_(data.fileId, 'expense');
@@ -1301,11 +1322,13 @@ function panelPickerExtractReceipt(data) {
 
 /** Create an email draft for a document (legacy). */
 function panelCreateDraft(params) {
+  _requireRole_(['admin', 'partner']);
   return createDocumentDraft_(params);
 }
 
 /** Create an email draft from pre-composed content (used by compose view). */
 function panelCreateComposedDraft(params) {
+  _requireRole_(['admin', 'partner']);
   return createEmailDraft_({
     to: params.to,
     subject: params.subject,
@@ -1316,6 +1339,7 @@ function panelCreateComposedDraft(params) {
 
 /** Get primary contact email for a client. */
 function panelGetPrimaryContact(clientId) {
+  _requireRole_(['admin', 'partner', 'staff']);
   return getPrimaryContact_(clientId);
 }
 
@@ -1326,6 +1350,7 @@ function panelGetPrimaryContact(clientId) {
  * Single call: looks up contact, loads templates, resolves default template.
  */
 function panelGetComposeData(params) {
+  _requireRole_(['admin', 'partner']);
   try {
     var contact = getPrimaryContact_(params.clientId);
     if (!contact || !contact.email) {
@@ -1470,6 +1495,7 @@ function panelSendDocumentEmail(params) {
 
 /** Get all email templates (defaults + custom). */
 function panelGetEmailTemplates() {
+  _requireRole_(['admin', 'partner']);
   return getEmailTemplates_();
 }
 
@@ -1678,6 +1704,7 @@ function _computeDashboardResult_(clients, projects, yearInvoices, outstandingIn
 }
 
 function panelGetDashboardData() {
+  _requireRole_(['admin', 'partner']);
   var cached = _cacheGet_('dashboard');
   if (cached) return cached;
 
@@ -1785,6 +1812,7 @@ function panelGetAllInvoices() {
 
 /** Get invoice details + payments for invoice view. */
 function panelGetInvoiceDetails(invoiceId) {
+  _requireRole_(['admin', 'partner']);
   var invoice = getInvoiceById_(invoiceId);
   if (!invoice) return { error: 'Invoice not found' };
   var payments = getPaymentsByInvoice_(invoiceId);
@@ -1803,6 +1831,7 @@ function panelGetInvoiceDetails(invoiceId) {
 
 /** Get agreement details for agreement view (includes new lifecycle fields). */
 function panelGetAgreementDetails(agreementId) {
+  _requireRole_(['admin', 'partner']);
   try {
     var raw = _notionGet_('pages/' + agreementId);
     if (!raw || raw.error) return { error: 'Agreement not found' };
@@ -1837,7 +1866,8 @@ function panelGetAgreementDetails(agreementId) {
  * Time-driven trigger — run daily to auto-flag overdue invoices.
  * Set up via Apps Script Triggers: checkOverdueInvoices, daily.
  */
-function checkOverdueInvoices() {
+function checkOverdueInvoices(e) {
+  _requireTriggerOrRole_(e, ['admin']);
   var today = new Date().toISOString().split('T')[0];
 
   // Fetch only Sent invoices with Due Date before today (server-side filter)
@@ -2063,6 +2093,7 @@ function panelGetTaxSummary(year) {
 
 /** Get all projects (enriched with client names) for the Projects view. */
 function panelGetAllProjects() {
+  _requireRole_(['admin', 'partner', 'staff']);
   var cached = _cacheGet_('projects');
   if (cached) return cached;
   var projects = getProjects_();
@@ -2153,10 +2184,12 @@ function panelGetAllContractors() {
 }
 
 function panelGetContractorById(contractorId) {
+  _requireRole_(['admin', 'partner']);
   return getContractorById_(contractorId);
 }
 
 function panelGetContractorDetails(contractorId) {
+  _requireRole_(['admin', 'partner']);
   try {
     var data = _batchGetContractorDetails_(contractorId);
     if (!data.contractor) return { success: false, error: 'Contractor not found.' };
@@ -2425,6 +2458,7 @@ function panelGetAllQuotes() {
 }
 
 function panelGetQuoteDetails(quotePageId) {
+  _requireRole_(['admin', 'partner']);
   try {
     var quote = getQuoteById_(quotePageId);
     if (!quote) return { error: 'Quote not found' };
@@ -2716,6 +2750,7 @@ function panelConvertQuoteToInvoice(quotePageId, invoiceData) {
  * Used by the invoice form to let users import billable expenses as line items.
  */
 function getBillableExpensesForClient(clientId) {
+  _requireRole_(['admin', 'partner']);
   try {
     return { success: true, expenses: getUnInvoicedBillableExpenses_(clientId) };
   } catch (e) {
@@ -2777,6 +2812,7 @@ function panelQuickCreateInvoice(data) {
  * Returns { ok: true } or { ok: false, issues: [...] }
  */
 function panelQuickPing() {
+  _requireRole_(['admin']);
   // Check cache first (24h TTL)
   var cache = CacheService.getScriptCache();
   var cached = cache.get('_healthCheckResult');
@@ -3002,7 +3038,8 @@ function panelHealthCheck() {
  * Set up via Apps Script Triggers: dailyHealthCheckEmail, daily.
  * Only sends an email if there are warnings or errors.
  */
-function dailyHealthCheckEmail() {
+function dailyHealthCheckEmail(e) {
+  _requireTriggerOrRole_(e, ['admin']);
   try {
     // Invalidate the cached quick ping so next panel load gets fresh data
     try { CacheService.getScriptCache().remove('_healthCheckResult'); } catch (_) {}
@@ -3072,7 +3109,8 @@ function dailyHealthCheckEmail() {
  * Time-driven trigger — run daily to send invoice reminders.
  * Set up via Apps Script Triggers: sendInvoiceReminders, daily.
  */
-function sendInvoiceReminders() {
+function sendInvoiceReminders(e) {
+  _requireTriggerOrRole_(e, ['admin']);
   var raw = PropertiesService.getScriptProperties().getProperty('settings_reminders');
   var settings = raw ? JSON.parse(raw) : _SETTINGS_DEFAULTS.reminders;
   if (!settings.enabled) { Logger.log('sendInvoiceReminders: disabled.'); return; }
@@ -3156,6 +3194,7 @@ function sendInvoiceReminders() {
 // ── RECURRING INVOICES ───────────────────────────────────────
 
 function panelGetRecurringConfig(projectId) {
+  _requireRole_(['admin', 'partner']);
   try {
     var raw = PropertiesService.getScriptProperties().getProperty('recurring_configs');
     var all = raw ? JSON.parse(raw) : {};
@@ -3188,7 +3227,8 @@ function panelSaveRecurringConfig(projectId, config) {
  * Time-driven trigger — run daily to generate recurring invoices.
  * Set up via Apps Script Triggers: generateRecurringInvoices, daily.
  */
-function generateRecurringInvoices() {
+function generateRecurringInvoices(e) {
+  _requireTriggerOrRole_(e, ['admin']);
   var raw = PropertiesService.getScriptProperties().getProperty('recurring_configs');
   var all = raw ? JSON.parse(raw) : {};
   var today = new Date();
@@ -3494,6 +3534,7 @@ function panelRunBackup() {
  * @returns {Object} { success, sheetUrl, lastBackup, error? }
  */
 function backupNotionData(forceRun) {
+  _requireTriggerOrRole_(forceRun, ['admin']);  // forceRun is the event object on trigger runs
   try {
     // ── Read config ──────────────────────────────────────────
     var raw = PropertiesService.getScriptProperties().getProperty('backup_config');

@@ -713,7 +713,7 @@ function render() {
   content.innerHTML = '<div class="loading"><span class="spinner"></span> Loading&hellip;</div>';
 
   // Financial/operational pages require at least partner role
-  var _financialViews = ['agreements','agreement','newAgreement','generateAgreement','uploadAgreement','expenses','newExpense','expense','editExpense','payments','newPayment','payment','editPayment','reports','contractors','contractor','newContractor','editContractor','quotes','quote','newQuote','cloneInvoice','invoices','editQuote','cloneQuote'];
+  var _financialViews = ['dashboard','agreements','agreement','newAgreement','generateAgreement','uploadAgreement','expenses','newExpense','expense','editExpense','payments','newPayment','payment','editPayment','reports','contractors','contractor','newContractor','editContractor','quotes','quote','newQuote','cloneInvoice','invoices','editQuote','cloneQuote'];
   // Settings requires admin
   var _adminViews = ['settings'];
 
@@ -1670,7 +1670,7 @@ function renderProjectView(projectId, clientId) {
         + '</div></div>';
 
       // Recurring Billing card (only for Retainer projects)
-      if (p.type === 'Retainer') {
+      if (p.type === 'Retainer' && _isPartner()) {
         html += '<div class="card" style="margin-top:20px" id="recurring-card"><div class="card-header"><h2>Recurring Billing</h2></div>'
           + '<div class="card-body"><div class="loading"><span class="spinner"></span> Loading config&hellip;</div></div></div>';
       }
@@ -1813,7 +1813,7 @@ function renderProjectView(projectId, clientId) {
       $('content').innerHTML = html;
 
       // Load recurring billing config if card present
-      if (p.type === 'Retainer') { loadRecurringConfig(projectId); }
+      if (p.type === 'Retainer' && _isPartner()) { loadRecurringConfig(projectId); }
     })
     .withFailureHandler(function(e) { showError(e.message); })
     .panelGetProjectDetails(projectId);
@@ -9044,7 +9044,7 @@ window.onload = function() {
 
       // Hide nav items the role can't reach
       if (!_isPartner()) {
-        ['nav-agreements','nav-invoices','nav-quotes','nav-expenses','nav-payments','nav-reports','nav-contractors'].forEach(function(id) {
+        ['nav-dashboard','nav-agreements','nav-invoices','nav-quotes','nav-expenses','nav-payments','nav-reports','nav-contractors'].forEach(function(id) {
           var el = document.getElementById(id);
           if (el) el.style.display = 'none';
         });
@@ -9077,7 +9077,9 @@ window.onload = function() {
           .panelQuickPing();
       }
 
-      navigateToRoot('dashboard', 'Dashboard');
+      // Dashboard is financial; staff start on Clients
+      if (_isPartner()) navigateToRoot('dashboard', 'Dashboard');
+      else navigateToRoot('clients', 'Clients');
     })
     .withFailureHandler(function(err) {
       console.log('panelGetCurrentUser failed:', err.message);
