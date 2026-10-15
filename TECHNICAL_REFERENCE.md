@@ -80,7 +80,7 @@ NotionService.js (Data access — all Notion API calls)
 | `submitEditClient(clientId)` | `panelUpdateClientInfo(clientId, data)` | Submits client edits. |
 | `confirmArchiveClient(clientId, name)` | `panelArchiveClient(clientId)` | Confirmation dialog → sets status to "Archived". Navigates to clients list on success. |
 
-**Backend logic:** `panelCreateClient()` → `createFullClient()` in ClientService.js. This is a multi-step operation protected by LockService: creates Notion client page → creates Drive folder structure → creates contact(s) → optionally creates a project. Rolls back on failure.
+**Backend logic:** `panelCreateClient()` → `createFullClient_()` in ClientService.js. This is a multi-step operation protected by LockService: creates Notion client page → creates Drive folder structure → creates contact(s) → optionally creates a project. Rolls back on failure.
 
 ### Projects
 
@@ -97,7 +97,7 @@ NotionService.js (Data access — all Notion API calls)
 | `confirmArchiveProject(projectId, name)` | `panelArchiveProject(projectId)` | Sets status to "Archived". |
 | `confirmDeleteProject(projectId, name)` | `panelDeleteProject(projectId)` | Moves to Notion trash (recoverable 30 days). |
 
-**Backend logic:** `panelCreateProject()` → `createProject()` in ProjectService.js. Protected by LockService. Creates the Notion page with client relation.
+**Backend logic:** `panelCreateProject()` → `createProject_()` in ProjectService.js. Protected by LockService. Creates the Notion page with client relation.
 
 ### Quick-Create Invoice (on Project Detail)
 
@@ -111,7 +111,7 @@ NotionService.js (Data access — all Notion API calls)
 | `getQuickLineItems()` | — | Collects all line items from the form into an array. |
 | `submitQuickInvoice(clientId, projectId)` | `panelQuickCreateInvoice(data)` | Submits the form. Reloads project view on success to show new invoice. |
 
-**Backend logic:** `panelQuickCreateInvoice()` fetches full client billing info server-side (the panel only sends clientId + line items), builds the complete invoice data object, and calls `generateInvoice()` in InvoiceService.js. This generates a Google Doc from the template → exports as PDF → saves to Drive (in year subfolder) → logs to Notion.
+**Backend logic:** `panelQuickCreateInvoice()` fetches full client billing info server-side (the panel only sends clientId + line items), builds the complete invoice data object, and calls `generateInvoice_()` in InvoiceService.js. This generates a Google Doc from the template → exports as PDF → saves to Drive (in year subfolder) → logs to Notion.
 
 ### Invoices
 
@@ -144,7 +144,7 @@ NotionService.js (Data access — all Notion API calls)
 | `draftInvoiceEmail(invoiceId, ...)` | `panelGetComposeData(...)` | Shortcut to compose an invoice email. |
 | `draftAgreementEmail(agreementId, ...)` | `panelGetComposeData(...)` | Shortcut to compose an agreement email. |
 
-**Backend logic:** `panelComposeEmail()` → `createDocumentDraft()` in GmailService.js. Resolves the template, replaces `{{variables}}`, processes conditional blocks `{{#var}}...{{/var}}`, attaches Drive files, and creates a Gmail draft or sends directly.
+**Backend logic:** `panelComposeEmail()` → `createDocumentDraft_()` in GmailService.js. Resolves the template, replaces `{{variables}}`, processes conditional blocks `{{#var}}...{{/var}}`, attaches Drive files, and creates a Gmail draft or sends directly.
 
 ### Expenses
 
@@ -296,11 +296,20 @@ NotionService.js (Data access — all Notion API calls)
 
 | Function | Description |
 |---|---|
-| `_cacheGet(key)` | Retrieve cached value. Handles both single-key and chunked payloads (auto-reassembles chunks). |
-| `_cacheSet(key, value, ttl)` | Store value in cache. Auto-chunks at 90KB boundaries if payload exceeds limit. Default TTL: 5 minutes. |
-| `_cacheInvalidate(keys)` | Remove cached values including all chunk keys. Called after every write operation. |
+| `_cacheGet_(key)` | Retrieve cached value. Handles both single-key and chunked payloads (auto-reassembles chunks). |
+| `_cacheSet_(key, value, ttl)` | Store value in cache. Auto-chunks at 90KB boundaries if payload exceeds limit. Default TTL: 5 minutes. |
+| `_cacheInvalidate_(keys)` | Remove cached values including all chunk keys. Called after every write operation. |
 
 **Cache keys:** `dashboard`, `financialReport`. These are the two expensive aggregation queries.
+
+### Access Control
+
+`google.script.run` can call any top-level function whose name does not end in `_`, so every helper is private (trailing `_`) and every public function checks access first (see the header of `AccessControl.js`):
+
+- **panel\* RPCs** call `_requireRole_([...])`. Staff may read clients, projects and contacts only; `panelGetClientDetails` and `panelGetProjectDetails` omit invoice totals, invoices and agreements for staff.
+- **Legacy invoice form** (`?page=invoice`, `showSidebar`, and the RPCs `form-shared.html` calls: `getClients`, `getProjects`, `generateInvoice`, `getBillableExpensesForClient`, `createInvoiceDraft`) requires admin or partner. The first three are thin wrappers in `FormApp.js` around the private versions.
+- **Trigger handlers** call `_requireTriggerOrRole_(e, ['admin'])`: a genuine trigger run passes without a user check; any other caller must be admin.
+- **Ungated:** `panelGetCurrentUser` (returns the caller's own role), `doGet` (panel shell; `?page=api` checks `API_SECRET`), `doPost` (checks `API_SECRET`), `onOpen`, `include`.
 
 ### Panel Functions (called from frontend)
 
@@ -312,7 +321,7 @@ NotionService.js (Data access — all Notion API calls)
 | `panelGetFinancialReport()` | Same dual-fetch pattern. Computes monthly revenue, profit margins. Cached. |
 | `panelGetAllClients()` | Returns all clients from Notion. |
 | `panelGetAllProjects()` | Returns all projects with client names resolved. |
-| `panelGetClientDetails(clientId)` | Batch-fetches client info, contacts, projects, invoices (uses `_notionBatchRequest` for parallel API calls). |
+| `panelGetClientDetails(clientId)` | Batch-fetches client info, contacts, projects, invoices (uses `_notionBatchRequest_` for parallel API calls). |
 | `panelGetProjectDetails(projectId)` | Batch-fetches project info, invoices, agreements, and full client object. |
 | `panelGetInvoiceDetails(invoiceId)` | Returns invoice with payments. |
 | `panelGetAgreementDetails(agreementId)` | Returns agreement with linked invoice/client data. |
@@ -351,7 +360,7 @@ NotionService.js (Data access — all Notion API calls)
 | `panelReExtractReceipt(fileId, context)` | Re-runs AI extraction on an already-uploaded receipt with specified context. |
 | `panelCreateContractor(data)` | Creates a Notion contractor page. |
 | `panelUploadW9(data)` | Uploads W-9 file to `01_Admin/Financials/W-9s/{ContractorName} - W9.ext`. Returns file URL. |
-| `panelQuickCreateInvoice(data)` | Lightweight invoice creation from project detail — fetches client billing info server-side, calls `generateInvoice()`. |
+| `panelQuickCreateInvoice(data)` | Lightweight invoice creation from project detail — fetches client billing info server-side, calls `generateInvoice_()`. |
 | `panelComposeEmail(data)` | Creates a Gmail draft or sends an email with Drive attachments. |
 
 #### Update Operations
@@ -407,9 +416,9 @@ The `doPost()` handler routes API requests from the iOS "RH Quick Log" shortcut.
 
 | Endpoint (action) | Handler | Description |
 |---|---|---|
-| `getPickerData` (GET) | `_getShortcutPickerData()` | Returns `{ clients, clientNames, categories, paymentMethods }` for populating shortcut menus. |
-| `quickExpense` (POST) | `_handleQuickExpense(body)` | Accepts base64 receipt image + optional clientId/clientName → uploads to staging → AI extraction (expense context) → pre-generates ID → moves+renames file → logs to Notion with status "Review". Returns `{ expense, notionUrl, message }`. |
-| `quickPayment` (POST) | `_handleQuickPayment(body)` | Same flow for payments. AI uses payment extraction prompt. Returns `{ payment, notionUrl, message }`. |
+| `getPickerData` (GET) | `_getShortcutPickerData_()` | Returns `{ clients, clientNames, categories, paymentMethods }` for populating shortcut menus. |
+| `quickExpense` (POST) | `_handleQuickExpense_(body)` | Accepts base64 receipt image + optional clientId/clientName → uploads to staging → AI extraction (expense context) → pre-generates ID → moves+renames file → logs to Notion with status "Review". Returns `{ expense, notionUrl, message }`. |
+| `quickPayment` (POST) | `_handleQuickPayment_(body)` | Same flow for payments. AI uses payment extraction prompt. Returns `{ payment, notionUrl, message }`. |
 
 **Shortcut flow:** Take photo → optional client selection from live list → POST with base64 image → backend processes everything → notification with result → optional "Review in Notion" deep link.
 
@@ -421,10 +430,12 @@ These functions are meant to be called by GAS time-driven triggers (configured i
 |---|---|---|
 | `checkOverdueInvoices()` | Daily | Scans Sent invoices past due date, auto-marks them as Overdue. |
 | `sendInvoiceReminders()` | Daily | Sends email reminders for upcoming and overdue invoices based on configured intervals. Prunes stale reminder log entries. |
-| `generateRecurringInvoices()` | Daily | Generates invoices for active retainer projects based on recurring billing configs. LockService protected. Uses `_addDays()` for DST-safe date math. |
+| `generateRecurringInvoices()` | Daily | Generates invoices for active retainer projects based on recurring billing configs. LockService protected. Uses `_addDays_()` for DST-safe date math. |
 | `dailyHealthCheckEmail()` | Daily | Runs full health check. Only sends email if errors/warnings found. HTML-formatted with tables. Also clears the cached quick ping. |
 | `backupNotionData(forceRun)` | Daily | Backs up all Notion databases to Google Sheets. Always runs when triggered (no frequency gate). |
 | `cleanupStagingFolder()` | Daily | Deletes orphaned files in `_Staging/` older than 24 hours (receipts uploaded but never submitted). |
+
+Each handler starts with `_requireTriggerOrRole_()`, so it can still be run from the editor or a trigger, but not from the browser by a non-admin.
 
 ---
 
@@ -434,13 +445,13 @@ These functions are meant to be called by GAS time-driven triggers (configured i
 
 | Function | Description |
 |---|---|
-| `_notionRequest(url, options)` | Low-level HTTP call with retry logic. Retries 429/5xx errors with exponential backoff (500ms → 1s → 2s), max 3 retries. |
-| `_notionFetch(endpoint, payload)` | POST request wrapper. |
-| `_notionGet(endpoint)` | GET request wrapper. |
-| `_notionPatch(endpoint, payload)` | PATCH request wrapper. |
-| `_notionBatchRequest(specs)` | Parallel API calls using `UrlFetchApp.fetchAll()`. Used by client/project detail views. |
-| `_queryAll(dbId, filter, sorts, maxResults)` | Paginated database query. 100 records per page, 2000-record ceiling, 200ms delay between pages for rate limit protection. |
-| `_getDbProperties(dbId)` | Fetches database metadata and returns property names. Used by health check for schema validation. |
+| `_notionRequest_(url, options)` | Low-level HTTP call with retry logic. Retries 429/5xx errors with exponential backoff (500ms → 1s → 2s), max 3 retries. |
+| `_notionFetch_(endpoint, payload)` | POST request wrapper. |
+| `_notionGet_(endpoint)` | GET request wrapper. |
+| `_notionPatch_(endpoint, payload)` | PATCH request wrapper. |
+| `_notionBatchRequest_(specs)` | Parallel API calls using `UrlFetchApp.fetchAll()`. Used by client/project detail views. |
+| `_queryAll_(dbId, filter, sorts, maxResults)` | Paginated database query. 100 records per page, 2000-record ceiling, 200ms delay between pages for rate limit protection. |
+| `_getDbProperties_(dbId)` | Fetches database metadata and returns property names. Used by health check for schema validation. |
 
 ### Property Mappers
 
@@ -448,81 +459,81 @@ Each mapper converts a raw Notion page object into a clean JS object:
 
 | Function | Returns |
 |---|---|
-| `_mapClientProperties(page)` | `{ id, notionUrl, name, type, status, primaryContactId, billingStreet, billingCity, billingState, billingZip, billingCountry, billingEmail, phone, website, driveFolderId, notes }` |
-| `_mapContactProperties(page)` | `{ id, notionUrl, name, clientId, role, email, phone, notes }` |
-| `_mapProjectProperties(page)` | `{ id, notionUrl, name, clientId, type, status, startDate, endDate, notes }` |
-| `_mapInvoiceProperties(page)` | `{ id, notionUrl, invoiceId, type, status, clientId, projectId, agreementId, issuedDate, dueDate, paidDate, periodMonth, subtotal, tax, total, lineItems, driveLink, notes }` |
-| `_mapAgreementProperties(page)` | `{ id, notionUrl, title, docType, status, clientId, projectId, effectiveDate, signedDate, fileUrl, notes }` |
-| `_mapExpenseProperties(page)` | `{ id, notionUrl, description, expenseId, projectId, clientId, contractorId, invoicePageId, category, amount, expenseDate, vendor, billable, receiptUrl, status, notes }` |
-| `_mapPaymentProperties(page)` | `{ id, notionUrl, paymentId, description, invoiceId, clientId, amount, method, paymentDate, status, receiptUrl, notes }` |
-| `_mapContractorProperties(page)` | `{ id, notionUrl, name, email, phone, type, roles[], paymentMethod, isPartner, w9Url, notes }` |
+| `_mapClientProperties_(page)` | `{ id, notionUrl, name, type, status, primaryContactId, billingStreet, billingCity, billingState, billingZip, billingCountry, billingEmail, phone, website, driveFolderId, notes }` |
+| `_mapContactProperties_(page)` | `{ id, notionUrl, name, clientId, role, email, phone, notes }` |
+| `_mapProjectProperties_(page)` | `{ id, notionUrl, name, clientId, type, status, startDate, endDate, notes }` |
+| `_mapInvoiceProperties_(page)` | `{ id, notionUrl, invoiceId, type, status, clientId, projectId, agreementId, issuedDate, dueDate, paidDate, periodMonth, subtotal, tax, total, lineItems, driveLink, notes }` |
+| `_mapAgreementProperties_(page)` | `{ id, notionUrl, title, docType, status, clientId, projectId, effectiveDate, signedDate, fileUrl, notes }` |
+| `_mapExpenseProperties_(page)` | `{ id, notionUrl, description, expenseId, projectId, clientId, contractorId, invoicePageId, category, amount, expenseDate, vendor, billable, receiptUrl, status, notes }` |
+| `_mapPaymentProperties_(page)` | `{ id, notionUrl, paymentId, description, invoiceId, clientId, amount, method, paymentDate, status, receiptUrl, notes }` |
+| `_mapContractorProperties_(page)` | `{ id, notionUrl, name, email, phone, type, roles[], paymentMethod, isPartner, w9Url, notes }` |
 
 ### Query Functions
 
 | Function | Description |
 |---|---|
-| `getClients()` | All clients (Active, Draft, Paused, Closed statuses). |
-| `getClientById(clientId)` | Single client by page ID. |
-| `lookupClientByName(name)` | Find client by exact name match. |
-| `getContactsByClient(clientId)` | All contacts for a client. |
-| `getAllContacts()` | All contacts (used by backup). |
-| `getPrimaryContact(clientId)` | Reads the Primary Contact relation from the client record. Falls back to first contact. |
-| `getContactById(contactId)` | Single contact by page ID. |
-| `getProjects()` | All projects (Active, Draft, Paused, Closed). |
-| `getProjectsByClient(clientId)` | Projects for a specific client. |
-| `lookupProjectByName(name)` | Find project by exact name match. |
-| `getAgreementsByProject(projectId)` | Agreements for a project. |
-| `getAllAgreements()` | All agreements (used by backup). |
-| `getInvoicesByProject(projectId)` | Invoices for a project. |
-| `getAllInvoices()` | All invoices (used by backup). |
-| `getInvoicesByStatus(statuses)` | Invoices filtered by status array (e.g., ['Sent', 'Overdue']). |
-| `getInvoicesByDateRange(start, end)` | Invoices within a date range (Issued Date). |
-| `getSentInvoicesDueBefore(date)` | Sent invoices with due date before a given date. |
-| `getExpensesByProject(projectId)` | Expenses for a project. |
-| `getAllExpenses()` | All expenses (used by backup). |
-| `getExpensesByDateRange(start, end)` | Expenses within a date range (Expense Date). |
-| `getPaymentsByInvoice(invoiceId)` | Payments for an invoice. |
-| `getAllPayments()` | All payments (used by backup). |
-| `getExpenseById(expensePageId)` | Single expense by page ID. |
-| `updateExpenseInfo(expensePageId, props)` | Updates expense properties. |
-| `getUnInvoicedBillableExpenses(clientId)` | Fetches billable expenses not yet linked to an invoice. |
-| `markExpensesAsInvoiced(expensePageIds, invoicePageId)` | Links expenses to an invoice via the Invoice relation. |
-| `getPaymentById(paymentPageId)` | Single payment by page ID. |
-| `updatePaymentInfo(paymentPageId, props)` | Updates payment properties. |
-| `getAllContractors()` | All contractors sorted by name. |
-| `getContractorById(contractorId)` | Single contractor by page ID. |
-| `getExpensesByContractor(contractorId)` | Expenses linked to a contractor. |
+| `getClients_()` | All clients (Active, Draft, Paused, Closed statuses). |
+| `getClientById_(clientId)` | Single client by page ID. |
+| `lookupClientByName_(name)` | Find client by exact name match. |
+| `getContactsByClient_(clientId)` | All contacts for a client. |
+| `getAllContacts_()` | All contacts (used by backup). |
+| `getPrimaryContact_(clientId)` | Reads the Primary Contact relation from the client record. Falls back to first contact. |
+| `getContactById_(contactId)` | Single contact by page ID. |
+| `getProjects_()` | All projects (Active, Draft, Paused, Closed). |
+| `getProjectsByClient_(clientId)` | Projects for a specific client. |
+| `lookupProjectByName_(name)` | Find project by exact name match. |
+| `getAgreementsByProject_(projectId)` | Agreements for a project. |
+| `getAllAgreements_()` | All agreements (used by backup). |
+| `getInvoicesByProject_(projectId)` | Invoices for a project. |
+| `getAllInvoices_()` | All invoices (used by backup). |
+| `getInvoicesByStatus_(statuses)` | Invoices filtered by status array (e.g., ['Sent', 'Overdue']). |
+| `getInvoicesByDateRange_(start, end)` | Invoices within a date range (Issued Date). |
+| `getSentInvoicesDueBefore_(date)` | Sent invoices with due date before a given date. |
+| `getExpensesByProject_(projectId)` | Expenses for a project. |
+| `getAllExpenses_()` | All expenses (used by backup). |
+| `getExpensesByDateRange_(start, end)` | Expenses within a date range (Expense Date). |
+| `getPaymentsByInvoice_(invoiceId)` | Payments for an invoice. |
+| `getAllPayments_()` | All payments (used by backup). |
+| `getExpenseById_(expensePageId)` | Single expense by page ID. |
+| `updateExpenseInfo_(expensePageId, props)` | Updates expense properties. |
+| `getUnInvoicedBillableExpenses_(clientId)` | Fetches billable expenses not yet linked to an invoice. |
+| `markExpensesAsInvoiced_(expensePageIds, invoicePageId)` | Links expenses to an invoice via the Invoice relation. |
+| `getPaymentById_(paymentPageId)` | Single payment by page ID. |
+| `updatePaymentInfo_(paymentPageId, props)` | Updates payment properties. |
+| `getAllContractors_()` | All contractors sorted by name. |
+| `getContractorById_(contractorId)` | Single contractor by page ID. |
+| `getExpensesByContractor_(contractorId)` | Expenses linked to a contractor. |
 
 ### Batch Detail Fetchers
 
 | Function | Description |
 |---|---|
-| `_batchGetClientDetails(clientId)` | Parallel fetch: client page + projects + invoices + contacts + agreements. Single round-trip via `_notionBatchRequest`. |
-| `_batchGetProjectDetails(projectId)` | Parallel fetch: project page + invoices + agreements + client. Returns full client object for quick-create invoice. |
+| `_batchGetClientDetails_(clientId)` | Parallel fetch: client page + projects + invoices + contacts + agreements. Single round-trip via `_notionBatchRequest_`. |
+| `_batchGetProjectDetails_(projectId)` | Parallel fetch: project page + invoices + agreements + client. Returns full client object for quick-create invoice. |
 
 ### Create / Update / Delete
 
 | Function | Description |
 |---|---|
-| `createNotionClient(props)` | Creates a client page in Notion. |
-| `updateClientInfo(clientId, props)` | Updates client properties. |
-| `updateClientDriveFolderId(clientId, folderId)` | Sets the Drive Folder ID property. |
-| `createNotionContact(props)` | Creates a contact linked to a client. |
-| `updateContactInfo(contactId, props)` | Updates contact properties. |
-| `createNotionProject(props)` | Creates a project linked to a client. |
-| `updateProjectInfo(projectId, props)` | Updates project properties. |
-| `setProjectStatus(projectId, status)` | Validates and sets project status. |
-| `createNotionAgreement(props)` | Creates an agreement linked to client/project. |
-| `updateAgreementInfo(agreementId, props)` | Updates agreement properties. |
+| `createNotionClient_(props)` | Creates a client page in Notion. |
+| `updateClientInfo_(clientId, props)` | Updates client properties. |
+| `updateClientDriveFolderId_(clientId, folderId)` | Sets the Drive Folder ID property. |
+| `createNotionContact_(props)` | Creates a contact linked to a client. |
+| `updateContactInfo_(contactId, props)` | Updates contact properties. |
+| `createNotionProject_(props)` | Creates a project linked to a client. |
+| `updateProjectInfo_(projectId, props)` | Updates project properties. |
+| `setProjectStatus_(projectId, status)` | Validates and sets project status. |
+| `createNotionAgreement_(props)` | Creates an agreement linked to client/project. |
+| `updateAgreementInfo_(agreementId, props)` | Updates agreement properties. |
 | `createNotionInvoice(props)` | Creates an invoice page. |
-| `updateInvoiceStatus(invoiceId, status, paidDate)` | Sets invoice status and optionally paid date. |
-| `logToNotion(invoiceId, data, driveUrl)` | Creates an invoice record with line items summary. Called by `generateInvoice()`. |
-| `createNotionExpense(props)` | Creates an expense record. |
-| `createNotionPayment(props)` | Creates a payment record. |
-| `createNotionContractor(props)` | Creates a contractor page. |
-| `updateContractorInfo(contractorId, props)` | Updates contractor properties. |
-| `_batchGetContractorDetails(contractorId)` | Fetches contractor + linked expenses. |
-| `archiveNotionPage(pageId)` | Moves any page to Notion trash (sets `archived: true`). |
+| `updateInvoiceStatus_(invoiceId, status, paidDate)` | Sets invoice status and optionally paid date. |
+| `logToNotion_(invoiceId, data, driveUrl)` | Creates an invoice record with line items summary. Called by `generateInvoice_()`. |
+| `createNotionExpense_(props)` | Creates an expense record. |
+| `createNotionPayment_(props)` | Creates a payment record. |
+| `createNotionContractor_(props)` | Creates a contractor page. |
+| `updateContractorInfo_(contractorId, props)` | Updates contractor properties. |
+| `_batchGetContractorDetails_(contractorId)` | Fetches contractor + linked expenses. |
+| `archiveNotionPage_(pageId)` | Moves any page to Notion trash (sets `archived: true`). |
 
 ---
 
@@ -532,24 +543,24 @@ Each mapper converts a raw Notion page object into a clean JS object:
 
 | Function | Description |
 |---|---|
-| `generateInvoice(data)` | Full invoice generation pipeline: get next ID → resolve Drive folder (with year subfolder) → copy Google Doc template → fill placeholders → fill line items table → format totals → export as PDF → trash Doc copy → log to Notion. |
-| `fillLineItemRow(table, rowIndex, item)` | Fills a single row in the line items table (name, description bullets, qty, price, total). |
-| `removeBlankClientRows(table)` | Removes rows where optional client fields (phone, email, website) are blank. |
-| `formatBillingAddress(data)` | Formats billing address as a single comma-separated line. |
-| `getClientInvoicesFolder(clientName)` | Fallback folder lookup by exact client name match in Clients root. |
-| `getNextInvoiceId()` | Generates sequential ID: `RH-INV-YY-MMDD-NN`. Uses LockService to prevent duplicates. |
+| `generateInvoice_(data)` | Full invoice generation pipeline: get next ID → resolve Drive folder (with year subfolder) → copy Google Doc template → fill placeholders → fill line items table → format totals → export as PDF → trash Doc copy → log to Notion. |
+| `fillLineItemRow_(table, rowIndex, item)` | Fills a single row in the line items table (name, description bullets, qty, price, total). |
+| `removeBlankClientRows_(table)` | Removes rows where optional client fields (phone, email, website) are blank. |
+| `formatBillingAddress_(data)` | Formats billing address as a single comma-separated line. |
+| `getClientInvoicesFolder_(clientName)` | Fallback folder lookup by exact client name match in Clients root. |
+| `getNextInvoiceId_()` | Generates sequential ID: `RH-INV-YY-MMDD-NN`. Uses LockService to prevent duplicates. |
 
 ### ClientService.js
 
 | Function | Description |
 |---|---|
-| `createFullClient(data)` | Multi-step client creation: validate → (LockService) → create Notion client → create Drive folders → update Drive Folder ID → create contacts → optionally create project. Rolls back Notion pages on failure. |
+| `createFullClient_(data)` | Multi-step client creation: validate → (LockService) → create Notion client → create Drive folders → update Drive Folder ID → create contacts → optionally create project. Rolls back Notion pages on failure. |
 
 ### ProjectService.js
 
 | Function | Description |
 |---|---|
-| `createProject(data)` | Creates a Notion project page linked to a client. LockService protected. |
+| `createProject_(data)` | Creates a Notion project page linked to a client. LockService protected. |
 
 ### AgreementService.js
 
@@ -561,33 +572,33 @@ Each mapper converts a raw Notion page object into a clean JS object:
 
 | Function | Description |
 |---|---|
-| `extractReceiptData(fileId, context)` | Reads a Drive file as base64 → sends to Claude Vision with context-specific prompt → returns structured JSON. Context is `'expense'` or `'payment'`. |
-| `_callClaudeVision(base64Data, mimeType, context)` | Calls the Anthropic Messages API with an image/PDF. Uses **split prompts**: expense context extracts vendor/category/line items/billable; payment context extracts payment method/reference number/invoice number/payer. Handles HEIC→JPEG conversion via Drive thumbnail API. |
-| `_suggestCategory(vendor, description)` | Keyword-based category fallback (Software, Gear, Travel, Contractor, Other) when AI doesn't assign one. |
-| `processReceiptStaged(base64Data, fileName, mimeType, context)` | Uploads to `_Staging/` folder → runs AI extraction → returns file info + extracted data. File stays in staging until submit. |
-| `_moveReceiptToFinalFolder(fileId, clientId, folderType, isPickerSource, recordId)` | Moves (staged) or copies (picker) receipt to final folder. Renames file to match record ID (e.g., `RH-EXP-26-0320-01.pdf`). Routes: client → `{Client}/Expenses|Payments/{year}/`, no client → `01_Admin/Financials/Expenses|Payments/{year}/`. |
+| `extractReceiptData_(fileId, context)` | Reads a Drive file as base64 → sends to Claude Vision with context-specific prompt → returns structured JSON. Context is `'expense'` or `'payment'`. |
+| `_callClaudeVision_(base64Data, mimeType, context)` | Calls the Anthropic Messages API with an image/PDF. Uses **split prompts**: expense context extracts vendor/category/line items/billable; payment context extracts payment method/reference number/invoice number/payer. Handles HEIC→JPEG conversion via Drive thumbnail API. |
+| `_suggestCategory_(vendor, description)` | Keyword-based category fallback (Software, Gear, Travel, Contractor, Other) when AI doesn't assign one. |
+| `processReceiptStaged_(base64Data, fileName, mimeType, context)` | Uploads to `_Staging/` folder → runs AI extraction → returns file info + extracted data. File stays in staging until submit. |
+| `_moveReceiptToFinalFolder_(fileId, clientId, folderType, isPickerSource, recordId)` | Moves (staged) or copies (picker) receipt to final folder. Renames file to match record ID (e.g., `RH-EXP-26-0320-01.pdf`). Routes: client → `{Client}/Expenses|Payments/{year}/`, no client → `01_Admin/Financials/Expenses|Payments/{year}/`. |
 
 ### ExpenseService.js
 
 | Function | Description |
 |---|---|
-| `logExpense(data)` | Creates a Notion expense record linked to client/project/contractor. Auto-generates expense ID (`RH-EXP-YY-MMDD-##`) if not pre-set. Accepts `data.expenseId` to skip generation (used when ID is pre-generated for file rename). Allows zero amount when status is "Review" (iOS Shortcut flow). |
-| `_generateExpenseId(dateStr)` | Sequential ID generator with LockService protection. Format: `RH-EXP-26-0320-01`. Tracks last ID in Script Properties to maintain sequence within a day. |
+| `logExpense_(data)` | Creates a Notion expense record linked to client/project/contractor. Auto-generates expense ID (`RH-EXP-YY-MMDD-##`) if not pre-set. Accepts `data.expenseId` to skip generation (used when ID is pre-generated for file rename). Allows zero amount when status is "Review" (iOS Shortcut flow). |
+| `_generateExpenseId_(dateStr)` | Sequential ID generator with LockService protection. Format: `RH-EXP-26-0320-01`. Tracks last ID in Script Properties to maintain sequence within a day. |
 
 ### PaymentService.js
 
 | Function | Description |
 |---|---|
-| `logPayment(data)` | Creates a Notion payment record. Auto-generates payment ID (`RH-PAY-YY-MMDD-##`) if not pre-set. Optionally updates invoice status to "Paid" when `data.markPaid` is true. |
-| `_generatePaymentId(dateStr)` | Sequential ID generator with LockService protection. Same format as expenses but with `RH-PAY` prefix. |
+| `logPayment_(data)` | Creates a Notion payment record. Auto-generates payment ID (`RH-PAY-YY-MMDD-##`) if not pre-set. Optionally updates invoice status to "Paid" when `data.markPaid` is true. |
+| `_generatePaymentId_(dateStr)` | Sequential ID generator with LockService protection. Same format as expenses but with `RH-PAY` prefix. |
 
 ### GmailService.js
 
 | Function | Description |
 |---|---|
-| `createDocumentDraft(data)` | Creates or sends an email via Gmail. Resolves templates, replaces `{{variables}}`, processes conditionals, attaches Drive files. |
+| `createDocumentDraft_(data)` | Creates or sends an email via Gmail. Resolves templates, replaces `{{variables}}`, processes conditionals, attaches Drive files. |
 | `createInvoiceDraft(data)` | Creates a Gmail draft for a specific invoice (used by the webapp form's "Draft Email" button). |
-| `getEmailTemplates()` | Returns all email templates (4 built-in + custom). |
+| `getEmailTemplates_()` | Returns all email templates (4 built-in + custom). |
 | `saveEmailTemplate(data)` | Creates or updates a template in PropertiesService. |
 | `deleteEmailTemplate(id)` | Deletes a custom template. |
 | `resetEmailTemplate(id)` | Resets a customized built-in template. |
@@ -598,27 +609,27 @@ Each mapper converts a raw Notion page object into a clean JS object:
 
 | Function | Description |
 |---|---|
-| `createClientFolderStructure(clientName)` | Creates the standard subfolder hierarchy (Proposals, Assets, Invoices, Contracts, Projects, Meeting Notes, Expenses, Payments) under a new client folder. |
-| `resolveSubfolder(parentFolderId, name)` | Finds a subfolder by name. Returns ID or null. |
-| `resolveOrCreateSubfolder(parentFolderId, name)` | Finds or creates a subfolder. Used for year subfolders and staging. |
-| `resolveClientInvoicesFolder(driveFolderId)` | Resolves the "Invoices" subfolder within a client's Drive folder. |
-| `resolveExpenseFolder(clientDriveFolderId, year)` | Resolves `Client/Expenses/{year}/` or `Admin/Financials/Expenses/{year}/`. Creates subfolders on demand. |
-| `resolvePaymentFolder(clientDriveFolderId, year)` | Resolves `Client/Payments/{year}/` or `Admin/Financials/Payments/{year}/`. Creates subfolders on demand. |
-| `uploadFileToDrive(base64Data, fileName, mimeType, targetFolderId)` | Decodes base64 → creates a Blob → saves to the specified Drive folder. Returns `{ fileId, fileUrl, fileName }`. |
-| `getFileAsBase64(fileId)` | Reads a Drive file and returns base64-encoded content. Used to send receipts to the AI extraction API. Handles HEIC files via Drive thumbnail conversion. |
-| `moveDriveFile(fileId, targetFolderId)` | Moves a file to a new folder. Used when editing expenses/payments and changing the client. |
-| `trashDriveFile(fileId)` | Moves a file to Drive trash (recoverable). Used when deleting expenses/payments. |
-| `extractDriveFileId(url)` | Extracts the file ID from various Google Drive URL formats (`/d/ID/`, `?id=ID`, etc.). |
+| `createClientFolderStructure_(clientName)` | Creates the standard subfolder hierarchy (Proposals, Assets, Invoices, Contracts, Projects, Meeting Notes, Expenses, Payments) under a new client folder. |
+| `resolveSubfolder_(parentFolderId, name)` | Finds a subfolder by name. Returns ID or null. |
+| `resolveOrCreateSubfolder_(parentFolderId, name)` | Finds or creates a subfolder. Used for year subfolders and staging. |
+| `resolveClientInvoicesFolder_(driveFolderId)` | Resolves the "Invoices" subfolder within a client's Drive folder. |
+| `resolveExpenseFolder_(clientDriveFolderId, year)` | Resolves `Client/Expenses/{year}/` or `Admin/Financials/Expenses/{year}/`. Creates subfolders on demand. |
+| `resolvePaymentFolder_(clientDriveFolderId, year)` | Resolves `Client/Payments/{year}/` or `Admin/Financials/Payments/{year}/`. Creates subfolders on demand. |
+| `uploadFileToDrive_(base64Data, fileName, mimeType, targetFolderId)` | Decodes base64 → creates a Blob → saves to the specified Drive folder. Returns `{ fileId, fileUrl, fileName }`. |
+| `getFileAsBase64_(fileId)` | Reads a Drive file and returns base64-encoded content. Used to send receipts to the AI extraction API. Handles HEIC files via Drive thumbnail conversion. |
+| `moveDriveFile_(fileId, targetFolderId)` | Moves a file to a new folder. Used when editing expenses/payments and changing the client. |
+| `trashDriveFile_(fileId)` | Moves a file to Drive trash (recoverable). Used when deleting expenses/payments. |
+| `extractDriveFileId_(url)` | Extracts the file ID from various Google Drive URL formats (`/d/ID/`, `?id=ID`, etc.). |
 | `cleanupStagingFolder(maxAgeHours)` | Deletes files in `_Staging/` older than the specified hours. Default: 24 hours. Called by daily trigger. |
 
 ### Utils.js
 
 | Function | Description |
 |---|---|
-| `_addDays(isoDate, days)` | DST-safe date addition. Returns ISO date string. |
-| `_formatDateForDoc(iso)` | Converts `2026-03-15` → `March 15, 2026`. |
-| `formatCurrency(n)` | Formats number as `1,234.56` (no dollar sign). Used in invoice template. |
-| `escapeRegex(str)` | Escapes regex special characters for `replaceText()`. |
+| `_addDays_(isoDate, days)` | DST-safe date addition. Returns ISO date string. |
+| `_formatDateForDoc_(iso)` | Converts `2026-03-15` → `March 15, 2026`. |
+| `formatCurrency_(n)` | Formats number as `1,234.56` (no dollar sign). Used in invoice template. |
+| `escapeRegex_(str)` | Escapes regex special characters for `replaceText()`. |
 
 ---
 
